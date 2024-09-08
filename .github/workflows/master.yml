@@ -1,0 +1,54 @@
+name: Deploy Lambda
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+    steps:
+
+    - uses: actions/checkout@v2
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+    - run: npm ci
+    - name: serverless deploy
+      uses: serverless/github-action@master
+      with:
+        args: deploy
+      env:
+        SERVERLESS_ACCESS_KEY: ${{ vars.SERVERLESS_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID_ : ${{ vars.AWS_ACCESS_KEY_ID_}}
+        AWS_REGION_ : ${{ vars.AWS_REGION_}}
+        AWS_SECRET_ACCESS_KEY_ : ${{ vars.AWS_SECRET_ACCESS_KEY_}}
+        CONTACT_EMAIL : ${{ vars.CONTACT_EMAIL}}
+        CONTACT_SERVICE_EMAIL : ${{ vars.CONTACT_SERVICE_EMAIL}}
+        DB_HOST : ${{ vars.DB_HOST}}
+        DB_NAME : ${{ vars.DB_NAME}}
+        DB_PASSWORD : ${{ vars.DB_PASSWORD}}
+        DB_USER : ${{ vars.DB_USER}}
+        DELHIVERY_10KG_SURFACE_KEY : ${{ vars.DELHIVERY_10KG_SURFACE_KEY}}
+        DELHIVERY_500GM_SURFACE_KEY : ${{ vars.DELHIVERY_500GM_SURFACE_KEY}}
+        EMAIL_HOST : ${{ vars.EMAIL_HOST}}
+        EMAIL_PASS : ${{ vars.EMAIL_PASS}}
+        EMAIL_PORT : ${{ vars.EMAIL_PORT}}
+        EMAIL_SECURE : ${{ vars.EMAIL_SECURE}}
+        EMAIL_USER : ${{ vars.EMAIL_USER}}
+        JWT_SECRET : ${{ vars.JWT_SECRET}}
+        MOVIN_ACCOUNT_NUMBER : ${{ vars.MOVIN_ACCOUNT_NUMBER}}
+        MOVIN_CLIENT_ID : ${{ vars.MOVIN_CLIENT_ID}}
+        MOVIN_CLIENT_SECRET : ${{ vars.MOVIN_CLIENT_SECRET}}
+        MOVIN_SERVER_ID : ${{ vars.MOVIN_SERVER_ID}}
+        MOVIN_SUBSCRIPTION_KEY : ${{ vars.MOVIN_SUBSCRIPTION_KEY}}
+        MOVIN_TENANT_ID : ${{ vars.MOVIN_TENANT_ID}}
+        RAZORPAY_KEY_SECRET : ${{ vars.RAZORPAY_KEY_SECRET}}
+        S3_BUCKET_NAME_ : ${{ vars.S3_BUCKET_NAME_}}
+        VERIFY_EMAIL : ${{ vars.VERIFY_EMAIL}}
