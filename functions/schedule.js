@@ -498,7 +498,7 @@ exports.handler = async (event) => {
           "pickup_time_start": pickTime,
           "service_type": serviceId[1] == 1?"Standard Premium":"Express End of Day",
           "address_first_name": warehouse.warehouseName,
-          "address_last_name": "",
+          "address_last_name": "Warehouse",
           "address_email": "xpressjupiter@gmail.com",
           "address_phone": user.phone,
           "address_address_line1": warehouse.address,
@@ -550,7 +550,11 @@ exports.handler = async (event) => {
         };
       }
     }
-    
+    else {
+      return {
+        status:200, schedule : "Invalid service ID", success : false
+      }
+    }
   } catch (error) {
     return {
         status:500, schedule : error, success : false
