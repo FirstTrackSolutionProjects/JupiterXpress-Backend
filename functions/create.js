@@ -186,7 +186,7 @@ exports.handler = async (event) => {
       const loginRes = await login.json();
       const token = loginRes.access_token;
       const req = {
-        communication_email: "xpressjupiter@gmail.com",
+        communication_email: "jupiterxpress2024@gmail.com",
         payload: [
           {
             shipment: {
@@ -199,7 +199,7 @@ exports.handler = async (event) => {
               ship_from_address_line2: warehouse.address,
               ship_from_address_line3: warehouse.address,
               ship_from_zipcode: warehouse.pin,
-              ship_from_email: "xpressjupiter@gmail.com",
+              ship_from_email: "jupiterxpress2024@gmail.com",
               ship_from_phone: users[0].phone,
               shipment_date: shipment.pickup_date,
               shipment_priority: categoryId == 1 ? 'Express End of Day' : 'Standard Premium',
