@@ -13,11 +13,13 @@
     "aws-sdk": "^2.1675.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
+    "express": "^4.21.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.11.0",
     "nodemailer": "^6.9.14",
     "razorpay": "^2.9.4",
     "serverless-dotenv-plugin": "^6.0.0",
+    "serverless-http": "^3.2.0",
     "serverless-plugin-split-stacks": "^1.13.0"
   },
   "devDependencies": {
