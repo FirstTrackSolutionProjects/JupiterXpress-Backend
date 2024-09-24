@@ -4,6 +4,8 @@ require('dotenv').config()
 const {connectDB} = require('./utils/db');
 const testRoute = require('./routes/testRoute');
 const authRoutes = require('./routes/authRoutes');
+const passwordRoutes = require('./routes/passwordRoutes');
+const merchantRoutes = require('./routes/merchantRoutes');
 connectDB();
 
 const app = express();
@@ -11,5 +13,6 @@ app.use(express.json());
 app.use('/test', testRoute);
 app.use('/auth', authRoutes);
 app.use('/password', passwordRoutes);
+app.use('/merchant', merchantRoutes);
 
 module.exports.handler = serverless(app);
