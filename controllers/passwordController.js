@@ -56,10 +56,10 @@ const verifyOTPandResetPassword = async (req, res) => {
             }
             const inOtp = users[0].secret;
             if (inOtp == otp) {
-                await connection.beginTransaction();
-                await db.query('UPDATE USERS SET password = ? WHERE email = ?', [await bcrypt.hash(newPassword, 10), email])
-                await db.query('UPDATE USERS SET secret = ? WHERE email = ?', [null, email])
-                await connection.commit();
+                const transaction = await db.beginTransaction();
+                await transaction.query('UPDATE USERS SET password = ? WHERE email = ?', [await bcrypt.hash(newPassword, 10), email])
+                await transaction.query('UPDATE USERS SET secret = ? WHERE email = ?', [null, email])
+                await db.commit(transaction);
             }
             const { fullName } = users[0];
             let mailOptions = {
