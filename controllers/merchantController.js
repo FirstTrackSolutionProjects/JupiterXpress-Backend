@@ -183,5 +183,54 @@ const submitKYC = async (req, res) => {
     }
 }
 
+const submitVerifyRequest = async (req, res) => {
+    const token = req.headers.Authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401,
+            message: "Access Denied",
+        });
+    }
 
-module.exports = { createIncompleteVerifyRequest, activateMerchant, submitKYC }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        try {
+            const [req] = await db.query(
+                "SELECT * FROM MERCHANT_VERIFICATION WHERE status='incomplete' AND uid = ?",
+                [id]
+            );
+            if (req.length > 0) {
+                await db.query(
+                    "UPDATE MERCHANT_VERIFICATION set status='pending' WHERE status='incomplete' AND uid = ?",
+                    [id]
+                );
+                return res.status(200).json({
+                    status: 200,
+                    success: true,
+                    message: "Verification Request Submitted Successfully",
+                });
+            } else {
+                return res.status(400).json({
+                    status: 400,
+                    success: true,
+                    message: "You already have a pending Verification Request",
+                });
+            }
+
+        } catch (err) {
+            return res.status(500).json({
+                status: 500,
+                message: "Something went wrong",
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400,
+            message: "Invalid Token",
+        });
+    }
+}
+
+
+module.exports = { createIncompleteVerifyRequest, activateMerchant, submitKYC, submitVerifyRequest }
