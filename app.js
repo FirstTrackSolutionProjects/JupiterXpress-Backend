@@ -10,5 +10,6 @@ const app = express();
 app.use(express.json());
 app.use('/test', testRoute);
 app.use('/auth', authRoutes);
+app.use('/password', passwordRoutes);
 
 module.exports.handler = serverless(app);
