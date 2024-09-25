@@ -197,10 +197,10 @@ const createDomesticShipment = async (req, res) => {
             }
 
             let mailOptions = {
-              from: process.env.EMAIL_USER,
-              to: email, 
-              subject: 'Shipment created successfully',
-              text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Delhivery Courier Service 
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Shipment created successfully',
+                text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Delhivery Courier Service 
               and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
             };
             await transporter.sendMail(mailOptions);
@@ -321,10 +321,10 @@ const createDomesticShipment = async (req, res) => {
             await db.commit(transaction);
 
             let mailOptions = {
-              from: process.env.EMAIL_USER,
-              to: email,
-              subject: 'Shipment created successfully',
-              text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Movin Courier Service 
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Shipment created successfully',
+                text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Movin Courier Service 
               and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
             };
             await transporter.sendMail(mailOptions);
@@ -480,10 +480,10 @@ const createInternationalShipment = async (req, res) => {
             });
         }
         let mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: email, 
-          subject: 'Shipment created successfully', 
-          text: `Dear Merchant, \nYour shipment request for Order id : JUPINT${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Shipment created successfully',
+            text: `Dear Merchant, \nYour shipment request for Order id : JUPINT${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
         };
         await transporter.sendMail(mailOptions)
         return res.status(200).json({
@@ -499,6 +499,26 @@ const createInternationalShipment = async (req, res) => {
     }
 }
 
+const getAllDomesticShipmentReports = async (req, res) => {
+    const token = req.headers.authorization;
+    const verified = jwt.verify(token, SECRET_KEY);
+    const admin = verified.admin;
+    if (!admin) {
+        return res.status(400).json({
+            status: 400, message: 'Access Denied'
+        });
+    }
+    try {
+        const [rows] = await db.query('SELECT * FROM SHIPMENT_REPORTS r JOIN SHIPMENTS s ON r.ord_id=s.ord_id JOIN USERS u ON u.uid=s.uid WHERE r.status != "FAILED"');
+        return res.status(200).json({
+            status: 200, rows, success: true
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, message: error.message, success: false
+        });
+    }
+}
 
-module.exports = { cancelShipment, createDomesticShipment, createInternationalShipment };
+module.exports = { cancelShipment, createDomesticShipment, createInternationalShipment, getAllDomesticShipmentReports };
 
