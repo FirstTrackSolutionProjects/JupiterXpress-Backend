@@ -8,7 +8,6 @@ router.post('/verification/submit', submitVerifyRequest);
 
 router.post('/kyc/submit', submitKYC);
 
-
 router.post('/activate', activateMerchant);
 router.post('/deactivate', deactivateMerchant);
 
