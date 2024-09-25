@@ -309,7 +309,7 @@ const createInternationalOrder = async (req, res) => {
                     status: 200, success: true, message: "Order Created"
                 });
             } catch (error) {
-                returnres.status(500).json( {
+                returnres.status(500).json({
                     status: 500,
                     message: error.message,
                     error: error.message
@@ -327,4 +327,36 @@ const createInternationalOrder = async (req, res) => {
     }
 }
 
-module.exports = { createDomesticOrder, createInternationalOrder }
+const getAllDomesticOrders = async (req, res) => {
+    const token = req.headers.authorization;
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        if (!admin) {
+            return res.status(400).json({
+                status: 400, message: 'Access Denied'
+            });
+        }
+
+        try {
+            const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON s.uid=u.uid',);
+                return res.status(200).json({
+                    status: 200, success: true, order: rows
+                });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: 'Error logging in', error: error.message
+            });
+        }
+    } catch (e) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
+module.exports = {
+    createDomesticOrder, 
+    createInternationalOrder, 
+    getAllDomesticOrders
+}
