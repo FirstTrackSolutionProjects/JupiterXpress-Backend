@@ -65,7 +65,7 @@ const cancelShipment = async (req, res) => {
     }
 }
 
-const createShipment = async (req, res) => {
+const createDomesticShipment = async (req, res) => {
     try {
         const token = req.headers.authorization;
         const verified = jwt.verify(token, SECRET_KEY);
@@ -339,5 +339,5 @@ const createShipment = async (req, res) => {
     }
 }
 
-module.exports = { cancelShipment, createShipment };
+module.exports = { cancelShipment, createDomesticShipment };
 
