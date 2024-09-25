@@ -1,5 +1,5 @@
 const express = require('express');
-const { createIncompleteVerifyRequest, activateMerchant, submitKYC, submitVerifyRequest } = require('../controllers/merchantController');
+const { createIncompleteVerifyRequest, activateMerchant, deactivateMerchant, submitKYC, submitVerifyRequest } = require('../controllers/merchantController');
 
 const router = express.Router();
 
@@ -10,5 +10,6 @@ router.post('/kyc/submit', submitKYC);
 
 
 router.post('/activate', activateMerchant);
+router.post('/deactivate', deactivateMerchant);
 
 module.exports = router;

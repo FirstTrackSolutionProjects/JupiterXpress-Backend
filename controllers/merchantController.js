@@ -132,6 +132,55 @@ const activateMerchant = async (req, res) => {
     }
 }
 
+const deactivateMerchant = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return {
+            status: 401, message: "Access Denied"
+        };
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        if (!admin) {
+            return res.status(401).json({
+                status: 401, message: 'Access Denied'
+            });
+        }
+        const { uid } = req.body;
+        if (!uid) {
+            return res.status(400).json({
+                status: 400, message: 'uid is required'
+            });
+        }
+        try {
+            const [users] = await db.query("SELECT * FROM USERS WHERE uid = ?", [uid]);
+            const { email, fullName } = users[0];
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Your account has been deactivated',
+                text: `Dear ${fullName}, \nYour account has been deactivated, if you think it's a mistake contact us.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions);
+
+            return {
+                status: 200, success: true, message: 'Account has been deactivated successfully'
+            };
+        } catch (error) {
+            return {
+                status: 500, error: error.message
+            };
+        } finally {
+            connection.end();
+        }
+    } catch (e) {
+        return {
+            status: 400, message: 'Invalid Token'
+        };
+    }
+}
+
 
 const submitKYC = async (req, res) => {
     const token = req.headers.authorization;
@@ -233,4 +282,4 @@ const submitVerifyRequest = async (req, res) => {
 }
 
 
-module.exports = { createIncompleteVerifyRequest, activateMerchant, submitKYC, submitVerifyRequest }
+module.exports = { createIncompleteVerifyRequest, activateMerchant, deactivateMerchant, submitKYC, submitVerifyRequest }
