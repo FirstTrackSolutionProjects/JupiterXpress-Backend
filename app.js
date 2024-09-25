@@ -7,6 +7,7 @@ const authRoutes = require('./routes/authRoutes');
 const passwordRoutes = require('./routes/passwordRoutes');
 const merchantRoutes = require('./routes/merchantRoutes');
 const shipmentRoutes = require('./routes/shipmentRoutes');
+const orderRoutes = require('./routes/orderRoutes');
 connectDB();
 
 const app = express();
@@ -16,5 +17,6 @@ app.use('/auth', authRoutes);
 app.use('/password', passwordRoutes);
 app.use('/merchant', merchantRoutes);
 app.use('/shipment', shipmentRoutes);
+app.use('/order', orderRoutes);
 
 module.exports.handler = serverless(app);
