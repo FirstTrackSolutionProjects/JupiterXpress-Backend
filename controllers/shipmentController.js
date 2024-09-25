@@ -196,15 +196,14 @@ const createDomesticShipment = async (req, res) => {
                 });
             }
 
-            // Uncomment the email logic if needed
-            // let mailOptions = {
-            //   from: process.env.EMAIL_USER,
-            //   to: email, 
-            //   subject: 'Shipment created successfully',
-            //   text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Delhivery Courier Service 
-            //   and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
-            // };
-            // await transporter.sendMail(mailOptions);
+            let mailOptions = {
+              from: process.env.EMAIL_USER,
+              to: email, 
+              subject: 'Shipment created successfully',
+              text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Delhivery Courier Service 
+              and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions);
 
             return res.status(200).json({
                 status: 200,
@@ -321,15 +320,14 @@ const createDomesticShipment = async (req, res) => {
             }
             await db.commit(transaction);
 
-            // Uncomment the email logic if needed
-            // let mailOptions = {
-            //   from: process.env.EMAIL_USER,
-            //   to: email,
-            //   subject: 'Shipment created successfully',
-            //   text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Movin Courier Service 
-            //   and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
-            // };
-            // await transporter.sendMail(mailOptions);
+            let mailOptions = {
+              from: process.env.EMAIL_USER,
+              to: email,
+              subject: 'Shipment created successfully',
+              text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Movin Courier Service 
+              and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions);
 
             return res.status(200).json({
                 status: 200,
@@ -481,13 +479,13 @@ const createInternationalShipment = async (req, res) => {
                 status: 400, success: false, response: response, request: reqBody
             });
         }
-        // let mailOptions = {
-        //   from: process.env.EMAIL_USER,
-        //   to: email, 
-        //   subject: 'Shipment created successfully', 
-        //   text: `Dear Merchant, \nYour shipment request for Order id : JUPINT${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
-        // };
-        // await transporter.sendMail(mailOptions)
+        let mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: email, 
+          subject: 'Shipment created successfully', 
+          text: `Dear Merchant, \nYour shipment request for Order id : JUPINT${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+        };
+        await transporter.sendMail(mailOptions)
         return res.status(200).json({
             status: 200, req: req, response: response, success: true, user: user
         });
