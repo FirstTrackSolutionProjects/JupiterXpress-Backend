@@ -14,7 +14,7 @@ const dbConfig = {
 const SECRET_KEY = process.env.JWT_SECRET;
 
 exports.handler = async (event) => {
-  const token = event.headers.Authorization
+  const token = event.headers.authorization
   const connection = await mysql.createConnection(dbConfig);
 
   try {
