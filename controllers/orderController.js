@@ -482,6 +482,39 @@ const getInternationalOrders = async (req, res) => {
     }
 }
 
+const getDomesticOrder = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: "Access Denied"
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const { order } = req.body;
+
+        try {
+            const [rows] = await db.query(
+                "SELECT * FROM ORDERS WHERE ord_id = ?",
+                [order]
+            );
+            return res.status(200).json({
+                status: 200, success: true, order: rows
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500,
+                message: "Unexpected Error while getting orders",
+                error: error.message
+            });
+        }
+    } catch (err) {
+        return res.status(401).json({
+            status: 401, message: "Access Denied"
+        });
+    }
+}
+
 module.exports = {
     createDomesticOrder,
     createInternationalOrder,
@@ -489,5 +522,6 @@ module.exports = {
     getDomesticOrderBoxes,
     getInternationalOrderDocketItems,
     getInternationalOrderDockets,
-    getInternationalOrders
+    getInternationalOrders,
+    getDomesticOrder
 }

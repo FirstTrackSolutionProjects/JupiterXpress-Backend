@@ -5,7 +5,8 @@ const { createDomesticOrder,
         getDomesticOrderBoxes,
         getInternationalOrderDocketItems,
         getInternationalOrderDockets,
-        getInternationalOrders
+        getInternationalOrders,
+        getDomesticOrder
     } = require('../controllers/orderController');
 
 const router = express.Router();
@@ -17,5 +18,6 @@ router.post('/domestic/boxes', getDomesticOrderBoxes )
 router.post('/international/items', getInternationalOrderDocketItems )
 router.post('/international/dockets', getInternationalOrderDockets )
 router.post('/international/all', getInternationalOrders)
+router.post('/domestic', getDomesticOrder)
 
 module.exports = router;
