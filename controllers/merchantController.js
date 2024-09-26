@@ -171,8 +171,6 @@ const deactivateMerchant = async (req, res) => {
             return {
                 status: 500, error: error.message
             };
-        } finally {
-            connection.end();
         }
     } catch (e) {
         return {

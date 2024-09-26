@@ -20,7 +20,7 @@ const getContactRequests = async (req, res) => {
             });
         }
         try {
-            const [data] = await connection.execute('SELECT * FROM CONTACT_SUBMISSIONS');
+            const [data] = await db.query('SELECT * FROM CONTACT_SUBMISSIONS');
             return res.status(200).json({
                 status: 200, success: true, data: data
             });
