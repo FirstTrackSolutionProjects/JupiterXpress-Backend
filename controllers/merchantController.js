@@ -306,11 +306,41 @@ const getVerificationDocumentStatus = async (req, res) => {
     }
 }
 
+const getKYCDocumentStatus = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
+        });
+    }
 
-module.exports = {  createIncompleteVerifyRequest, 
-                    activateMerchant, 
-                    deactivateMerchant, 
-                    submitKYC, 
-                    submitVerifyRequest,
-                    getVerificationDocumentStatus
-                }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+            try {
+                const [req] = await db.query("SELECT * FROM KYC_UPDATE_REQUEST WHERE status='INCOMPLETE' AND uid = ?", [id]);
+                return res.status(200).json({
+                    status: 200, success: true, message: req[0]
+                });
+            } catch (error) {
+                return res.status(500).json({
+                    status: 500, message: error.message, error: error.message
+                });
+            }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
+
+module.exports = {
+    createIncompleteVerifyRequest,
+    activateMerchant,
+    deactivateMerchant,
+    submitKYC,
+    submitVerifyRequest,
+    getVerificationDocumentStatus,
+    getKYCDocumentStatus
+}
