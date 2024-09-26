@@ -20,6 +20,30 @@ const getGetSignedUrl = async (req, res) => {
     }
 }
 
+const getPutSignedUrl = async (req, res) => {
+    const { filename, filetype } = req.body;
+    const params = {
+        Bucket: process.env.S3_BUCKET_NAME_,
+        Key: filename,
+        Expires: 60,
+        ContentType: filetype,
+        ACL: 'private',
+    };
+
+    try {
+        const uploadURL = await s3.getSignedUrlPromise('putObject', params);
+        return res.status(200).json({
+            status: 200, uploadURL
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            status: 500, error: 'Could not generate signed URL'
+        });
+    }
+}
+
 module.exports = {
-    getGetSignedUrl
+    getGetSignedUrl,
+    getPutSignedUrl
 }
