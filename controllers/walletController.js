@@ -5,7 +5,7 @@ const createRazorpayOrderId = async (req, res) => {
     if (!amount) {
         return res.status(400).json({ message: 'Amount is required' });
     }
-    if (amount < 1){
+    if (amount < 1) {
         return res.status(400).json({ message: 'Amount should be greater than or equal to 1' });
     }
     const razorpay = new Razorpay({
@@ -28,4 +28,28 @@ const createRazorpayOrderId = async (req, res) => {
     }
 }
 
-module.exports = {createRazorpayOrderId};
+const getAllRechargeTransactions = async (req, res) => {
+    const token = req.headers.authorization;
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        if (!admin) {
+            return res.status(400).json({
+                status: 400, success: false, message: "Access Denied"
+            })
+        }
+        const [rows] = await db.query('SELECT * FROM RECHARGE r JOIN USERS u ON r.uid=u.uid');
+
+
+        return res.status(200).json({
+            status: 200, success: true, data: rows
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, message: 'Unexpected Error while fetching transactions', error: error.message
+        });
+    }
+}
+
+module.exports = { createRazorpayOrderId, getAllRechargeTransactions };
