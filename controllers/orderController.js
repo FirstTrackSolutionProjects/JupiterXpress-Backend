@@ -449,11 +449,45 @@ const getInternationalOrderDockets = async (req, res) => {
     }
 }
 
+const getInternationalOrders = async (req, res) => {
+    const token = req.headers.authorization;
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const admin = verified.admin;
+        try {
+            if (admin) {
+                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON u.uid=s.uid');
+
+                return res.status(200).json({
+                    status: 200, success: true, order: rows
+                });
+
+            } else {
+                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid WHERE s.uid = ?', [id]);
+                return res.status(200).json({
+                    status: 200, success: true, order: rows
+                });
+
+            }
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: 'Error logging in', error: error.message
+            });
+        }
+    } catch (e) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
 module.exports = {
     createDomesticOrder,
     createInternationalOrder,
     getAllDomesticOrders,
     getDomesticOrderBoxes,
     getInternationalOrderDocketItems,
-    getInternationalOrderDockets
+    getInternationalOrderDockets,
+    getInternationalOrders
 }
