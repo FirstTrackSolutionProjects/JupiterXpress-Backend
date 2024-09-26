@@ -340,9 +340,9 @@ const getAllDomesticOrders = async (req, res) => {
 
         try {
             const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON s.uid=u.uid',);
-                return res.status(200).json({
-                    status: 200, success: true, order: rows
-                });
+            return res.status(200).json({
+                status: 200, success: true, order: rows
+            });
         } catch (error) {
             return res.status(500).json({
                 status: 500, message: 'Error logging in', error: error.message
@@ -355,8 +355,56 @@ const getAllDomesticOrders = async (req, res) => {
     }
 }
 
+const getOrderBoxes = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: "Access Denied"
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const { order } = req.body;
+        if (!order) {
+            return res.status(400).json({
+                status: 400, message: "Order ID is required"
+            });
+        }
+
+        try {
+            const [rows] = await db.query(
+                "SELECT * FROM SHIPMENT_PACKAGES WHERE ord_id = ?",
+                [order]
+            );
+            if (rows.length > 0) {
+                return res.status(200).json({
+                    status: 200, success: true, order: rows
+                });
+            } else {
+                return res.status(401).json({
+                    status: 401, message: "Invalid id"
+                });
+            }
+        } catch (error) {
+            return res.status(500).json({
+
+                status: 500,
+                message: "Unexpected Error while getting boxes",
+                error: error.message,
+
+            });
+        }
+    } catch (err) {
+        return res.status(401).json({
+            status: 401,
+            message: "Access Denied"
+        });
+    }
+}
+
 module.exports = {
-    createDomesticOrder, 
-    createInternationalOrder, 
-    getAllDomesticOrders
+    createDomesticOrder,
+    createInternationalOrder,
+    getAllDomesticOrders,
+    getOrderBoxes
 }
