@@ -126,4 +126,37 @@ const getAllExpenseTransactions = async (req, res) => {
     }
 }
 
-module.exports = { createRazorpayOrderId, getAllRechargeTransactions, getBalance, getAllExpenseTransactions };
+const getAllManualRechargeTransactions = async (req, res) => {
+    const token = req.headers.authorization;
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const admin = verified.admin;
+        if (admin) {
+            const [rows] = await db.query('SELECT * FROM MANUAL_RECHARGE r JOIN USERS u ON r.beneficiary_id = u.uid');
+
+            return res.status(200).json({
+                status: 200, success: true, data: rows
+            });
+        }
+        const [rows] = await db.query('SELECT * FROM MANUAL_RECHARGE where beneficiary_id = ?', [id]);
+
+
+        return res.status(200).json({
+            status: 200, success: true, data: rows
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, message: 'Unexpected Error while fetching transactions', error: error.message
+        });
+    }
+}
+
+module.exports = {  createRazorpayOrderId, 
+                    getAllRechargeTransactions, 
+                    getBalance, 
+                    getAllExpenseTransactions,
+                    getAllManualRechargeTransactions
+                 };
