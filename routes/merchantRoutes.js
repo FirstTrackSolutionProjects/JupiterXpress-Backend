@@ -5,7 +5,8 @@ const { createIncompleteVerifyRequest,
         submitKYC, 
         submitVerifyRequest,
         getVerificationDocumentStatus,
-        getKYCDocumentStatus
+        getKYCDocumentStatus,
+        getIncompleteKYC
     } = require('../controllers/merchantController');
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.post('/verification/documentStatus', getVerificationDocumentStatus)
 
 router.post('/kyc/submit', submitKYC);
 router.post('/kyc/documentStatus', getKYCDocumentStatus)
+router.post('/kyc/incomplete', getIncompleteKYC);
 
 router.post('/activate', activateMerchant);
 router.post('/deactivate', deactivateMerchant);
