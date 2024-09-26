@@ -66,7 +66,7 @@ const getBalance = async (req, res) => {
     try {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;
-        if (!id){
+        if (!id) {
             return res.status(400).json({
                 status: 400, message: 'Invalid User'
             });
@@ -98,4 +98,32 @@ const getBalance = async (req, res) => {
     }
 }
 
-module.exports = { createRazorpayOrderId, getAllRechargeTransactions, getBalance };
+const getAllExpenseTransactions = async (req, res) => {
+    const token = req.headers.authorization;
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const admin = verified.admin;
+        if (admin) {
+            const [rows] = await db.query('SELECT * FROM EXPENSES e JOIN USERS u ON e.uid = u.uid');
+
+
+            return res.status(200).json({
+                status: 200, success: true, data: rows
+            });
+        }
+        const [rows] = await db.query('SELECT * FROM EXPENSES where uid = ?', [id]);
+
+        return res.status(200).json({
+            status: 200, success: true, data: rows
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, message: 'Unexpected Error while fetching transactions', error: error.message
+        });
+    }
+}
+
+module.exports = { createRazorpayOrderId, getAllRechargeTransactions, getBalance, getAllExpenseTransactions };
