@@ -520,5 +520,49 @@ const getAllDomesticShipmentReports = async (req, res) => {
     }
 }
 
-module.exports = { cancelShipment, createDomesticShipment, createInternationalShipment, getAllDomesticShipmentReports };
+const getInternationalShipmentReport = async (req, res) => {
+    const token = req.headers.authorization;
+    const verified = jwt.verify(token, SECRET_KEY);
+    const id = verified.id;
+    if (!id) {
+        return res.status(400).json({
+            status: 400, message: 'Access Denied'
+        });
+    }
+    const { awb } = req.body
+    if (!awb) {
+        return res.status(400).json({
+            status: 400, message: 'Awb is required'
+        });
+    }
+
+    try {
+
+        const response = await fetch(`http://admin.flightgo.in/api/tracking_api/get_tracking_data?api_company_id=24&customer_code=1179&tracking_no=${awb}`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+        const data = await response.json();
+        const status = data[0].docket_info[4][1];
+        await db.query('UPDATE INTERNATIONAL_SHIPMENTS set status = ? WHERE awb = ?', [status, awb]);
+        const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS WHERE awb = ?', [awb])
+        return res.status(200).json({
+            status: 200, data: rows[0], track: data, success: true
+        })
+        
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, message: error.message, success: false
+        });
+    }
+}
+
+module.exports = {  cancelShipment, 
+                    createDomesticShipment, 
+                    createInternationalShipment, 
+                    getAllDomesticShipmentReports,
+                    getInternationalShipmentReport
+                };
 
