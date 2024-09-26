@@ -355,7 +355,7 @@ const getAllDomesticOrders = async (req, res) => {
     }
 }
 
-const getOrderBoxes = async (req, res) => {
+const getDomesticOrderBoxes = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
         return res.status(401).json({
@@ -406,5 +406,5 @@ module.exports = {
     createDomesticOrder,
     createInternationalOrder,
     getAllDomesticOrders,
-    getOrderBoxes
+    getDomesticOrderBoxes
 }
