@@ -1,10 +1,10 @@
 const express = require('express');
-const { createRazorpayOrderId, getAllRechargeTransactions } = require('../controllers/walletController');
+const { createRazorpayOrderId, getAllRechargeTransactions, getBalance } = require('../controllers/walletController');
 
 const router = express.Router();
 
 router.post('/razorpay/createOrderId', createRazorpayOrderId);
 router.post('/recharges/all', getAllRechargeTransactions);
-
+router.post('/balance', getBalance)
 
 module.exports = router;

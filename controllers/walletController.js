@@ -1,4 +1,8 @@
 const Razorpay = require('razorpay');
+const jwt = require('jsonwebtoken');
+const db = require('../utils/db');
+
+const SECRET_KEY = process.env.JWT_SECRET;
 
 const createRazorpayOrderId = async (req, res) => {
     const { amount } = req.body;
@@ -52,4 +56,46 @@ const getAllRechargeTransactions = async (req, res) => {
     }
 }
 
-module.exports = { createRazorpayOrderId, getAllRechargeTransactions };
+const getBalance = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return {
+            status: 401, message: "Access Denied"
+        };
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        if (!id){
+            return res.status(400).json({
+                status: 400, message: 'Invalid User'
+            });
+        }
+
+        try {
+            const [rows] = await db.query('SELECT * FROM WALLET WHERE uid = ?', [id]);
+
+            if (rows.length === 0) {
+                return {
+                    status: 404, error: 'User not found'
+                };
+            }
+
+            const balance = rows[0].balance;
+
+            return res.status(200).json({
+                status: 200, balance
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, error: error.message
+            });
+        }
+    } catch (e) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
+module.exports = { createRazorpayOrderId, getAllRechargeTransactions, getBalance };
