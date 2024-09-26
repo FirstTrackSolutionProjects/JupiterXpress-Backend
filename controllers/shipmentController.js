@@ -560,7 +560,7 @@ const getInternationalShipmentReport = async (req, res) => {
 }
 
 const getInternationalShipments = async (req, res) => {
-    const token = req.headers.Authorization;
+    const token = req.headers.authorization;
     try {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;

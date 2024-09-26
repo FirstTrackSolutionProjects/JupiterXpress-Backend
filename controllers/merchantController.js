@@ -231,7 +231,7 @@ const submitKYC = async (req, res) => {
 }
 
 const submitVerifyRequest = async (req, res) => {
-    const token = req.headers.Authorization;
+    const token = req.headers.authorization;
     if (!token) {
         return res.status(401).json({
             status: 401,
