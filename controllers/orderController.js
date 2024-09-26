@@ -402,9 +402,34 @@ const getDomesticOrderBoxes = async (req, res) => {
     }
 }
 
+const getInternationalOrderDocketItems = async (req, res) => {
+    const token = req.headers.authorization;
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const { iid } = req.body;
+
+        try {
+            const [rows] = await connection.execute('SELECT * FROM DOCKET_ITEMS WHERE iid = ?', [iid]);
+            return res.status(200).json({
+                status: 200, success: true, dockets: rows
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: 'Error', error: error.message
+            });
+        }
+    } catch (e) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
 module.exports = {
     createDomesticOrder,
     createInternationalOrder,
     getAllDomesticOrders,
-    getDomesticOrderBoxes
+    getDomesticOrderBoxes,
+    getInternationalOrderDocketItems
 }
