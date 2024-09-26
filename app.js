@@ -12,6 +12,7 @@ const walletRoutes = require('./routes/walletRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const warehouseRoutes = require('./routes/warehouseRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const s3Routes = require('./routes/s3Routes');
 connectDB();
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/wallet', walletRoutes);
 app.use('/admin', adminRoutes);
 app.use('/warehouse', warehouseRoutes)
 app.use('/contact', contactRoutes)
+app.use('/s3', s3Routes)
 
 
 module.exports.handler = serverless(app);
