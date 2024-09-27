@@ -37,15 +37,15 @@ const getAllRechargeTransactions = async (req, res) => {
 
     try {
         const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
         const admin = verified.admin;
         if (!admin) {
-            return res.status(400).json({
-                status: 400, success: false, message: "Access Denied"
-            })
+            const [rows] = await connection.execute('SELECT * FROM RECHARGE WHERE uid = ?', [id]);
+            return res.status(200).json({
+                status: 200, success: true, data: rows
+            });
         }
         const [rows] = await db.query('SELECT * FROM RECHARGE r JOIN USERS u ON r.uid=u.uid');
-
-
         return res.status(200).json({
             status: 200, success: true, data: rows
         });
