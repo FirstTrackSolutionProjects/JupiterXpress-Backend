@@ -109,7 +109,7 @@ const createDomesticShipment = async (req, res) => {
                 });
             }
 
-            const res = await fetch(`https://track.delhivery.com/waybill/api/bulk/json/?count=1`, {
+            const waybillReq = await fetch(`https://track.delhivery.com/waybill/api/bulk/json/?count=1`, {
                 method: 'GET',
                 headers: {
                     "Content-Type": "application/json",
@@ -118,7 +118,7 @@ const createDomesticShipment = async (req, res) => {
                 }
             });
 
-            const waybill = await res.json();
+            const waybill = await waybillReq.json();
             const reqBody = {
                 shipments: [],
                 pickup_location: {
@@ -590,12 +590,104 @@ const getInternationalShipments = async (req, res) => {
     }
 }
 
+const getDomesticShipmentReport = async (req, res) => {
+    const token = req.headers.authorization;
+    const verified = jwt.verify(token, SECRET_KEY);
+    const id = verified.id;
+    if (!id) {
+        return res.status(400).json({
+            status: 400, message: 'Access Denied'
+        });
+    }
+    const { ref_id } = req.body
+    if(!ref_id){
+        return res.status(400).json({
+            status: 400, message: 'Ref_id is required'
+        });
+    }
+
+    try {
+        const [shipments] = await db.query("SELECT * FROM SHIPMENTS s JOIN SHIPMENT_REPORTS r ON s.ord_id = r.ord_id WHERE r.ref_id = ?", [ref_id])
+        const shipment = shipments[0]
+        const awb = shipment.awb
+        const serviceId = shipment.serviceId
+        const categoryId = shipment.categoryId
+        if (serviceId == 1) {
+            const response = await fetch(`https://track.delhivery.com/api/v1/packages/json/?ref_ids=JUP${ref_id}`, {
+                headers: {
+                    'Authorization': `Token ${categoryId == 2 ? process.env.DELHIVERY_500GM_SURFACE_KEY : process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+            });
+            const data = await response.json();
+            const statusData = data.ShipmentData[0].Shipment;
+            const status = statusData.Status.Status
+            await db.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ref_id = ?', [status, ref_id]);
+            return res.status(200).json({
+                status: 200, data: statusData, success: true
+            });
+        } else if (serviceId == 2) {
+            const loginPayload = {
+                grant_type: "client_credentials",
+                client_id: process.env.MOVIN_CLIENT_ID,
+                client_secret: process.env.MOVIN_CLIENT_SECRET,
+                Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
+            };
+            const formBody = Object.entries(loginPayload).map(
+                ([key, value]) =>
+                    encodeURIComponent(key) + "=" + encodeURIComponent(value)
+            ).join("&");
+            const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json',
+                },
+                body: formBody
+            })
+            const loginRes = await login.json()
+            const movinToken = loginRes.access_token
+            const response4 = await fetch(`https://apim.iristransport.co.in/rest/v2/order/track`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${movinToken}`,
+                    'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
+                },
+                body: JSON.stringify({ "tracking_numbers": [awb] }),
+            });
+            const data4 = await response4.json();
+            if (data4.data[awb] != "Tracking number is not valid.") {
+                const ResultStatus = [];
+                for (const [key, value] of Object.entries(data4.data[awb])) {
+                    if (key.startsWith(awb)) {
+                        for (let i = 0; i < value.length; i++) {
+                            ResultStatus.push(data4.data[awb][key][i])
+                        }
+                    }
+                }
+                return res.status(200).json({
+                    status: 200, data: ResultStatus, success: true, id: 3
+                });
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            status: 500, message: 'Error retrieving shipment data', error: err.message
+        });
+    }
+}
+
 module.exports = {
     cancelShipment,
     createDomesticShipment,
     createInternationalShipment,
     getAllDomesticShipmentReports,
     getInternationalShipmentReport,
-    getInternationalShipments
+    getInternationalShipments,
+    getDomesticShipmentReport
 };
 

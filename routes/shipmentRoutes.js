@@ -4,7 +4,8 @@ const { cancelShipment,
         createInternationalShipment, 
         getAllDomesticShipmentReports, 
         getInternationalShipmentReport,
-        getInternationalShipments
+        getInternationalShipments,
+        getDomesticShipmentReport
     } = require('../controllers/shipmentController');
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.post('/international/create', createInternationalShipment);
 router.post('/domestic/reports', getAllDomesticShipmentReports);
 router.post('/international/report', getInternationalShipmentReport);
 router.post('/international/all', getInternationalShipments)
+router.post('/domestic/report', getDomesticShipmentReport);
 
 
 module.exports = router;
