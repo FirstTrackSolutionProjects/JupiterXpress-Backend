@@ -8,7 +8,6 @@ const { cancelShipment,
         getDomesticShipmentReport,
         getDomesticShipmentReports
     } = require('../controllers/shipmentController');
-const { getKYCDocumentStatus } = require('../controllers/merchantController');
 
 const router = express.Router();
 
