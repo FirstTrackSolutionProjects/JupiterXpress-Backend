@@ -600,7 +600,7 @@ const getDomesticShipmentReport = async (req, res) => {
         });
     }
     const { ref_id } = req.body
-    if(!ref_id){
+    if (!ref_id) {
         return res.status(400).json({
             status: 400, message: 'Ref_id is required'
         });
@@ -681,6 +681,29 @@ const getDomesticShipmentReport = async (req, res) => {
     }
 }
 
+const getDomesticShipmentReports = async (req, res) => {
+    const token = req.headers.authorization;
+    const verified = jwt.verify(token, SECRET_KEY);
+    const id = verified.id;
+    if (!id) {
+        return res.status(400).json({
+            status: 400, message: 'Access Denied'
+        });
+    }
+
+    try {
+        const [rows] = await db.query('SELECT * FROM SHIPMENT_REPORTS r JOIN SHIPMENTS s ON r.ord_id=s.ord_id WHERE r.status != "FAILED" AND s.uid = ?', [id]);
+
+        return res.status(200).json({
+            status: 200, rows, success: true
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, message: error.message, success: false
+        });
+    }
+}
+
 module.exports = {
     cancelShipment,
     createDomesticShipment,
@@ -688,6 +711,7 @@ module.exports = {
     getAllDomesticShipmentReports,
     getInternationalShipmentReport,
     getInternationalShipments,
-    getDomesticShipmentReport
+    getDomesticShipmentReport,
+    getDomesticShipmentReports
 };
 
