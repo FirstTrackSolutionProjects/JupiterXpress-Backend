@@ -73,4 +73,21 @@ const register = async (req, res) => {
     }
 }
 
-module.exports = { login, register }
+const getTokenData = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: "Access Denied"
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        return res.status(200).json(verified)
+    } catch (e) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
+module.exports = { login, register, getTokenData }
