@@ -32,6 +32,40 @@ const getKYCDocumentStatus = async (req, res) => {
     }
 }
 
+const updateKYCDocumentStatus = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const { name, key } = req.body;
+        if (!name || !key) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Missing required fields'
+            });
+        }
+        try {
+            await db.query(`UPDATE KYC_UPDATE_REQUEST set ${name} = ? WHERE status='INCOMPLETE' AND uid = ?`, [key, id]);
+            return res.status(200).json({
+                status: 200, success: true
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: error.message, error: error.message
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Unauthorized'
+        });
+    }
+}
+
 const submitKYC = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
@@ -226,7 +260,7 @@ const rejectKYCRequest = async (req, res) => {
         });
     }
     const { uid, reqId } = req.body;
-    if (!uid ||!reqId) {
+    if (!uid || !reqId) {
         return res.status(400).json({
             status: 400, message: 'Missing uid or reqId'
         });
@@ -275,5 +309,6 @@ module.exports = {
     getIncompleteKYC,
     getAllPendingKYCRequests,
     submitIncompleteKYC,
-    rejectKYCRequest
+    rejectKYCRequest,
+    updateKYCDocumentStatus
 }
