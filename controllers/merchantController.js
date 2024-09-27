@@ -27,85 +27,6 @@ const getMerchantProfile = async (req, res) => {
     } 
 }
 
-const createIncompleteVerifyRequest = async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) {
-        return res.status(401).json({
-            status: 401, message: 'Access Denied'
-        });
-    }
-
-    try {
-        const verified = jwt.verify(token, SECRET_KEY);
-        const id = verified.id;
-        try {
-            const {
-                address,
-                state,
-                city,
-                pin,
-                aadhar,
-                pan,
-                gst,
-                msme,
-                bank,
-                ifsc,
-                account,
-                cin
-            } = req.body;
-            if (!address || !state || !city || !pin || !aadhar || !pan || !gst || !msme || !bank || !ifsc || !account || !cin) {
-                return res.status(400).json({
-                    status: 400, message: 'All fields are required'
-                });
-            }
-            try {
-                const [requests] = await db.query('SELECT * FROM MERCHANT_VERIFICATION WHERE uid = ? AND status = "pending"', [id]);
-                if (requests.length) {
-                    return {
-                        status: 400, message: 'You already have a pending verification request'
-                    };
-                }
-                await db.query('INSERT INTO MERCHANT_VERIFICATION (uid, address, city, state, pin ,aadhar_number, pan_number, gst, cin, accountNumber, ifsc, bank, msme, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, address, city, state, pin, aadhar, pan, gst, cin, account, ifsc, bank, msme, "incomplete"]);
-                const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [id]);
-                const email = users[0].email;
-                const name = users[0].fullName;
-                let mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: email,
-                    subject: 'Verification Request is Incomplete',
-                    text: `Dear ${name}, \n Your Request for verification of account on Jupiter Xpress is incomplete. Please upload your documents to finish the verification request.  \n\nRegards, \nJupiter Xpress`,
-
-                };
-                let mailOptions2 = {
-                    from: process.env.EMAIL_USER,
-                    to: `${process.env.VERIFY_EMAIL},${process.env.EMAIL_USER}`,
-                    subject: 'Incomplete merchant Verification Request Received',
-                    text: `Dear Owner, \n${name} has submitted a incomplete verification request for verification of account on Jupiter Xpress.`,
-
-                };
-                await transporter.sendMail(mailOptions);
-                await transporter.sendMail(mailOptions2);
-                return res.status(200).json({
-                    status: 200, message: 'Details Submitted'
-                });
-            } catch (error) {
-                return res.status(500).json({
-                    status: 500, message: error.message, error: error.message
-                });
-            }
-
-        } catch (err) {
-            return res.status(500).json({
-                status: 500, message: 'Something went wrong'
-            });
-        }
-    } catch (err) {
-        return res.status(400).json({
-            status: 400, message: 'Invalid Token'
-        });
-    }
-}
-
 const activateMerchant = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
@@ -202,13 +123,47 @@ const deactivateMerchant = async (req, res) => {
     }
 }
 
-
-const submitKYC = async (req, res) => {
+const getUnverifiedMerchants = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
         return res.status(401).json({
-            status: 401,
-            message: "Access Denied",
+            status: 401, message: 'Access Denied'
+        });
+    }
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        if (!admin) {
+            return res.status(400).json({
+                status: 400, message: 'Not an admin'
+            });
+        }
+        try {
+            const [users] = await db.query("SELECT * FROM USERS WHERE isVerified=0 AND isAdmin=0");
+            return res.status(200).json({
+                status: 200, success: true, message: users
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: error.message, error: error.message
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        })
+    }
+}
+
+
+
+
+const createIncompleteVerifyRequest = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
         });
     }
 
@@ -216,42 +171,77 @@ const submitKYC = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;
         try {
-            const [req] = await db.query(
-                "SELECT * FROM KYC_UPDATE_REQUEST WHERE status='INCOMPLETE' AND uid = ?",
-                [id]
-            );
-            if (req.length > 0) {
-                await db.query(
-                    "UPDATE KYC_UPDATE_REQUEST set status='PENDING' WHERE status='INCOMPLETE' AND uid = ?",
-                    [id]
-                );
-                return res.status(200).json({
-                    status: 200,
-                    success: true,
-                    message: "KYC Request Submitted Successfully",
-                });
-            } else {
+            const {
+                address,
+                state,
+                city,
+                pin,
+                aadhar,
+                pan,
+                gst,
+                msme,
+                bank,
+                ifsc,
+                account,
+                cin
+            } = req.body;
+            if (!address || !state || !city || !pin || !aadhar || !pan || !gst || !msme || !bank || !ifsc || !account || !cin) {
                 return res.status(400).json({
-                    status: 400,
-                    success: true,
-                    message: "You already have a pending KYC Request",
+                    status: 400, message: 'All fields are required'
                 });
             }
-        } catch (error) {
+            try {
+                const [requests] = await db.query('SELECT * FROM MERCHANT_VERIFICATION WHERE uid = ? AND status = "pending"', [id]);
+                if (requests.length) {
+                    return {
+                        status: 400, message: 'You already have a pending verification request'
+                    };
+                }
+                await db.query('INSERT INTO MERCHANT_VERIFICATION (uid, address, city, state, pin ,aadhar_number, pan_number, gst, cin, accountNumber, ifsc, bank, msme, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, address, city, state, pin, aadhar, pan, gst, cin, account, ifsc, bank, msme, "incomplete"]);
+                const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [id]);
+                const email = users[0].email;
+                const name = users[0].fullName;
+                let mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: 'Verification Request is Incomplete',
+                    text: `Dear ${name}, \n Your Request for verification of account on Jupiter Xpress is incomplete. Please upload your documents to finish the verification request.  \n\nRegards, \nJupiter Xpress`,
+
+                };
+                let mailOptions2 = {
+                    from: process.env.EMAIL_USER,
+                    to: `${process.env.VERIFY_EMAIL},${process.env.EMAIL_USER}`,
+                    subject: 'Incomplete merchant Verification Request Received',
+                    text: `Dear Owner, \n${name} has submitted a incomplete verification request for verification of account on Jupiter Xpress.`,
+
+                };
+                await transporter.sendMail(mailOptions);
+                await transporter.sendMail(mailOptions2);
+                return res.status(200).json({
+                    status: 200, message: 'Details Submitted'
+                });
+            } catch (error) {
+                return res.status(500).json({
+                    status: 500, message: error.message, error: error.message
+                });
+            }
+
+        } catch (err) {
             return res.status(500).json({
-                status: 500,
-                message: error.message,
-                error: error.message,
+                status: 500, message: 'Something went wrong'
             });
         }
-
     } catch (err) {
         return res.status(400).json({
-            status: 400,
-            message: "Invalid Token",
+            status: 400, message: 'Invalid Token'
         });
     }
 }
+
+
+
+
+
 
 const submitVerifyRequest = async (req, res) => {
     const token = req.headers.authorization;
@@ -329,151 +319,16 @@ const getVerificationDocumentStatus = async (req, res) => {
     }
 }
 
-const getKYCDocumentStatus = async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) {
-        return res.status(401).json({
-            status: 401, message: 'Access Denied'
-        });
-    }
-
-    try {
-        const verified = jwt.verify(token, SECRET_KEY);
-        const id = verified.id;
-        try {
-            const [req] = await db.query("SELECT * FROM KYC_UPDATE_REQUEST WHERE status='INCOMPLETE' AND uid = ?", [id]);
-            return res.status(200).json({
-                status: 200, success: true, message: req[0]
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500, message: error.message, error: error.message
-            });
-        }
-    } catch (err) {
-        return res.status(400).json({
-            status: 400, message: 'Invalid Token'
-        });
-    }
-}
-
-const getIncompleteKYC = async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) {
-        return res.status(401).json({
-            status: 401, message: 'Access Denied'
-        });
-    }
-
-    try {
-        const verified = jwt.verify(token, SECRET_KEY);
-        const id = verified.id;
-
-        try {
-            const [req] = await db.query("SELECT * FROM KYC_UPDATE_REQUEST WHERE status='INCOMPLETE' AND uid = ?", [id]);
-            if (req.length > 0) {
-                return res.status(200).json({
-                    status: 200, success: true, message: req[0]
-                });
-            }
-            else {
-                return res.status(200).json({
-                    status: 200, success: false
-                });
-            }
-        } catch (error) {
-            return res.status(500).json({
-                status: 500, message: error.message, error: error.message
-            });
-        }
 
 
-    } catch (err) {
-        return res.status(400).json({
-            status: 400, message: 'Invalid Token'
-        });
-    }
-}
 
-const getAllPendingKYCRequests = async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) {
-        return res.status(401).json({
-            status: 401, message: 'Access Denied'
-        });
-    }
-
-    try {
-        const verified = jwt.verify(token, SECRET_KEY);
-        const admin = verified.admin;
-        if (!admin) {
-            return res.status(400).json({
-                status: 400, message: 'Not an admin'
-            });
-        }
-
-        try {
-            const [users] = await db.query("SELECT * FROM USERS u INNER JOIN KYC_UPDATE_REQUEST r ON u.uid = r.uid WHERE u.isAdmin = 0 AND r.status='PENDING'");
-            return res.status(200).json({
-                status: 200, success: true, message: users
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500, message: error.message, error: error.message
-            });
-        }
-
-
-    } catch (err) {
-        return res.status(400).json({
-            status: 400, message: 'Invalid Token'
-        });
-    }
-}
-
-const getUnverifiedMerchants = async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) {
-        return res.status(401).json({
-            status: 401, message: 'Access Denied'
-        });
-    }
-
-    try {
-        const verified = jwt.verify(token, SECRET_KEY);
-        const admin = verified.admin;
-        if (!admin) {
-            return res.status(400).json({
-                status: 400, message: 'Not an admin'
-            });
-        }
-        try {
-            const [users] = await db.query("SELECT * FROM USERS WHERE isVerified=0 AND isAdmin=0");
-            return res.status(200).json({
-                status: 200, success: true, message: users
-            });
-        } catch (error) {
-            return res.status(500).json({
-                status: 500, message: error.message, error: error.message
-            });
-        }
-    } catch (err) {
-        return res.status(400).json({
-            status: 400, message: 'Invalid Token'
-        })
-    }
-}
 
 module.exports = {
     getMerchantProfile,
     createIncompleteVerifyRequest,
     activateMerchant,
     deactivateMerchant,
-    submitKYC,
     submitVerifyRequest,
     getVerificationDocumentStatus,
-    getKYCDocumentStatus,
-    getIncompleteKYC,
-    getAllPendingKYCRequests,
     getUnverifiedMerchants
 }

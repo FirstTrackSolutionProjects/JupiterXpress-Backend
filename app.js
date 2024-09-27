@@ -14,6 +14,7 @@ const warehouseRoutes = require('./routes/warehouseRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const s3Routes = require('./routes/s3Routes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const kycRoutes = require('./routes/kycRoutes');
 connectDB();
 
 const app = express();
@@ -30,6 +31,7 @@ app.use('/warehouse', warehouseRoutes)
 app.use('/contact', contactRoutes)
 app.use('/s3', s3Routes)
 app.use('/dashboard', dashboardRoutes)
+app.use('/kyc', kycRoutes)
 
 
 module.exports.handler = serverless(app);
