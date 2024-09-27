@@ -222,10 +222,60 @@ const getIncompleteVerification = async (req, res) => {
     }
 }
 
+const rejectVerificationRequest = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
+        });
+    }
+    const { uid, reqId } = req.body;
+    if (!uid || !reqId) {
+        return res.status(400).json({
+            status: 400, message: 'Missing required fields'
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        const id = verified.id;
+        if (!admin) {
+            return res.status(400).json({
+                status: 400, message: 'Not an admin'
+            });
+        }
+        try {
+            await db.query("UPDATE MERCHANT_VERIFICATION SET status='rejected', actionBy=? WHERE reqId = ?", [id, reqId]);
+            const [users] = await db.query("SELECT * FROM USERS WHERE uid = ?", [uid]);
+            const { email, fullName } = users[0];
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Account verification is rejected',
+                text: `Dear ${fullName}, \nWe were not able to verify your documents due to some reason. Please try again.`
+            };
+            await transporter.sendMail(mailOptions);
+            return res.status(200).json({
+                status: 200, success: true, message: 'Merchant verification rejected'
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: error.message, error: error.message
+            });
+        }
+
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
 module.exports = {
     createIncompleteVerifyRequest,
     submitVerifyRequest,
     getVerificationDocumentStatus,
     getPendingVerificationRequests,
-    getIncompleteVerification
+    getIncompleteVerification,
+    rejectVerificationRequest
 }

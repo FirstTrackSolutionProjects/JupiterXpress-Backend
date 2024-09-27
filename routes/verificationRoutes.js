@@ -4,7 +4,8 @@ const {
     submitVerifyRequest,
     getVerificationDocumentStatus,
     getPendingVerificationRequests,
-    getIncompleteVerification
+    getIncompleteVerification,
+    rejectVerificationRequest
 } = require('../controllers/verificationController');
 
 const router = express.Router();
@@ -14,5 +15,6 @@ router.post('/submit', submitVerifyRequest);
 router.post('/documentStatus', getVerificationDocumentStatus)
 router.post('/requests', getPendingVerificationRequests)
 router.post('/incomplete', getIncompleteVerification);
+router.post('/request/reject', rejectVerificationRequest)
 
 module.exports = router;
