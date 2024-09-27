@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const db = require('../utils/db');
 const { transporter } = require('../utils/email');
 const bcrypt = require('bcryptjs');
@@ -45,7 +46,7 @@ const requestOTPForgotPassword = async (req, res) => {
 const verifyOTPandResetPassword = async (req, res) => {
     try {
         const { email, otp, newPassword } = req.body;
-        if (!email ||!otp ||!newPassword) {
+        if (!email || !otp || !newPassword) {
             return res.status(400).json({ message: 'All fields are required' });
         }
         try {
@@ -85,4 +86,69 @@ const verifyOTPandResetPassword = async (req, res) => {
     }
 }
 
-module.exports = { requestOTPForgotPassword, verifyOTPandResetPassword };
+const changePassword = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401,
+            message: "Access Denied",
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        try {
+            const { oldPassword, newPassword } = req.body;
+            if (!oldPassword ||!newPassword) {
+                return res.status(400).json({
+                    status: 400,
+                    message: "All fields are required",
+                });
+            }
+            try {
+                const [users] = await db.query(
+                    "SELECT * FROM USERS WHERE uid = ?",
+                    [id]
+                );
+
+                if (!(await bcrypt.compare(oldPassword, users[0].password))) {
+                    return res.status(400).json({
+                        status: 400,
+                        success: false,
+                        message: "Wrong Password",
+                    });
+                }
+                const transaction = await db.beginTransaction();
+                await transaction.query(
+                    "UPDATE USERS SET password = ? WHERE uid = ?",
+                    [await bcrypt.hash(newPassword, 10), id]
+                );
+                await db.commit(transaction);
+
+                return res.status(200).json({
+                    status: 200,
+                    success: true,
+                    message: "Password Changed",
+                });
+            } catch (error) {
+                return res.status(500).json({
+                    status: 500,
+                    message: error.message,
+                    error: error.message,
+                });
+            }
+        } catch (err) {
+            return res.status(400).json({
+                status: 400,
+                message: "Something went wrong",
+            });
+        }
+    } catch (e) {
+        return res.status(400).json({
+            status: 400,
+            message: "Invalid Token",
+        });
+    }
+}
+
+module.exports = { requestOTPForgotPassword, verifyOTPandResetPassword, changePassword };
