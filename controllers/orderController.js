@@ -332,10 +332,18 @@ const getAllDomesticOrders = async (req, res) => {
     try {
         const verified = jwt.verify(token, SECRET_KEY);
         const admin = verified.admin;
+        const id = verified.id;
         if (!admin) {
-            return res.status(400).json({
-                status: 400, message: 'Access Denied'
-            });
+            try {
+                const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid WHERE s.uid = ?', [id]);
+                return res.status(200).json({
+                    status: 200, success: true, order: rows
+                });
+            } catch (error) {
+                return res.status(500).json({
+                    status: 500, message: 'Error', error: error.message
+                });
+            }
         }
 
         try {

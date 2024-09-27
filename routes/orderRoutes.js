@@ -6,7 +6,8 @@ const { createDomesticOrder,
         getInternationalOrderDocketItems,
         getInternationalOrderDockets,
         getInternationalOrders,
-        getDomesticOrder
+        getDomesticOrder,
+        getDomesticOrders
     } = require('../controllers/orderController');
 
 const router = express.Router();
