@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../utils/db');
 const { s3 } = require('../utils/aws_s3');
 const { transporter } = require('../utils/email');
-const { movinPincodes, movinPrices, movinRegion } = require('../data/movin');
+const { movinPincodes, movinPrices, movinRegion, IndianStateInfo } = require('../data/movin');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
@@ -776,7 +776,7 @@ const getDomesticShipmentLabel = async (req, res) => {
 
 const getDomesticShipmentPricing = async (req, res) => {
     const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity } = req.body
-    if ( !method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status){
+    if (!method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status) {
         return res.status(400).json({
             status: 400, message: 'Missing required fields'
         });
@@ -800,7 +800,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                 'Accept': '*/*'
             }
         })
-        
+
         let movinSurfaceActive = false;
         let movinExpressActive = false;
         if (movinPincodes[origin] && movinPincodes[dest]) {
@@ -893,7 +893,7 @@ const getDomesticShipmentPricing = async (req, res) => {
 }
 
 const internationalShipmentPricingInquiry = async (req, res) => {
-    const {originCountry,
+    const { originCountry,
         origin,
         destCountry,
         dest,
@@ -905,23 +905,164 @@ const internationalShipmentPricingInquiry = async (req, res) => {
         name,
         phone,
         email, } = req.body;
-    
-      try {
+
+    try {
         let mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: `${process.env.EMAIL_USER},${process.env.CONTACT_EMAIL}`,
-          subject: "Inquiry : International Pricing",
-          text: `Dear Owner,\nA merchant has submitted a inquiry for the International Pricing.\nHere are the following details,\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nOrigin Country: ${originCountry}\nOrigin Pin : ${origin}\nDestination Country: ${destCountry}\nDestination Pin : ${dest}\nPayment Mode : ${payMode}\nWeight : ${weight}\nLength : ${length}\nBreadth : ${breadth}\nHeight : ${height}\n\nRegards,\nJupiter Xpress`,
+            from: process.env.EMAIL_USER,
+            to: `${process.env.EMAIL_USER},${process.env.CONTACT_EMAIL}`,
+            subject: "Inquiry : International Pricing",
+            text: `Dear Owner,\nA merchant has submitted a inquiry for the International Pricing.\nHere are the following details,\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nOrigin Country: ${originCountry}\nOrigin Pin : ${origin}\nDestination Country: ${destCountry}\nDestination Pin : ${dest}\nPayment Mode : ${payMode}\nWeight : ${weight}\nLength : ${length}\nBreadth : ${breadth}\nHeight : ${height}\n\nRegards,\nJupiter Xpress`,
         };
         await transporter.sendMail(mailOptions);
         return res.status(200).json({
-          status:200, success: true, message: "Request Submitted Succesfully" 
+            status: 200, success: true, message: "Request Submitted Succesfully"
         });
-      } catch (error) {
+    } catch (error) {
         return res.status(500).json({
-          status:500, message: "Something went wrong, please try again", error: error.message 
+            status: 500, message: "Something went wrong, please try again", error: error.message
         });
-      }
+    }
+}
+
+const domesticShipmentPickupSchedule = async (req, res) => {
+
+    const token = req.headers.authorization;
+    const verified = jwt.verify(token, SECRET_KEY);
+    const id = verified.id;
+    const { wid, pickTime, pickDate, packages, serviceId } = req.body;
+    if (!wid || !packages || !serviceId || !pickDate || !pickTime) {
+        return res.status(400).json({
+            status: 400, error: 'Missing required fields'
+        });
+    }
+    const [warehouses] = await db.query('SELECT * FROM WAREHOUSES WHERE uid = ? AND wid = ?', [id, wid]);
+    const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [id])
+    const user = users[0]
+    const warehouse = warehouses[0]
+    // const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
+
+    if (serviceId[0] == 1) {
+        const schedule = await fetch(`https://track.delhivery.com/fm/request/new/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Token ${serviceId[1] == 1 ? process.env.DELHIVERY_10KG_SURFACE_KEY : process.env.DELHIVERY_500GM_SURFACE_KEY}`
+            },
+            body: JSON.stringify({ pickup_location: warehouse.warehouseName, pickup_time: pickTime, pickup_date: pickDate, expected_package_count: packages })
+        })
+        const scheduleData = await schedule.json()
+        if (scheduleData.incoming_center_name) {
+            return res.status(200).json({
+                status: 200, schedule: "Pickup request sent successfully", success: true
+            });
+        }
+        else if (scheduleData.prepaid) {
+            return res.status(200).json({
+                status: 200, schedule: "Pickup request failed due to low balance of owner", success: true
+            });
+        }
+        else if (scheduleData.pr_exist) {
+            return res.status(200).json({
+                status: 200, schedule: "This time slot is already booked", success: true
+            });
+        }
+        else {
+            return res.status(200).json({
+                status: 200, schedule: "Please enter a valid date and time in future", success: false
+            });
+        }
+
+
+
+    } else if (serviceId[0] == 2) {
+        const loginPayload = {
+            grant_type: "client_credentials",
+            client_id: process.env.MOVIN_CLIENT_ID,
+            client_secret: process.env.MOVIN_CLIENT_SECRET,
+            Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
+        };
+        const formBody = Object.entries(loginPayload).map(
+            ([key, value]) =>
+                encodeURIComponent(key) + "=" + encodeURIComponent(value)
+        ).join("&");
+        const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+            },
+            body: formBody
+        })
+        const loginRes = await login.json()
+        const token = loginRes.access_token
+        const pickupLocReq = await fetch(`http://www.postalpincode.in/api/pincode/${warehouse.pin}`)
+        const pickupLocRes = await pickupLocReq.json()
+        const pickupCity = pickupLocRes.PostOffice[0].District
+        const pickupState = IndianStateInfo[pickupLocRes.PostOffice[0].State]
+        const schedulePayload = {
+            "account": process.env.MOVIN_ACCOUNT_NUMBER,
+            "pickup_date": pickDate,
+            "pickup_time_start": pickTime,
+            "service_type": serviceId[1] == 1 ? "Standard Premium" : "Express End of Day",
+            "address_first_name": warehouse.warehouseName,
+            "address_last_name": "Warehouse",
+            "address_email": "xpressjupiter@gmail.com",
+            "address_phone": user.phone,
+            "address_address_line1": warehouse.address,
+            "address_address_line2": warehouse.address,
+            "address_address_line3": warehouse.address,
+            "address_zipcode": warehouse.pin,
+            "address_city": pickupCity,
+            "address_state": pickupState.state_code,
+            "pickup_reason": "Parcel Pickup"
+        }
+        const schedule = await fetch(`https://apim.iristransport.co.in/rest/v2/pickup/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY,
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(schedulePayload)
+        }).then((response) => response.json())
+        if (schedule.status == 200) {
+            return res.status(200).json({
+                status: 200, schedule: "Pickup request sent successfully", success: true
+            });
+        }
+        else if (schedule.response.errors.pickup_date) {
+            return res.status(200).json({
+                status: 200, schedule: schedule.response.errors.pickup_date[0].error, success: false
+            });
+        }
+        else if (schedule.response.errors.pickup_time_start_hour) {
+            return res.status(200).json({
+                status: 200, schedule: schedule.response.errors.pickup_time_start_hour[0].error, success: false
+            });
+        }
+        else if (schedule.response.errors.zipcode) {
+            return res.status(200).json({
+                status: 200, schedule: schedule.response.errors.zipcode[0].error, success: false
+            });
+        }
+        else if (schedule.response.errors.service_type) {
+            return res.status(200).json({
+                status: 200, schedule: schedule.response.errors.service_type[0].error, success: false
+            });
+        }
+        else {
+            return res.status(200).json({
+                status: 200, schedule: schedule, success: false
+            });
+        }
+    }
+    else {
+        return res.status(200).json({
+            status: 200, schedule: "Invalid service ID", success: false
+        })
+    }
 }
 
 module.exports = {
@@ -935,6 +1076,7 @@ module.exports = {
     getDomesticShipmentReports,
     getDomesticShipmentLabel,
     getDomesticShipmentPricing,
-    internationalShipmentPricingInquiry
+    internationalShipmentPricingInquiry,
+    domesticShipmentPickupSchedule
 };
 
