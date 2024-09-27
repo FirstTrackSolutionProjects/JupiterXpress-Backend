@@ -156,9 +156,72 @@ const getAllPendingKYCRequests = async (req, res) => {
     }
 }
 
+const submitIncompleteKYC = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
+        });
+    }
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+
+        const {
+            address,
+            state,
+            city,
+            pin,
+            aadhar,
+            pan,
+            gst,
+            msme,
+            bank,
+            ifsc,
+            account,
+            cin
+        } = req.body;
+
+        try {
+            const [requests] = await db.query('SELECT * FROM KYC_UPDATE_REQUEST WHERE uid = ? AND status = "PENDING"', [id]);
+            if (requests.length) {
+                return res.status(400).json({
+                    status: 400, message: 'You already have a pending KYC request'
+                });
+            }
+            const [insertRequest] = await db.query('INSERT INTO KYC_UPDATE_REQUEST (uid, address, city, state, pin ,aadhar_number, pan_number, gst, cin, accountNumber, ifsc, bank, msme) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, address, city, state, pin, aadhar, pan, gst, cin, account, ifsc, bank, msme]);
+            const reqId = insertRequest.insertId;
+            const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [id]);
+            const email = users[0].email;
+            const name = users[0].fullName;
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'KYC Update Request is Incomplete',
+                text: `Dear ${name}, \n Your Request for KYC update of account on Jupiter Xpress is incomplete. Please upload your documents to finish the KYC update request.  \n\nRegards, \nJupiter Xpress`,
+
+            };
+            await transporter.sendMail(mailOptions);
+            return res.status(200).json({
+                status: 200, message: 'Details Submitted', reqId: reqId
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: error.message, error: error.message
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
 module.exports = {
     getKYCDocumentStatus,
     submitKYC,
     getIncompleteKYC,
     getAllPendingKYCRequests,
+    submitIncompleteKYC
 }
