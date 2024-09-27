@@ -8,9 +8,9 @@ const {
 
 const router = express.Router();
 
-router.post('/verification/createIncompleteVerifyRequest', createIncompleteVerifyRequest);
-router.post('/verification/submit', submitVerifyRequest);
-router.post('/verification/documentStatus', getVerificationDocumentStatus)
-router.post('/verification/requests', getPendingVerificationRequests)
+router.post('/createIncompleteVerifyRequest', createIncompleteVerifyRequest);
+router.post('/submit', submitVerifyRequest);
+router.post('/documentStatus', getVerificationDocumentStatus)
+router.post('/requests', getPendingVerificationRequests)
 
 module.exports = router;
