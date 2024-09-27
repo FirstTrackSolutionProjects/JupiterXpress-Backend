@@ -892,7 +892,7 @@ const getDomesticShipmentPricing = async (req, res) => {
     }
 }
 
-const internationalPricingInquiry = async (req, res) => {
+const internationalShipmentPricingInquiry = async (req, res) => {
     const {originCountry,
         origin,
         destCountry,
@@ -935,6 +935,6 @@ module.exports = {
     getDomesticShipmentReports,
     getDomesticShipmentLabel,
     getDomesticShipmentPricing,
-    internationalPricingInquiry
+    internationalShipmentPricingInquiry
 };
 
