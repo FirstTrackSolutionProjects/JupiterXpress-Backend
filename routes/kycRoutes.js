@@ -5,7 +5,8 @@ const {
     getKYCDocumentStatus,
     getIncompleteKYC,
     getAllPendingKYCRequests,
-    submitIncompleteKYC
+    submitIncompleteKYC,
+    rejectKYCRequest
  } = require('../controllers/kycController');
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.post('/documentStatus', getKYCDocumentStatus)
 router.post('/incomplete', getIncompleteKYC);
 router.post('/pending/all', getAllPendingKYCRequests)
 router.post('/submit/incomplete', submitIncompleteKYC);
+router.post('/request/reject', rejectKYCRequest);
 
 module.exports = router;
 
