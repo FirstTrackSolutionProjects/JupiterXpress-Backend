@@ -36,4 +36,38 @@ const getContactRequests = async (req, res) => {
     }
 }
 
-module.exports = {getContactRequests}
+const submitContactRequest = async (req, res) => {
+    try {
+        const { name, email, mobile, message, subject } = req.body;
+        if (!name || !email || !mobile || !message || !subject) {
+            return res.status(400).json({
+                status: 400, message: 'All fields are required'
+            });
+        }
+
+        try {
+            await db.query('INSERT INTO CONTACT_SUBMISSIONS (name, email ,phone, message, subject, status) VALUES (?, ?, ? , ?, ?, ?)', [name, email, mobile, message, subject, "open"]);
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: `${process.env.CONTACT_EMAIL},${process.env.EMAIL_USER}`,
+                subject: `Contact Submission : ${subject}`,
+                text: `Name :  ${name}\nEmail : ${email}\nMobile : ${mobile} \n\n${message} `
+            };
+            await transporter.sendMail(mailOptions);
+            return res.status(200).json({
+                status: 200, message: 'Contact Request Sent Successfully'
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: error.message, error: error.message
+            });
+        }
+
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Something went wrong'
+        });
+    }
+}
+
+module.exports = { getContactRequests, submitContactRequest }
