@@ -1065,6 +1065,107 @@ const domesticShipmentPickupSchedule = async (req, res) => {
     }
 }
 
+const trackShipment = async (req, res) => {
+    const { awb } = req.body;
+    const response1 = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
+        headers: {
+            'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+    });
+
+    const data1 = await response1.json();
+
+    if (data1.ShipmentData) {
+        return res.status(200).json({
+            status: 200, data: data1, success: true, id: 1
+        });
+    }
+
+    const response2 = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
+        headers: {
+            'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+    });
+
+    const data2 = await response2.json();
+
+    if (data2.ShipmentData) {
+        return res.status(200).json({
+            status: 200, data: data2, success: true, id: 1
+        });
+    }
+    try {
+        const response3 = await fetch(`http://admin.flightgo.in/api/tracking_api/get_tracking_data?api_company_id=24&customer_code=1179&tracking_no=${awb}`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+        const data3 = await response3.json();
+        if (!data3[0].errors) {
+            return res.status(200).json({
+                status: 200, data: data3[0], success: true, id: 2
+            });
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            status: 500, message: "Error fetching tracking data", success: false
+        });
+    }
+    const loginPayload = {
+        grant_type: "client_credentials",
+        client_id: process.env.MOVIN_CLIENT_ID,
+        client_secret: process.env.MOVIN_CLIENT_SECRET,
+        Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
+    };
+    const formBody = Object.entries(loginPayload).map(
+        ([key, value]) =>
+            encodeURIComponent(key) + "=" + encodeURIComponent(value)
+    ).join("&");
+    const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+        },
+        body: formBody
+    })
+    const loginRes = await login.json()
+    const movinToken = loginRes.access_token
+    const response4 = await fetch(`https://apim.iristransport.co.in/rest/v2/order/track`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${movinToken}`,
+            'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
+        },
+        body: JSON.stringify({ "tracking_numbers": [awb] }),
+    });
+    const data4 = await response4.json();
+    if (data4.data[awb] != "Tracking number is not valid.") {
+        const ResultStatus = [];
+        for (const [key, value] of Object.entries(data4.data[awb])) {
+            if (key.startsWith(awb)) {
+                for (let i = 0; i < value.length; i++) {
+                    ResultStatus.push(data4.data[awb][key][i])
+                }
+            }
+        }
+        return res.status(200).json({
+            status: 200, data: ResultStatus, success: true, id: 3
+        });
+    }
+    return res.status(404).json({
+        status: 404, message: "Service not found"
+    });
+}
+
 module.exports = {
     cancelShipment,
     createDomesticShipment,
@@ -1077,6 +1178,7 @@ module.exports = {
     getDomesticShipmentLabel,
     getDomesticShipmentPricing,
     internationalShipmentPricingInquiry,
-    domesticShipmentPickupSchedule
+    domesticShipmentPickupSchedule,
+    trackShipment
 };
 
