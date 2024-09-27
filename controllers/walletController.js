@@ -40,7 +40,7 @@ const getAllRechargeTransactions = async (req, res) => {
         const id = verified.id;
         const admin = verified.admin;
         if (!admin) {
-            const [rows] = await connection.execute('SELECT * FROM RECHARGE WHERE uid = ?', [id]);
+            const [rows] = await db.query('SELECT * FROM RECHARGE WHERE uid = ?', [id]);
             return res.status(200).json({
                 status: 200, success: true, data: rows
             });
