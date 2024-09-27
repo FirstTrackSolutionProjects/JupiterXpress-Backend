@@ -7,7 +7,8 @@ const { cancelShipment,
         getInternationalShipments,
         getDomesticShipmentReport,
         getDomesticShipmentReports,
-        getDomesticShipmentLabel
+        getDomesticShipmentLabel,
+        getDomesticShipmentPricing
     } = require('../controllers/shipmentController');
 
 const router = express.Router();
@@ -20,7 +21,7 @@ router.post('/domestic/reports/all', getAllDomesticShipmentReports);
 router.post('/domestic/reports', getDomesticShipmentReports)
 router.post('/domestic/report', getDomesticShipmentReport);
 router.post('/domestic/label', getDomesticShipmentLabel)
-
+router.post('/domestic/price', getDomesticShipmentPricing)
 
 router.post('/international/create', createInternationalShipment);
 router.post('/international/report', getInternationalShipmentReport);

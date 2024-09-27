@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../utils/db');
 const { s3 } = require('../utils/aws_s3');
 const { transporter } = require('../utils/email');
+const { movinPincodes, movinPrices, movinRegion } = require('../data/movin');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
@@ -773,6 +774,124 @@ const getDomesticShipmentLabel = async (req, res) => {
     }
 }
 
+const getDomesticShipmentPricing = async (req, res) => {
+    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity } = req.body
+    if ( !method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status){
+        return res.status(400).json({
+            status: 400, message: 'Missing required fields'
+        });
+    }
+    try {
+        const deliveryVolumetric = parseFloat(volume) / 5;
+        const netWeight = (Math.max(deliveryVolumetric, weight)).toString()
+        let responses = []
+
+        const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
+            headers: {
+                'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*'
+            }
+        });
+        const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
+            headers: {
+                'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*'
+            }
+        })
+        
+        let movinSurfaceActive = false;
+        let movinExpressActive = false;
+        if (movinPincodes[origin] && movinPincodes[dest]) {
+            if (movinPincodes[origin]["Surface"] == "active" && movinPincodes[dest]["Surface"] == "active") {
+                movinSurfaceActive = true;
+            }
+            if (movinPincodes[origin]["Express"] == "active" && movinPincodes[dest]["Express"] == "active") {
+                movinExpressActive = true;
+            }
+        }
+        const movinVolumetric = parseFloat(volume) / (method == "S" ? 4.5 : 5)
+        const movinNetWeight = (Math.max(method == "S" ? 10000 : 5000, Math.max(movinVolumetric, weight))).toString()
+        const originData = await fetch(`http://www.postalpincode.in/api/pincode/${origin}`)
+        const destData = await fetch(`http://www.postalpincode.in/api/pincode/${dest}`)
+        const originPSData = await originData.json()
+        const destPSData = await destData.json()
+        const originState = originPSData.PostOffice[0].State;
+        const destState = destPSData.PostOffice[0].State;
+        let i = 0;
+        for (i = 0; i < movinRegion.length; i++) {
+            if ((movinRegion[i].toLowerCase()).includes((originState.toLowerCase()))) {
+                break;
+            }
+        }
+        let j = 0;
+        for (j = 0; j < movinRegion.length; j++) {
+            if ((movinRegion[j].toLowerCase()).includes((destState.toLowerCase()))) {
+                break;
+            }
+        }
+        let movinPrice = parseFloat(movinPrices[method][i][j]) * parseFloat(movinNetWeight) / 1000;
+        movinPrice = movinPrice * 1.1010;
+        movinPrice = movinPrice + 30;
+        movinPrice = movinPrice * 1.18;
+        movinPrice = movinPrice * (method == "E" ? 1.4 : 1.4);
+        const data = await response.json();
+        const data2 = await response2.json();
+        const price = data[0]['total_amount']
+        const price2 = data2[0]['total_amount']
+        if (quantity == 1) {
+            responses.push({
+                "name": `Delhivery ${method == 'S' ? 'Surface' : 'Express'} Light`,
+                "weight": "500gm",
+                "price": Math.round(price * 1.3),
+                "serviceId": "1",
+                "categoryId": "2",
+                "chargableWeight": netWeight
+            })
+            if (method == 'S') {
+                responses.push({
+                    "name": `Delhivery Surface`,
+                    "weight": "10Kg",
+                    "price": Math.round(price2 * 1.3),
+                    "serviceId": "1",
+                    "categoryId": "1",
+                    "chargableWeight": netWeight
+
+                })
+            }
+        }
+        if (method == 'S' && movinSurfaceActive) {
+            responses.push({
+                "name": `Movin Surface`,
+                "weight": `Min. 10Kg`,
+                "price": Math.round(parseFloat(movinPrice)),
+                "serviceId": "2",
+                "categoryId": "2",
+                "chargableWeight": movinNetWeight
+            })
+        }
+        if (method == 'E' && movinExpressActive) {
+            responses.push({
+                "name": `Movin Express`,
+                "weight": `Min. 5Kg`,
+                "price": Math.round(parseFloat(movinPrice)),
+                "serviceId": "2",
+                "categoryId": "1",
+                "chargableWeight": movinNetWeight
+            })
+        }
+
+        return res.status(200).json({
+            status: 200, prices: responses
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, error: 'Failed to fetch data' + error
+        });
+    }
+}
+
 module.exports = {
     cancelShipment,
     createDomesticShipment,
@@ -782,6 +901,7 @@ module.exports = {
     getInternationalShipments,
     getDomesticShipmentReport,
     getDomesticShipmentReports,
-    getDomesticShipmentLabel
+    getDomesticShipmentLabel,
+    getDomesticShipmentPricing
 };
 
