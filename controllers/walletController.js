@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const jwt = require('jsonwebtoken');
 const db = require('../utils/db');
+const crypto = require('crypto');
 const { transporter } = require('../utils/email');
 
 const SECRET_KEY = process.env.JWT_SECRET;
@@ -240,6 +241,67 @@ const manualRecharge = async (req, res) => {
     }
 }
 
+const verifyRazorpayRecharge = async (req, res) => {
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, uid, amount } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !uid || !amount) {
+        return res.status(400).json({
+            status: 400, error: 'Missing required parameters'
+        });
+    }
+    try {
+        // Verify the payment signature
+        const generatedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+            .digest('hex');
+
+        if (generatedSignature !== razorpay_signature) {
+            return res.status(400).json({
+                status: 400, error: 'Invalid payment signature'
+            });
+        }
+
+        try {
+            // Update user's wallet balance in database
+            const transaction = await db.beginTransaction();
+            await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [amount, uid]);
+            // Insert transaction record
+            const transactionDetails = {
+                uid,
+                razorpay_payment_id,
+                razorpay_order_id,
+                amount,
+                date: new Date(),
+            };
+
+            await transaction.query(
+                'INSERT INTO RECHARGE (uid, payment_id, order_id, amount, date) VALUES (?, ?, ?, ?, ?)',
+                [transactionDetails.uid, transactionDetails.razorpay_payment_id, transactionDetails.razorpay_order_id, transactionDetails.amount, transactionDetails.date]
+            );
+            await db.commit(transaction);
+            const [users] = await db.query("SELECT * FROM USERS WHERE uid = ?", [uid]);
+            const { email, fullName } = users[0];
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Wallet Recharge Successfull',
+                text: `Dear ${fullName}, \nYour wallet recharge for amount ₹${amount} and order Id : ${transactionDetails.razorpay_order_id} has been verified and credited to your wallet.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions);
+            return res.status(200).json({
+                status: 200, success: true, message: "Recharge Successfull"
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, error: error.message
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, error: 'Something went wrong'
+        });
+    }
+}
+
 module.exports = {
     createRazorpayOrderId,
     getAllRechargeTransactions,
@@ -247,5 +309,6 @@ module.exports = {
     getAllExpenseTransactions,
     getAllManualRechargeTransactions,
     getAllRefundTransactions,
-    manualRecharge
+    manualRecharge,
+    verifyRazorpayRecharge
 };
