@@ -327,6 +327,146 @@ const createInternationalOrder = async (req, res) => {
     }
 }
 
+const updateInternationalOrder = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: "Access Denied"
+        });
+    }
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        try {
+            const {
+                iid,
+                wid,
+                contents,
+                serviceCode,
+                consigneeName,
+                consigneeCompany,
+                countryCode,
+                consigneeContact,
+                consigneeEmail,
+                consigneeAddress,
+                consigneeAddress2,
+                consigneeAddress3,
+                consigneeCity,
+                consigneeState,
+                consigneeCountry,
+                consigneeZipCode,
+                dockets,
+                items,
+                gst,
+                shippingType,
+                actual_weight,
+                price
+            } = req.body;
+
+            try {
+                const transaction = await db.beginTransaction();
+                const [shipment] = await transaction.query(
+                    `UPDATE INTERNATIONAL_SHIPMENTS SET
+  wid = ?,
+  contents = ?,
+  service_code = ?,
+  consignee_name = ?,
+  consignee_company_name = ?,
+  consignee_country_code = ?,
+  consignee_contact_no = ?,
+  consignee_email = ?,
+  consignee_address_1 = ?,
+  consignee_address_2 = ?,
+  consignee_address_3 = ?,
+  consignee_city = ?,
+  consignee_state = ?,
+  consignee_country = ?,
+  consignee_zip_code = ?,
+  shippingType = ?,
+  gst = ?,
+  shipping_price = ?,
+  actual_weight = ? WHERE iid = ?`,
+                    [
+                        wid,
+                        contents,
+                        serviceCode,
+                        consigneeName,
+                        consigneeCompany,
+                        countryCode,
+                        consigneeContact,
+                        consigneeEmail,
+                        consigneeAddress,
+                        consigneeAddress2,
+                        consigneeAddress3,
+                        consigneeCity,
+                        consigneeState,
+                        consigneeCountry,
+                        consigneeZipCode,
+                        shippingType,
+                        gst,
+                        price,
+                        actual_weight,
+                        iid
+                    ]
+                );
+                await transaction.query('DELETE FROM DOCKET_ITEMS WHERE iid = ?', [iid])
+                await transaction.query('DELETE FROM DOCKETS WHERE iid = ?', [iid])
+                for (let i = 0; i < dockets.length; i++) {
+                    const [docket] = await transaction.query(
+                        `INSERT INTO DOCKETS (box_no, iid, docket_weight, length, breadth, height ) VALUES (?, ?, ?, ?, ?, ?)`,
+                        [
+                            dockets[i].box_no,
+                            iid,
+                            dockets[i].docket_weight,
+                            dockets[i].length,
+                            dockets[i].breadth,
+                            dockets[i].height,
+                        ]
+                    );
+                    const did = docket.insertId;
+                    const docketItems = items.filter(item => item.box_no == i + 1)
+                    for (let j = 0; j < docketItems.length; j++) {
+                        await transaction.query(
+                            `INSERT INTO DOCKET_ITEMS (did, hscode, box_no, quantity, rate, description, unit, unit_weight, igst_amount, iid) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+                            [
+                                did,
+                                docketItems[j].hscode,
+                                docketItems[j].box_no,
+                                docketItems[j].quantity,
+                                docketItems[j].rate,
+                                docketItems[j].description,
+                                docketItems[j].unit,
+                                docketItems[j].unit_weight,
+                                docketItems[j].igst_amount,
+                                iid
+                            ]
+                        );
+                    }
+                }
+                await db.commit(transaction);
+                return res.status(200).json({
+                    status: 200, success: true, message: "Order Updated"
+                });
+            } catch (error) {
+                return res.status(500).json({
+                    status: 500,
+                    message: error.message,
+                    error: error.message,
+                });
+            }
+        } catch (err) {
+            return res.status(500).json({
+                status: 500, message: "Something went wrong"
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: "Invalid Token"
+        });
+    }
+}
+
 const getAllDomesticOrders = async (req, res) => {
     const token = req.headers.authorization;
     try {
@@ -691,5 +831,6 @@ module.exports = {
     getInternationalOrderDockets,
     getInternationalOrders,
     getDomesticOrder,
-    updateDomesticOrder
+    updateDomesticOrder,
+    updateInternationalOrder
 }
