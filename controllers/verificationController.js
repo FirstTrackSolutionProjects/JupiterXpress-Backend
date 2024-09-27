@@ -171,7 +171,7 @@ const updateVerificationDocumentStatus = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;
         const { name, key } = req.body;
-        if (!name ||!key) {
+        if (!name || !key) {
             return res.status(400).json({
                 status: 400, message: 'Both name and key are required'
             });
@@ -305,6 +305,59 @@ const rejectVerificationRequest = async (req, res) => {
     }
 }
 
+const acceptVerificationRequest = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
+        });
+    }
+    const { uid, reqId } = req.body;
+    if (!uid || !reqId) {
+        return res.status(400).json({
+            status: 400, message: 'Missing required fields'
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        const id = verified.id;
+        if (!admin) {
+            return res.status(400).json({
+                status: 400, message: 'Not an admin'
+            });
+        }
+        try {
+            const [requests] = await db.query("SELECT * FROM MERCHANT_VERIFICATION WHERE reqId = ? ", [reqId]);
+            const userData = requests[0];
+            await db.query("INSERT INTO USER_DATA (uid, address, state, city, pin, aadhar_number, pan_number, gst, cin ,msme, accountNumber, ifsc, bank, aadhar_doc, pan_doc, selfie_doc, gst_doc, cancelledCheque) VALUES (?, ? ,? ,?, ? ,? ,? ,? ,? , ? , ? ,? ,?, ?, ?, ?, ?, ?) ", [uid, userData.address, userData.state, userData.city, userData.pin, userData.aadhar_number, userData.pan_number, userData.gst, userData.cin, userData.msme, userData.accountNumber, userData.ifsc, userData.bank, userData.aadhar_doc, userData.pan_doc, userData.selfie_doc, userData.gst_doc, userData.cancelledCheque])
+            await db.query("INSERT INTO WALLET (uid, balance) VALUES (?, ?)", [uid, 10]);
+            await db.query("UPDATE USERS SET isVerified = 1 WHERE uid = ?", [uid]);
+            await db.query("UPDATE MERCHANT_VERIFICATION SET status='accepted', actionBy=? WHERE reqId = ? ", [id, reqId]);
+            const [users] = await db.query("SELECT * FROM USERS WHERE uid = ?", [uid]);
+            const { email, fullName } = users[0];
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Account has been verified',
+                text: `Dear ${fullName}, \nYour account has been verified on Jupiter Xpress. Login now and experience the fast delivery.`
+            };
+            await transporter.sendMail(mailOptions);
+            return res.status(200).json({
+                status: 200, success: true, message: 'Merchant successfully verified'
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: error.message, error: error.message
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
 module.exports = {
     createIncompleteVerifyRequest,
     submitVerifyRequest,
@@ -312,5 +365,6 @@ module.exports = {
     getPendingVerificationRequests,
     getIncompleteVerification,
     rejectVerificationRequest,
-    updateVerificationDocumentStatus
+    updateVerificationDocumentStatus,
+    acceptVerificationRequest
 }
