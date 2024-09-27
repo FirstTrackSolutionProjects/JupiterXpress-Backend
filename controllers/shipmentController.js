@@ -704,6 +704,75 @@ const getDomesticShipmentReports = async (req, res) => {
     }
 }
 
+const getDomesticShipmentLabel = async (req, res) => {
+    const token = req.headers.authorization;
+    const verified = jwt.verify(token, SECRET_KEY);
+    const id = verified.id;
+    const { order } = req.body;
+    const [users] = await db.query('SELECT * FROM USERS WHERE uid =?', [id]);
+    const email = users[0].email;
+    const [shipments] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ? ', [order]);
+    const shipment = shipments[0];
+    const { serviceId, categoryId } = shipment;
+    // const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
+    if (serviceId == 1) {
+
+        const label = await fetch(`https://track.delhivery.com/api/p/packing_slip?wbns=${shipment.awb}&pdf=true`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Token ${categoryId === 2 ? process.env.DELHIVERY_500GM_SURFACE_KEY : categoryId === 1 ? process.env.DELHIVERY_10KG_SURFACE_KEY : categoryId === 3 ? '' : ''}`
+            },
+        }).then((response) => response.json())
+
+        return res.status(200).json({
+            status: 200, label: label.packages[0].pdf_download_link, success: true
+        });
+    }
+    else if (serviceId == 2) {
+        const loginPayload = {
+            grant_type: "client_credentials",
+            client_id: process.env.MOVIN_CLIENT_ID,
+            client_secret: process.env.MOVIN_CLIENT_SECRET,
+            Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
+        };
+        const formBody = Object.entries(loginPayload).map(
+            ([key, value]) =>
+                encodeURIComponent(key) + "=" + encodeURIComponent(value)
+        ).join("&");
+        const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+            },
+            body: formBody
+        })
+        const loginRes = await login.json()
+        const token = loginRes.access_token
+        const label = await fetch(`https://apim.iristransport.co.in/rest/v2/shipment/label`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY,
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                "shipment_number": shipment.awb,
+                "account_number": process.env.MOVIN_ACCOUNT_NUMBER,
+                "scope": "all",
+                "label_type": "thermal"
+            })
+        }).then((response) => response.json())
+
+        return res.status(200).json({
+            status: 200, label: label.response, success: true
+        });
+    }
+}
+
 module.exports = {
     cancelShipment,
     createDomesticShipment,
@@ -712,6 +781,7 @@ module.exports = {
     getInternationalShipmentReport,
     getInternationalShipments,
     getDomesticShipmentReport,
-    getDomesticShipmentReports
+    getDomesticShipmentReports,
+    getDomesticShipmentLabel
 };
 
