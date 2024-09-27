@@ -523,6 +523,165 @@ const getDomesticOrder = async (req, res) => {
     }
 }
 
+const updateDomesticOrder = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
+        });
+    }
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        if (!admin) {
+            return res.status(400).json({
+                status: 400, message: 'Not an admin'
+            });
+        }
+        try {
+            let {
+                wid,
+                order,
+                payMode,
+                name,
+                email,
+                phone,
+                address,
+                address2,
+                addressType,
+                addressType2,
+                postcode,
+                city,
+                state,
+                country,
+                Baddress,
+                Baddress2,
+                BaddressType,
+                BaddressType2,
+                Bpostcode,
+                Bcity,
+                Bstate,
+                Bcountry,
+                same,
+                boxes,
+                orders,
+                discount,
+                cod,
+                gst,
+                Cgst,
+                shippingType,
+                pickupDate,
+                pickupTime,
+            } = req.body;
+
+            if (admin) {
+                const [users] = await db.query("SELECT * FROM WAREHOUSES w JOIN USERS u ON u.uid = w.uid WHERE w.wid = ?", [wid])
+                id = users[0].uid
+            }
+            if (same) {
+                Baddress = address;
+                BaddressType = addressType;
+                Baddress2 = address2;
+                BaddressType2 = addressType2;
+                Bcountry = country;
+                Bstate = state;
+                Bcity = city;
+                Bpostcode = postcode;
+            }
+
+
+
+
+            try {
+                const transaction = await db.beginTransaction();
+                await transaction.query(`UPDATE SHIPMENTS SET 
+            pay_method = ?, 
+            customer_name = ?, 
+            customer_email = ?, 
+            customer_mobile = ?, 
+            shipping_address = ?, 
+            shipping_address_type = ?, 
+            shipping_address_2 = ?, 
+            shipping_address_type_2 = ?, 
+            shipping_country = ?, 
+            shipping_state = ?, 
+            shipping_city = ?, 
+            shipping_postcode = ?, 
+            billing_address = ?, 
+            billing_address_type = ?, 
+            billing_address_2 = ?, 
+            billing_address_type_2 = ?, 
+            billing_country = ?, 
+            billing_state = ?, 
+            billing_city = ?, 
+            billing_postcode = ?,
+            same = ?, 
+            cod_amount = ?, 
+            total_discount = ?, 
+            gst = ?, 
+            customer_gst = ?,
+            wid = ?,
+            shipping_mode =?,
+            pickup_date =?,
+            pickup_time =?
+            WHERE ord_id = ? AND uid = ?`,
+                    [payMode, name, email, phone, address, addressType, address2, addressType2, country, state, city, postcode, Baddress, BaddressType, Baddress2, BaddressType2, Bcountry, Bstate, Bcity, Bpostcode, same, cod, discount, gst, Cgst, wid, shippingType, pickupDate, pickupTime, order, id]
+                );
+
+                await transaction.query("DELETE FROM ORDERS WHERE ord_id = ?", [order]);
+                await transaction.query("DELETE FROM SHIPMENT_PACKAGES WHERE ord_id = ?", [order]);
+
+                for (let i = 0; i < boxes.length; i++) {
+                    await transaction.query(
+                        `INSERT INTO SHIPMENT_PACKAGES (ord_id, box_no, length, breadth, height, weight ) VALUES (?, ?, ?, ?, ?, ?)`,
+                        [
+                            order,
+                            boxes[i].box_no,
+                            boxes[i].length,
+                            boxes[i].breadth,
+                            boxes[i].height,
+                            boxes[i].weight,
+                        ]
+                    );
+
+                }
+                for (let j = 0; j < orders.length; j++) {
+                    await transaction.query(
+                        `INSERT INTO ORDERS (ord_id, box_no, product_name, product_quantity, tax_in_percentage, selling_price) VALUES (?,?,?,?,?,?)`,
+                        [
+                            order,
+                            orders[j].box_no,
+                            orders[j].product_name,
+                            orders[j].product_quantity,
+                            orders[j].tax_in_percentage,
+                            orders[j].selling_price
+                        ]
+                    );
+                }
+                await db.commit(transaction);
+                return res.status(200).json({
+                    status: 200, success: true, message: 'Details Updated', id: id
+                });
+            }
+            catch (error) {
+                return res.status(500).json({
+                    status: 500, message: error.message, error: error.message
+                });
+            }
+
+        } catch (err) {
+            return res.status(500).json({
+                status: 500, message: 'Something went wrong'
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
 module.exports = {
     createDomesticOrder,
     createInternationalOrder,
@@ -531,5 +690,6 @@ module.exports = {
     getInternationalOrderDocketItems,
     getInternationalOrderDockets,
     getInternationalOrders,
-    getDomesticOrder
+    getDomesticOrder,
+    updateDomesticOrder
 }
