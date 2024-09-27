@@ -4,7 +4,8 @@ const { createRazorpayOrderId,
         getBalance,
         getAllExpenseTransactions ,
         getAllManualRechargeTransactions,
-        getAllRefundTransactions
+        getAllRefundTransactions,
+        manualRecharge
     } = require('../controllers/walletController');
 
 const router = express.Router();
@@ -15,5 +16,7 @@ router.post('/expenses', getAllExpenseTransactions);
 router.post('/manualRecharges', getAllManualRechargeTransactions);
 router.post('/refunds', getAllRefundTransactions)
 router.post('/balance', getBalance)
+router.post('/manualRecharge', manualRecharge)
+
 
 module.exports = router;

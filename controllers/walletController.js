@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const jwt = require('jsonwebtoken');
 const db = require('../utils/db');
+const { transporter } = require('../utils/email');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
@@ -181,11 +182,70 @@ const getAllRefundTransactions = async (req, res) => {
     }
 }
 
+const manualRecharge = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
+        });
+    }
+    const { email, amount, reason } = req.body;
+    if (!email || !amount || !reason) {
+        return res.status(400).json({
+            status: 400, message: 'All fields are required'
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        if (!admin) {
+            return res.status(400).json({
+                status: 400, message: 'Not an admin'
+            });
+        }
+        try {
+            const transaction = await db.beginTransaction();
+            const [users] = await transaction.query('SELECT * FROM USERS WHERE email = ?', [email]);
+            if (users.length) {
+                const uid = users[0].uid;
+                await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [amount, uid]);
+                await transaction.query('INSERT INTO MANUAL_RECHARGE (beneficiary_id, amount, reason) VALUES (?,?,?)', [uid, amount, reason]);
+            }
+            else {
+                await db.rollback(transaction)
+                return {
+                    status: 400, message: 'User not found'
+                };
+            }
+            await db.commit(transaction);
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Manual Recharge Received',
+                text: `Dear Merchant, \nYour wallet got manually ${amount >= 0 ? "credited" : "debited"} by ₹${amount}.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions);
+            return res.status(200).json({
+                status: 200, success: true, message: "Recharge successfull"
+            });
+        } catch (error) {
+            return res.status(500).json({
+                status: 500, message: error.message, error: error.message
+            });
+        }
+    } catch (err) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+}
+
 module.exports = {
     createRazorpayOrderId,
     getAllRechargeTransactions,
     getBalance,
     getAllExpenseTransactions,
     getAllManualRechargeTransactions,
-    getAllRefundTransactions
+    getAllRefundTransactions,
+    manualRecharge
 };
