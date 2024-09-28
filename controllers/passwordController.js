@@ -63,6 +63,8 @@ const verifyOTPandResetPassword = async (req, res) => {
                 await transaction.query('UPDATE USERS SET password = ? WHERE email = ?', [await bcrypt.hash(newPassword, 10), email])
                 await transaction.query('UPDATE USERS SET secret = ? WHERE email = ?', [null, email])
                 await db.commit(transaction);
+            } else {
+                return res.status(400).json({ message: 'Incorrect OTP' });
             }
             const { fullName } = users[0];
             let mailOptions = {
