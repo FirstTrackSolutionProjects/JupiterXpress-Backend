@@ -3,6 +3,8 @@ const db = require('../utils/db');
 const { transporter } = require('../utils/email');
 const bcrypt = require('bcryptjs');
 
+const SECRET_KEY = process.env.JWT_SECRET;
+
 const requestOTPForgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
