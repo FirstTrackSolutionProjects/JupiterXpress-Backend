@@ -5,16 +5,16 @@ const SECRET_KEY = process.env.JWT_SECRET
 
 const getStatistics = async (req, res) => {
     const token = req.headers.authorization;
-    const verified = jwt.verify(token, SECRET_KEY);
-    const id = verified.id;
-    const admin = verified.admin;
-    if (!id) {
-        return res.status(400).json({
-            status: 400, message: 'Access Denied'
-        });
-    }
 
     try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const admin = verified.admin;
+        if (!id) {
+            return res.status(400).json({
+                status: 400, message: 'Access Denied'
+            });
+        }
         if (admin) {
             const [warehouses] = await db.query('SELECT COUNT(*) AS warehouses FROM WAREHOUSES');
             const warehouse = warehouses[0].warehouses;
