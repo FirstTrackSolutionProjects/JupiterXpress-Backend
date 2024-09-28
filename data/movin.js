@@ -1,4 +1,4 @@
-export const movinRegion = ["Madhya Pradesh, Chattisgarh",
+const movinRegion = ["Madhya Pradesh, Chattisgarh",
     "Bihar, Jharkhand, Odisha",
     "West Bengal",
     "Jammu & Kashmir",
@@ -7,7 +7,7 @@ export const movinRegion = ["Madhya Pradesh, Chattisgarh",
     "Assam,Arunachal Pradesh,Manipur, Meghalaya ,Mizoram, Nagaland ,Sikkim ,Tripura ",
     "Andhra Pradesh ,Karnataka , Pondicherry, Tamil Nadu , Telangana",
     "Dadra & Nagar Haveli,Daman & Diu, GOA, Gujarat ,Maharashtra , Rajasthan"]
-export const movinPrices = {
+const movinPrices = {
     'S':
         [[6.5, 9, 8, 12, 9, 8, 12, 8, 8],
         [9, 8, 8, 15, 13, 11, 11, 11, 12],
@@ -29,7 +29,7 @@ export const movinPrices = {
         [48, 58, 55, 62, 44, 55, 62, 44, 48],
         [48, 58, 55, 62, 52, 48, 62, 48, 44]]
 }
-export const movinPincodes = {
+const movinPincodes = {
     "492003": {
         "Express": "active",
         "Surface": "not active"
@@ -14311,7 +14311,7 @@ export const movinPincodes = {
         "Surface": "not active"
     }
 }
-export const IndianStateInfo = {
+const IndianStateInfo = {
     "Andaman & Nicobar" :{
         "id": 4023,
         "name": "Andaman and Nicobar Islands",
@@ -14719,4 +14719,11 @@ export const IndianStateInfo = {
         "latitude": "22.98675690",
         "longitude": "87.85497550"
     }
+}
+
+module.exports = {
+    movinRegion,
+    movinPrices,
+    movinPincodes,
+    IndianStateInfo
 }
