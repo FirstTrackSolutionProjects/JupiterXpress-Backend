@@ -43,8 +43,7 @@ functions:
       - http:
           path: /{proxy+}
           method: any
-          # cors: true
-          # integration: lambda
+          cors: true
 plugins:
   - serverless-plugin-split-stacks
   - serverless-offline

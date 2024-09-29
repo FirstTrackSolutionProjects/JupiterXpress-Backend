@@ -5,6 +5,6 @@ const router = express.Router();
 
 router.post('/request/otp', requestEmailVerificationOTP);
 router.post('/verify', verifyEmail)
-router.get('/isVerified', isEmailVerified);
+router.post('/isVerified', isEmailVerified);
 
 module.exports = router;
