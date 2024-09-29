@@ -26,11 +26,11 @@ const createRazorpayOrderId = async (req, res) => {
 
     try {
         const order = await razorpay.orders.create(options);
-        return order;
+        return res.status(200).json(order);
     } catch (error) {
-        return {
+        return res.status(500).json({
             status: 500, error: error.message
-        };
+        });
     }
 }
 
