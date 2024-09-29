@@ -1,6 +1,27 @@
 const db = require('../utils/db');
 const { transporter } = require('../utils/email');
 
+const isEmailVerified = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+        const [rows] = await db.query('SELECT * FROM USERS WHERE email = ?', [email]);
+        const emailVerified = rows[0].emailVerified;
+        return res.status(200).json({
+            status: 200, emailVerified: emailVerified
+        });
+
+
+
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, message: error.message, success: false
+        });
+    }
+}
+
 const requestEmailVerificationOTP = async (req, res) => {
     try {
         const { email } = req.body;
@@ -80,5 +101,6 @@ const verifyEmail = async (req, res) => {
 
 module.exports = {
     requestEmailVerificationOTP,
-    verifyEmail
+    verifyEmail,
+    isEmailVerified
 }

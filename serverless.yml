@@ -35,16 +35,918 @@ provider:
     S3_BUCKET_NAME_ : ${env:S3_BUCKET_NAME_}
     VERIFY_EMAIL : ${env:VERIFY_EMAIL}
 functions:
-  app:
-    handler: app.handler
+  activateUser:
+    handler: functions/activateUser.handler
     memorySize: 512
     timeout: 30
     events:
       - http:
-          path: /{proxy+}
-          method: any
-          # cors: true
-          # integration: lambda
+          path: activateUser
+          method: post
+          cors: true
+          integration: lambda
+
+  cancelShipment:
+    handler: functions/cancelShipment.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: cancelShipment
+          method: post
+          cors: true
+          integration: lambda
+
+  changePassword:
+    handler: functions/changePassword.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: changePassword
+          method: post
+          cors: true
+          integration: lambda
+
+  completeKycVerificationRequest:
+    handler: functions/completeKycVerificationRequest.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: completeKycVerificationRequest
+          method: post
+          cors: true
+          integration: lambda
+
+  completeVerificationRequest:
+    handler: functions/completeVerificationRequest.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: completeVerificationRequest
+          method: post
+          cors: true
+          integration: lambda
+
+  create:
+    handler: functions/create.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: create
+          method: post
+          cors: true
+          integration: lambda
+
+  createDomesticInternational:
+    handler: functions/createDomesticInternational.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: createDomesticInternational
+          method: post
+          cors: true
+          integration: lambda
+
+  createInternational:
+    handler: functions/createInternational.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: createInternational
+          method: post
+          cors: true
+          integration: lambda
+
+  createOrder:
+    handler: functions/createOrder.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: createOrder
+          method: post
+          cors: true
+          integration: lambda
+
+  createOrderInternational:
+    handler: functions/createOrderInternational.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: createOrderInternational
+          method: post
+          cors: true
+          integration: lambda
+
+  deactivateUser:
+    handler: functions/deactivateUser.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: deactivateUser
+          method: post
+          cors: true
+          integration: lambda
+
+  deliveryOrder:
+    handler: functions/deliveryOrder.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: deliveryOrder
+          method: post
+          cors: true
+          integration: lambda
+
+  domesticOrderMail:
+    handler: functions/domesticOrderMail.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: domesticOrderMail
+          method: post
+          cors: true
+          integration: lambda
+
+  emailVerified:
+    handler: functions/emailVerified.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: emailVerified
+          method: post
+          cors: true
+          integration: lambda
+
+  getAdminProfile:
+    handler: functions/getAdminProfile.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getAdminProfile
+          method: post
+          cors: true
+          integration: lambda
+
+  getAllReports:
+    handler: functions/getAllReports.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getAllReports
+          method: post
+          cors: true
+          integration: lambda
+
+  getAllShipments:
+    handler: functions/getAllShipments.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getAllShipments
+          method: post
+          cors: true
+          integration: lambda
+
+  getAllTransactions:
+    handler: functions/getAllTransactions.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getAllTransactions
+          method: post
+          cors: true
+          integration: lambda
+
+  getAllWarehouse:
+    handler: functions/getAllWarehouse.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getAllWarehouse
+          method: post
+          cors: true
+          integration: lambda
+
+  getBalance:
+    handler: functions/getBalance.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getBalance
+          method: post
+          cors: true
+          integration: lambda
+  
+  getBoxes:
+    handler: functions/getBoxes.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getBoxes
+          method: post
+          cors: true
+          integration: lambda
+
+  getContactRequest:
+    handler: functions/getContactRequest.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getContactRequest
+          method: post
+          cors: true
+          integration: lambda
+
+  getDocketItems:
+    handler: functions/getDocketItems.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getDocketItems
+          method: post
+          cors: true
+          integration: lambda
+
+  getDockets:
+    handler: functions/getDockets.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getDockets
+          method: post
+          cors: true
+          integration: lambda
+
+  getDocumentStatus:
+    handler: functions/getDocumentStatus.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getDocumentStatus
+          method: post
+          cors: true
+          integration: lambda
+
+  getExpense:
+    handler: functions/getExpense.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getExpense
+          method: post
+          cors: true
+          integration: lambda
+
+  getExpenseInvoice:
+    handler: functions/getExpenseInvoice.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getExpenseInvoice
+          method: post
+          cors: true
+          integration: lambda
+
+  getFlightGoReport:
+    handler: functions/getFlightGoReport.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getFlightGoReport
+          method: post
+          cors: true
+          integration: lambda
+
+  getGetSignedUrl:
+    handler: functions/getGetSignedUrl.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getGetSignedUrl
+          method: post
+          cors: true
+          integration: lambda
+
+  getInternationalReports:
+    handler: functions/getInternationalReports.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getInternationalReports
+          method: post
+          cors: true
+          integration: lambda
+
+  getInternationalShipments:
+    handler: functions/getInternationalShipments.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getInternationalShipments
+          method: post
+          cors: true
+          integration: lambda
+
+  getKycDocumentStatus:
+    handler: functions/getKycDocumentStatus.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getKycDocumentStatus
+          method: post
+          cors: true
+          integration: lambda
+
+  getKycStatus:
+    handler: functions/getKycStatus.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getKycStatus
+          method: post
+          cors: true
+          integration: lambda
+
+  getKycVerificationRequests:
+    handler: functions/getKycVerificationRequests.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getKycVerificationRequests
+          method: post
+          cors: true
+          integration: lambda
+
+  getManualTransactions:
+    handler: functions/getManualTransactions.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getManualTransactions
+          method: post
+          cors: true
+          integration: lambda
+
+  getNonVerifiedMerchants:
+    handler: functions/getNonVerifiedMerchants.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getNonVerifiedMerchants
+          method: post
+          cors: true
+          integration: lambda
+
+  getOrder:
+    handler: functions/getOrder.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getOrder
+          method: post
+          cors: true
+          integration: lambda
+
+  getProfile:
+    handler: functions/getProfile.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getProfile
+          method: post
+          cors: true
+          integration: lambda
+
+  getPutSignedUrl:
+    handler: functions/getPutSignedUrl.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getPutSignedUrl
+          method: post
+          cors: true
+          integration: lambda
+
+  getRefund:
+    handler: functions/getRefund.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getRefund
+          method: post
+          cors: true
+          integration: lambda
+
+  getReport:
+    handler: functions/getReport.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getReport
+          method: post
+          cors: true
+          integration: lambda
+
+  getReports:
+    handler: functions/getReports.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getReports
+          method: post
+          cors: true
+          integration: lambda
+
+  getShipments:
+    handler: functions/getShipments.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getShipments
+          method: post
+          cors: true
+          integration: lambda
+
+  getStatistics:
+    handler: functions/getStatistics.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getStatistics
+          method: post
+          cors: true
+          integration: lambda
+
+  getTeamAccounts:
+    handler: functions/getTeamAccounts.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getTeamAccounts
+          method: post
+          cors: true
+          integration: lambda
+
+  getTokenData:
+    handler: functions/getTokenData.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getTokenData
+          method: post
+          cors: true
+          integration: lambda
+
+  getTransactions:
+    handler: functions/getTransactions.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getTransactions
+          method: post
+          cors: true
+          integration: lambda
+
+  getVerificationRequests:
+    handler: functions/getVerificationRequests.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getVerificationRequests
+          method: post
+          cors: true
+          integration: lambda
+
+  getVerificationStatus:
+    handler: functions/getVerificationStatus.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getVerificationStatus
+          method: post
+          cors: true
+          integration: lambda
+
+  getVerifiedMerchants:
+    handler: functions/getVerifiedMerchants.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getVerifiedMerchants
+          method: post
+          cors: true
+          integration: lambda
+
+  getWarehouse:
+    handler: functions/getWarehouse.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: getWarehouse
+          method: post
+          cors: true
+          integration: lambda
+
+  internationalOrderMail:
+    handler: functions/internationalOrderMail.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: internationalOrderMail
+          method: post
+          cors: true
+          integration: lambda
+
+  kycFormSubmit:
+    handler: functions/kycFormSubmit.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: kycFormSubmit
+          method: post
+          cors: true
+          integration: lambda
+
+  label:
+    handler: functions/label.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: label
+          method: post
+          cors: true
+          integration: lambda
+
+  login:
+    handler: functions/login.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: login
+          method: post
+          cors: true
+          integration: lambda
+  
+  loginDev:
+    handler: functions/loginDev.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: loginDev
+          method: post
+          cors: true
+          integration: lambda
+
+  manualRecharge:
+    handler: functions/manualRecharge.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: manualRecharge
+          method: post
+          cors: true
+          integration: lambda
+
+  ndr:
+    handler: functions/ndr.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: ndr
+          method: post
+          cors: true
+          integration: lambda
+
+  price:
+    handler: functions/price.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: price
+          method: post
+          cors: true
+          integration: lambda
+
+  priceInquiry:
+    handler: functions/priceInquiry.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: priceInquiry
+          method: post
+          cors: true
+          integration: lambda
+
+  register:
+    handler: functions/register.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: register
+          method: post
+          cors: true
+          integration: lambda
+
+  rejectMerchant:
+    handler: functions/rejectMerchant.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: rejectMerchant
+          method: post
+          cors: true
+          integration: lambda
+
+  rejectMerchantKyc:
+    handler: functions/rejectMerchantKyc.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: rejectMerchantKyc
+          method: post
+          cors: true
+          integration: lambda
+
+  schedule:
+    handler: functions/schedule.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: schedule
+          method: post
+          cors: true
+          integration: lambda
+
+  sendResetPassword:
+    handler: functions/sendResetPassword.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: sendResetPassword
+          method: post
+          cors: true
+          integration: lambda
+
+  sendVerifyEmail:
+    handler: functions/sendVerifyEmail.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: sendVerifyEmail
+          method: post
+          cors: true
+          integration: lambda
+
+  serviceCheck:
+    handler: functions/serviceCheck.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: serviceCheck
+          method: post
+          cors: true
+          integration: lambda
+
+  submitContact:
+    handler: functions/submitContact.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: submitContact
+          method: post
+          cors: true
+          integration: lambda
+
+  track:
+    handler: functions/track.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: track
+          method: post
+          cors: true
+          integration: lambda
+
+  updateAllOrder:
+    handler: functions/updateAllOrder.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: updateAllOrder
+          method: post
+          cors: true
+          integration: lambda
+
+  updateDocumentStatus:
+    handler: functions/updateDocumentStatus.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: updateDocumentStatus
+          method: post
+          cors: true
+          integration: lambda
+
+  updateKycDocumentStatus:
+    handler: functions/updateKycDocumentStatus.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: updateKycDocumentStatus
+          method: post
+          cors: true
+          integration: lambda
+
+  updateOrder:
+    handler: functions/updateOrder.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: updateOrder
+          method: post
+          cors: true
+          integration: lambda
+
+  updateOrderInternational:
+    handler: functions/updateOrderInternational.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: updateOrderInternational
+          method: post
+          cors: true
+          integration: lambda
+
+  verify:
+    handler: functions/verify.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: verify
+          method: post
+          cors: true
+          integration: lambda
+
+  verifyEmail:
+    handler: functions/verifyEmail.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: verifyEmail
+          method: post
+          cors: true
+          integration: lambda
+
+  verifyMerchant:
+    handler: functions/verifyMerchant.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: verifyMerchant
+          method: post
+          cors: true
+          integration: lambda
+
+  verifyMerchantKyc:
+    handler: functions/verifyMerchantKyc.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: verifyMerchantKyc
+          method: post
+          cors: true
+          integration: lambda
+
+  verifyRecharge:
+    handler: functions/verifyRecharge.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: verifyRecharge
+          method: post
+          cors: true
+          integration: lambda
+
+  verifyResetPassword:
+    handler: functions/verifyResetPassword.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: verifyResetPassword
+          method: post
+          cors: true
+          integration: lambda
+
+  warehouseCreate:
+    handler: functions/warehouseCreate.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: warehouseCreate
+          method: post
+          cors: true
+          integration: lambda
+
+  warehouseUpdate:
+    handler: functions/warehouseUpdate.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: warehouseUpdate
+          method: post
+          cors: true
+          integration: lambda
+          
+  test:
+    handler: functions/test.handler
+    memorySize: 512
+    timeout: 30
+    events:
+      - http:
+          path: test
+          method: post
+          cors: true
+          integration: lambda
 plugins:
   - serverless-plugin-split-stacks
   - serverless-offline

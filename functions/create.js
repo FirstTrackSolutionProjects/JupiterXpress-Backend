@@ -262,14 +262,23 @@ exports.handler = async (event) => {
         };
       }
 
-      await connection.beginTransaction();
-      await connection.execute('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], order]);
-      await connection.execute('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
-      if (shipment.pay_method != "topay") {
-        await connection.execute('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-        await connection.execute('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price]);
+      try{
+        await connection.beginTransaction();
+        await connection.execute('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], order]);
+        await connection.execute('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+        if (shipment.pay_method != "topay") {
+          await connection.execute('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
+          await connection.execute('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price]);
+        }
+        await connection.commit();
+      } catch (err) {
+        await connection.rollback();
+        return {
+          status: 500,
+          message: "Error while updating database",
+          response : response
+        };
       }
-      await connection.commit();
 
       // Uncomment the email logic if needed
       // let mailOptions = {
@@ -288,12 +297,12 @@ exports.handler = async (event) => {
       };
     }
   } 
-  // catch (err) {
-  //   return {
-  //     status: 500,
-  //     message: err.message
-  //   };
-  // }
+  catch (err) {
+    return {
+      status: 500,
+      message: err.message
+    };
+  }
    finally {
     await connection.end();
   }
