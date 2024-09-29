@@ -12,7 +12,7 @@ const { createRazorpayOrderId,
 const router = express.Router();
 
 router.post('/razorpay/createOrderId', createRazorpayOrderId);
-router.post('/recharges/all', getAllRechargeTransactions);
+router.post('/recharges', getAllRechargeTransactions);
 router.post('/expenses', getAllExpenseTransactions);
 router.post('/manualRecharges', getAllManualRechargeTransactions);
 router.post('/refunds', getAllRefundTransactions)
