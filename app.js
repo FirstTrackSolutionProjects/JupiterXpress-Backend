@@ -19,6 +19,7 @@ const kycRoutes = require('./routes/kycRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
 const serviceAvailabilityRoutes = require('./routes/serviceAvailabilityRoutes');
+const devRoutes = require('./routes/devRoutes');
 connectDB();
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/kyc', kycRoutes)
 app.use('/verification', verificationRoutes)
 app.use('/email/verification', emailVerificationRoutes)
 app.use('/service', serviceAvailabilityRoutes)
+app.use('/dev', devRoutes)
 
 
 module.exports.handler = serverless(app);
