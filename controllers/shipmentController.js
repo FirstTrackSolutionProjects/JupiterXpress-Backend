@@ -669,8 +669,9 @@ const getDomesticShipmentReport = async (req, res) => {
                         }
                     }
                 }
+                const latestLocation =  data4.data[awb].current_branch;
                 return res.status(200).json({
-                    status: 200, data: ResultStatus, success: true, id: 3
+                    status: 200, data: {scans : ResultStatus, latestLocation}, data4:data4 ,success: true, id: 3
                 });
             }
         }
