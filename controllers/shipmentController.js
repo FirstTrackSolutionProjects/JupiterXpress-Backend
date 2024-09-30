@@ -281,7 +281,7 @@ const createDomesticShipment = async (req, res) => {
                 ]
             };
             boxes.map((box, index) => {
-                req.payload[0].package.push({
+                reqBody.payload[0].package.push({
                     "package_unique_id": `PACK_${index + 1}`,
                     "length": box.length,
                     "width": box.breadth,
