@@ -101,6 +101,10 @@ const createDomesticShipment = async (req, res) => {
             product_description += `${orders[i].product_name} (${orders[i].product_quantity}) (₹${orders[i].selling_price})\n`;
         }
 
+        const firstNameEndsAt = shipment.customer_name.indexOf(' ');
+        const splitNames = firstNameEndsAt !== -1 ? [shipment.customer_name.slice(0, firstNameEndsAt), shipment.customer_name.slice(firstNameEndsAt + 1)] : [shipment.customer_name];
+        const customerFirstName = splitNames[0];
+        const customerLastName = splitNames.length>1?splitNames[1]:customerFirstName;
         if (serviceId === "1") {
             if (boxes.length > 1) {
                 return res.status(200).json({
@@ -253,8 +257,8 @@ const createDomesticShipment = async (req, res) => {
                             ship_from_phone: users[0].phone,
                             shipment_date: shipment.pickup_date,
                             shipment_priority: categoryId == 1 ? 'Express End of Day' : 'Standard Premium',
-                            ship_to_first_name: shipment.customer_name.split(" ")[0],
-                            ship_to_last_name: shipment.customer_name.split(" ")[1],
+                            ship_to_first_name: customerFirstName,
+                            ship_to_last_name: customerLastName,
                             ship_to_company: "Customer",
                             ship_to_address_line1: shipment.shipping_address,
                             ship_to_address_line2: shipment.shipping_address_2 || shipment.shipping_address,
