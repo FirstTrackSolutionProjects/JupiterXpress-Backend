@@ -315,15 +315,24 @@ const createDomesticShipment = async (req, res) => {
                     message: response
                 });
             }
-
             const transaction = await db.beginTransaction();
-            await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], order]);
-            await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
-            if (shipment.pay_method != "topay") {
-                await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price]);
+            try{
+                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], order]);
+                await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+                if (shipment.pay_method != "topay") {
+                    await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
+                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price]);
+                }
+                await db.commit(transaction);
+            } catch (err) {
+                await db.rollback(transaction);
+                console.log(err);
+                return res.status(500).json({
+                    status: 500,
+                    response : response,
+                    error : err
+                });
             }
-            await db.commit(transaction);
 
             let mailOptions = {
                 from: process.env.EMAIL_USER,
