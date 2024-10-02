@@ -315,6 +315,13 @@ const createDomesticShipment = async (req, res) => {
                     message: response
                 });
             }
+            if (response.response.errors){
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: response.response.errors[0].shipment[`JUP${refId}`][0].error
+                });
+            }
             const transaction = await db.beginTransaction();
             try{
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], order]);
