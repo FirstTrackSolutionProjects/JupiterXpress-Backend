@@ -674,11 +674,6 @@ const updateDomesticOrder = async (req, res) => {
     try {
         const verified = jwt.verify(token, SECRET_KEY);
         const admin = verified.admin;
-        if (!admin) {
-            return res.status(400).json({
-                status: 400, message: 'Not an admin'
-            });
-        }
         try {
             let {
                 wid,
