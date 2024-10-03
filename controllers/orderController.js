@@ -674,6 +674,7 @@ const updateDomesticOrder = async (req, res) => {
     try {
         const verified = jwt.verify(token, SECRET_KEY);
         const admin = verified.admin;
+        let id = verified.id;
         try {
             let {
                 wid,
