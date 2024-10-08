@@ -241,9 +241,12 @@ const reAttemptWarehouseCreation = async (req, res) => {
         const {warehouseName, address, phone, pin, state, city, country} = warehouse;
         await createWarehouseAsync(wid, warehouseName, phone, address, city, state, country, pin);
         const result = await checkWarehouseServicesStatus(wid);
-
+        let allCreated = false;
+        if (result.every(r => r.warehouse_created)){
+            allCreated = true;
+        }
         return res.status(200).json({
-            status: 200, success: true, response : result
+            status: 200, success: true, response : result, all_created : allCreated
         });
     } catch (err) {
         console.error(err);
