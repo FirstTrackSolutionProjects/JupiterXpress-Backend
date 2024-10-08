@@ -56,9 +56,16 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         }
         return false;
     }
+    const isServiceDisabled = async (serviceId) => {
+        const [checkStatus] = db.query('SELECT * FROM SERVICES_WITH_WAREHOUSES WHERE service_id =? AND is_active = true',[serviceId]);
+        if (checkStatus.length){
+            return false;
+        }
+        return true;
+    }
     const createWarehouseDelhivery500gm = async () => {
         const serviceId = 1;
-        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId)) 
+        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId) || isServiceDisabled(serviceId)) 
             return;
 
         const createWarehouseRequest = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
@@ -81,7 +88,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
 
     const createWarehouseDelhivery10kg = async () => {
         const serviceId = 2;
-        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId)) 
+        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId) || isServiceDisabled(serviceId)) 
             return;
 
         const createWarehouseRequest = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
@@ -103,7 +110,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
 
     const createWarehousePickrr20kg = async () => {
         const serviceId = 3;
-        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId))
+        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId) || isServiceDisabled(serviceId))
             return;
 
         const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
@@ -156,7 +163,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
 
 const checkWarehouseServicesStatus = async (wid) => {
     const [connectedServices] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION where warehouse_id = ? ORDER BY service_id', [wid]);
-    const [availableServices] = await db.query('SELECT * FROM SERVICES_WITH_WAREHOUSES ORDER BY service_id');
+    const [availableServices] = await db.query('SELECT * FROM SERVICES_WITH_WAREHOUSES where is_active = true ORDER BY service_id');
     const tempResult = {};
     for (let i = 0; i < availableServices.length; i++) {
         const service_id = availableServices[i].service_id;
@@ -312,11 +319,11 @@ const getWarehousesServicesStatus = async (req, res) => {
         const result = await checkWarehouseServicesStatus(wid);
 
         return res.status(200).json({
-            status: 200, success: true, data: result
+            status: 200, success: true, response : result
         });
     } catch (error) {
         return res.status(400).json({
-            status: 400, message: 'Invalid Token', success: false
+            status: 400, message: 'Invalid Token', success: false, error
         });
     }
 
