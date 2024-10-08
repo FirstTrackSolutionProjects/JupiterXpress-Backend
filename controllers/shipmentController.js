@@ -800,7 +800,7 @@ const getDomesticShipmentLabel = async (req, res) => {
 }
 
 const getDomesticShipmentPricing = async (req, res) => {
-    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity } = req.body
+    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes } = req.body
     if (!method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status) {
         return res.status(400).json({
             status: 400, message: 'Missing required fields'
