@@ -329,4 +329,27 @@ const getWarehousesServicesStatus = async (req, res) => {
 
 }
 
-module.exports = { getAllWarehouses, getWarehouses, createWarehouse, updateWarehouse, getWarehousesServicesStatus, reAttemptWarehouseCreation };
+const justCreatedWarehouseChecked = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, success: false, message: 'Unauthorized'
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const { wid } = req.body;
+        await db.query("UPDATE WAREHOUSES set just_created = false WHERE wid =? AND uid =?", [wid, id]);
+        return res.status(200).json({
+            status: 200, success: true, message: 'Warehouse status checked successfully'
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            status: 500, success: false, message: 'Error occurred while checking warehouse status'
+        });
+    }
+}
+
+module.exports = { getAllWarehouses, getWarehouses, createWarehouse, updateWarehouse, getWarehousesServicesStatus, reAttemptWarehouseCreation, justCreatedWarehouseChecked };
