@@ -48,6 +48,136 @@ const getWarehouses = async (req, res) => {
     }
 }
 
+const createWarehouseAsync = async (wid, name, email, phone, address, city, state, country, pin) => {
+    const isWarehouseAlreadyCreatedOnCurrentService = async (serviceId) => {
+        const [checkStatus] = db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION WHERE warehouse_id = ? AND service_id = ?',[wid,serviceId]);
+        if (checkStatus.length){
+            return true;
+        }
+        return false;
+    }
+    const createWarehouseDelhivery500gm = async () => {
+        const serviceId = 1;
+        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId)) 
+            return;
+
+        const createWarehouseRequest = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ name, email, phone, address, city, state, country, pin, return_address: address, return_pin: pin, return_city: city, return_state: state, return_country: country })
+        })
+        const createWarehouseResponse = await createWarehouseRequest.json();
+        if (!createWarehouseResponse.success) {
+            console.error(createWarehouseResponse.error);
+        } else {
+            await db.query("INSERT INTO SERVICES_WAREHOUSES_RELATION (warehouse_id, service_id) VALUES (?,?)",[wid, serviceId])
+        }
+    }
+
+
+    const createWarehouseDelhivery10kg = async () => {
+        const serviceId = 2;
+        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId)) 
+            return;
+
+        const createWarehouseRequest = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ name, email, phone, address, city, state, country, pin, return_address: address, return_pin: pin, return_city: city, return_state: state, return_country: country })
+        });
+        const createWarehouseResponse = await createWarehouseRequest.json();
+        if (!createWarehouseResponse.success) {
+            console.error(createWarehouseResponse.error);
+        } else {
+            await db.query("INSERT INTO SERVICES_WAREHOUSES_RELATION (warehouse_id, service_id) VALUES (?,?)",[wid, serviceId])
+        }
+    }
+
+    const createWarehousePickrr20kg = async () => {
+        const serviceId = 3;
+        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId))
+            return;
+
+        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+        })
+        const shiprocketLoginData = await shipRocketLogin.json()
+        const shiprocketAccess = shiprocketLoginData.access
+        const shipRocketCargo = await fetch(`https://api-cargo.shiprocket.in/api/warehouses/`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name,
+                client_id: 6488,
+                address: {
+                    address_line_1: address,
+                    address_line_2: address,
+                    pincode: pin,
+                    city: city,
+                    state: state,
+                    country: country
+                },
+                "warehouse_code": name.replace(/\s+/g, ''),
+                "contact_person_name": verified.name,
+                "contact_person_email": verified.email,
+                "contact_person_contact_no": "1234567890"
+            })
+        });
+        const data3 = await shipRocketCargo.json();
+        if (data3.non_field_errors) {
+            console.log(data3.non_field_errors)
+        } else {
+            await db.query("INSERT INTO SERVICES_WAREHOUSES_RELATION (warehouse_id, service_id) VALUES (?,?)",[wid, serviceId]);
+        }
+    }
+
+    await Promise.all([
+        createWarehouseDelhivery500gm,
+        createWarehouseDelhivery10kg,
+        createWarehousePickrr20kg
+    ])
+}
+
+const checkWarehouseServicesStatus = async (wid) => {
+    const [connectedServices] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION where warehouse_id = ? ORDER BY service_id', [wid]);
+    const [availableServices] = await db.query('SELECT * FROM SERVICES_WITH_WAREHOUSES ORDER BY service_id');
+    const tempResult = {};
+    for (let i = 0; i < availableServices.length; i++) {
+        const service_id = availableServices[i].service_id;
+        const temp = {
+            service_id: availableServices[i].service_id,
+            service_name: availableServices[i].service_name,
+            warehouse_created: false
+        }
+        tempResult[service_id] = temp;
+    }
+    for (let i = 0; i < connectedServices.length; i++) {
+        const service_id = connectedServices[i].service_id;
+        tempResult[service_id].warehouse_created = true;
+    }
+    const result = [];
+    for (const key in tempResult) {
+        result.push(tempResult[key]);
+    }
+    return result;
+}
+
 const createWarehouse = async (req, res) => {
     const {
         name,
@@ -64,54 +194,16 @@ const createWarehouse = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY)
         const id = verified.id
 
-        const transaction = await db.beginTransaction();
-        await transaction.execute('INSERT INTO WAREHOUSES (uid, warehouseName, address, phone, pin) VALUES (?,?,?,?,?)', [id, name, address, phone, pin]);
-        const delhivery_500 = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ name, email, phone, address, city, state, country, pin, return_address: address, return_pin: pin, return_city: city, return_state: state, return_country: country })
-        });
-        const delhivery_10 = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ name, email, phone, address, city, state, country, pin, return_address: address, return_pin: pin, return_city: city, return_state: state, return_country: country })
-        });
-        //   const response2 = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
-        //     method: 'POST',
-        //     headers: {
-        //     'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
-        //     'Content-Type': 'application/json',
-        //     'Accept': 'application/json'
-        //     },
-        //     body: JSON.stringify({name, email, phone, address, city, state, country, pin, return_address:address, return_pin:pin, return_city:city, return_state:state, return_country:country})
-        // });
-        const data = await delhivery_500.json();
-        const data2 = await delhivery_10.json();
-        if (!data.success || !data2.success) {
-            return res.status(400).json({
-                status: 400, success: false, message: data.error + data2.error
-            });
-        }
-        try {
+        const [warehouse] = await db.query('INSERT INTO WAREHOUSES (uid, warehouseName, address, phone, pin, state, city, country) VALUES (?,?,?,?,?)', [id, name, address, phone, pin, state, city, country]);
 
-            await db.commit(transaction);
+        const wid = warehouse.insertId;
 
-        } catch (error) {
-            await db.rollback(transaction);
-            return res.status(500).json({
-                status: 500, message: error.message, success: false
-            });
-        }
+        await createWarehouseAsync(wid, name, email, phone, address, city, state, country, pin);
+
+        const createWarehouseResult = await checkWarehouseServicesStatus(wid)
+
         return res.status(200).json({
-            status: 200, success: true, message: data.data.message
+            status: 200, success: true, response : createWarehouseResult
         });
     } catch (error) {
         return res.status(500).json({
@@ -172,4 +264,29 @@ const updateWarehouse = async (req, res) => {
     }
 }
 
-module.exports = { getAllWarehouses, getWarehouses, createWarehouse, updateWarehouse };
+const getWarehousesServicesStatus = async (req, res) => {
+    const token = req.headers.authorization;
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        if (!id) {
+            return res.status(400).json({
+                status: 400, message: 'Access Denied'
+            });
+        }
+        const { wid } = req.body;
+
+        const result = await checkWarehouseServicesStatus(wid);
+
+        return res.status(200).json({
+            status: 200, success: true, data: result
+        });
+    } catch (error) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token', success: false
+        });
+    }
+
+}
+
+module.exports = { getAllWarehouses, getWarehouses, createWarehouse, updateWarehouse, getWarehousesServicesStatus };
