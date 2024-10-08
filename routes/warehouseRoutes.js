@@ -4,7 +4,8 @@ const { getAllWarehouses,
         createWarehouse, 
         updateWarehouse, 
         reAttemptWarehouseCreation, 
-        getWarehousesServicesStatus 
+        getWarehousesServicesStatus, 
+        justCreatedWarehouseChecked
     } = require('../controllers/warehouseController');
 
 const router = express.Router();
@@ -15,5 +16,6 @@ router.post('/create', createWarehouse);
 router.post('/update', updateWarehouse);
 router.post('/create/retry', reAttemptWarehouseCreation);
 router.post('/check', getWarehousesServicesStatus);
+router.post('/new/seen', justCreatedWarehouseChecked);
 
 module.exports = router;
