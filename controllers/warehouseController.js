@@ -322,4 +322,4 @@ const getWarehousesServicesStatus = async (req, res) => {
 
 }
 
-module.exports = { getAllWarehouses, getWarehouses, createWarehouse, updateWarehouse, getWarehousesServicesStatus };
+module.exports = { getAllWarehouses, getWarehouses, createWarehouse, updateWarehouse, getWarehousesServicesStatus, reAttemptWarehouseCreation };
