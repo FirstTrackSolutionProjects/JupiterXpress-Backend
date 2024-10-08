@@ -318,9 +318,12 @@ const getWarehousesServicesStatus = async (req, res) => {
         const { wid } = req.body;
 
         const result = await checkWarehouseServicesStatus(wid);
-
+        const allCreated = false;
+        if (result.every(r => r.warehouse_created)) {
+            allCreated = true;
+        }
         return res.status(200).json({
-            status: 200, success: true, response : result
+            status: 200, success: true, response : result, all_created: allCreated
         });
     } catch (error) {
         return res.status(400).json({
