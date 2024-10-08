@@ -1249,6 +1249,30 @@ const trackShipment = async (req, res) => {
             status: 200, data: ResultStatus, success: true, id: 3
         });
     }
+
+    const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+    })
+    const shiprocketLoginData = await shipRocketLogin.json()
+    const shiprocketAccess = shiprocketLoginData.access
+    const shipRocketTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
+        headers: {
+            'Authorization': `Bearer ${shiprocketAccess}`,
+            'Accept': 'application/json'
+        }
+    })
+    const shiprocketTrackData = await shipRocketTrack.json()
+    if (shiprocketTrackData.id) {
+        return {
+            status: 200,
+            data: shiprocketTrackData.status_history, success: true, id: 4,
+        };
+    }
+
     return res.status(404).json({
         status: 404, message: "Service not found"
     });
