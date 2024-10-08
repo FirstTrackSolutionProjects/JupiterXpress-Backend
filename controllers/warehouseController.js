@@ -48,7 +48,7 @@ const getWarehouses = async (req, res) => {
     }
 }
 
-const createWarehouseAsync = async (wid, name, email, phone, address, city, state, country, pin) => {
+const createWarehouseAsync = async (wid, name, phone, address, city, state, country, pin) => {
     const isWarehouseAlreadyCreatedOnCurrentService = async (serviceId) => {
         const [checkStatus] = db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION WHERE warehouse_id = ? AND service_id = ?',[wid,serviceId]);
         if (checkStatus.length){
@@ -198,7 +198,7 @@ const createWarehouse = async (req, res) => {
 
         const wid = warehouse.insertId;
 
-        await createWarehouseAsync(wid, name, email, phone, address, city, state, country, pin);
+        await createWarehouseAsync(wid, name, phone, address, city, state, country, pin);
 
         const createWarehouseResult = await checkWarehouseServicesStatus(wid)
 
@@ -212,6 +212,39 @@ const createWarehouse = async (req, res) => {
     }
 }
 
+const reAttemptWarehouseCreation = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, success: false, message: 'Unauthorized'
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY)
+        const id = verified.id
+        const {wid} = req.body;
+        const [warehouses] = await db.query("SELECT * FROM WAREHOUSES WHERE wid = ?", [wid]);
+        if (!warehouses.length){
+            return res.status(404).json({
+                status: 404, success: false, message: 'Warehouse not found'
+            });
+        }
+        const warehouse = warehouses[0];
+        const {warehouseName, address, phone, pin, state, city, country} = warehouse;
+        await createWarehouseAsync(wid, warehouseName, phone, address, city, state, country, pin);
+        const result = await checkWarehouseServicesStatus(wid);
+
+        return res.status(200).json({
+            status: 200, success: true, response : result
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            status: 500, success: false, message: 'Error occurred while creating warehouse'
+        });
+    }
+}
+ 
 const updateWarehouse = async (req, res) => {
     const {
         name,
