@@ -201,7 +201,7 @@ const createWarehouse = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY)
         const id = verified.id
 
-        const [warehouse] = await db.query('INSERT INTO WAREHOUSES (uid, warehouseName, address, phone, pin, state, city, country) VALUES (?,?,?,?,?)', [id, name, address, phone, pin, state, city, country]);
+        const [warehouse] = await db.query('INSERT INTO WAREHOUSES (uid, warehouseName, address, phone, pin, state, city, country, just_created) VALUES (?,?,?,?,?)', [id, name, address, phone, pin, state, city, country, true]);
 
         const wid = warehouse.insertId;
 
@@ -236,6 +236,7 @@ const reAttemptWarehouseCreation = async (req, res) => {
                 status: 404, success: false, message: 'Warehouse not found'
             });
         }
+        await db.query("UPDATE WAREHOUSES set just_created = true WHERE wid = ? AND uid = ?", [wid, id]);
         const warehouse = warehouses[0];
         const {warehouseName, address, phone, pin, state, city, country} = warehouse;
         await createWarehouseAsync(wid, warehouseName, phone, address, city, state, country, pin);
