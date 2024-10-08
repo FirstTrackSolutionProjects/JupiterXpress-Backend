@@ -318,7 +318,7 @@ const getWarehousesServicesStatus = async (req, res) => {
         const { wid } = req.body;
 
         const result = await checkWarehouseServicesStatus(wid);
-        const allCreated = false;
+        let allCreated = false;
         if (result.every(r => r.warehouse_created)) {
             allCreated = true;
         }
