@@ -104,7 +104,7 @@ const createDomesticShipment = async (req, res) => {
         const firstNameEndsAt = shipment.customer_name.indexOf(' ');
         const splitNames = firstNameEndsAt !== -1 ? [shipment.customer_name.slice(0, firstNameEndsAt), shipment.customer_name.slice(firstNameEndsAt + 1)] : [shipment.customer_name];
         const customerFirstName = splitNames[0];
-        const customerLastName = splitNames.length>1?splitNames[1]:customerFirstName;
+        const customerLastName = splitNames.length > 1 ? splitNames[1] : customerFirstName;
         if (serviceId === "1") {
             if (boxes.length > 1) {
                 return res.status(200).json({
@@ -315,8 +315,8 @@ const createDomesticShipment = async (req, res) => {
                     message: response
                 });
             }
-            try{
-                if (response.response.errors[0].shipment[`JUP${refId}`][0].error){
+            try {
+                if (response.response.errors[0].shipment[`JUP${refId}`][0].error) {
                     return res.status(400).json({
                         status: 400,
                         success: false,
@@ -327,7 +327,7 @@ const createDomesticShipment = async (req, res) => {
                 //No error found, so shipment creation can be procedded
             }
             const transaction = await db.beginTransaction();
-            try{
+            try {
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
                 if (shipment.pay_method != "topay") {
@@ -340,8 +340,8 @@ const createDomesticShipment = async (req, res) => {
                 console.log(err);
                 return res.status(500).json({
                     status: 500,
-                    response : response,
-                    error : err
+                    response: response,
+                    error: err
                 });
             }
 
@@ -693,9 +693,9 @@ const getDomesticShipmentReport = async (req, res) => {
                         }
                     }
                 }
-                const latestLocation =  data4.data[awb].current_branch;
+                const latestLocation = data4.data[awb].current_branch;
                 return res.status(200).json({
-                    status: 200, data: {scans : ResultStatus, latestLocation}, data4:data4 ,success: true, id: 3
+                    status: 200, data: { scans: ResultStatus, latestLocation }, data4: data4, success: true, id: 3
                 });
             }
         }
@@ -907,6 +907,69 @@ const getDomesticShipmentPricing = async (req, res) => {
             })
         }
 
+
+        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+        })
+        const shiprocketLoginData = await shipRocketLogin.json()
+        const shiprocketAccess = shiprocketLoginData.access
+        const shipRocketPriceBody = {
+            "from_pincode": origin,
+            "from_city": "Mumbai",
+            "from_state": "Maharashtra",
+            "to_pincode": dest,
+            "to_city": "New Delhi",
+            "to_state": "Delhi",
+            "quantity": quantity,
+            "invoice_value": 1111,
+            "calculator_page": "true",
+            "packaging_unit_details": []
+        }
+        boxes.map((box, index) => {
+            shipRocketPriceBody.packaging_unit_details.push({
+                "units": 1,
+                "length": box.length,
+                "height": box.height,
+                "weight": parseInt(box.weight) / 1000,
+                "width": box.breadth,
+                "unit": "cm"
+            })
+        })
+        const shipRocketPrice = await fetch(`https://api-cargo.shiprocket.in/api/shipment/charges/`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(shipRocketPriceBody)
+        })
+        const shiprocketPriceData = await shipRocketPrice.json()
+        for (const service in shiprocketPriceData) {
+            if (method == 'S' && service.endsWith('-surface')) {
+                responses.push({
+                    "name": service,
+                    "weight": "20Kg",
+                    "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
+                    "serviceId": "3",
+                    "categoryId": "1",
+                    "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
+                })
+            } else if (method == 'E' && service.endsWith('-air')) {
+                responses.push({
+                    "name": service,
+                    "weight": "20Kg",
+                    "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
+                    "serviceId": "3",
+                    "categoryId": "1",
+                    "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
+                })
+            }
+        }
         return res.status(200).json({
             status: 200, prices: responses
         });
