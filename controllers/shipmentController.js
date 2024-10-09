@@ -1186,25 +1186,30 @@ const trackShipment = async (req, res) => {
             status: 200, data: data2, success: true, id: 1
         });
     }
-    try {
-        const response3 = await fetch(`http://admin.flightgo.in/api/tracking_api/get_tracking_data?api_company_id=24&customer_code=1179&tracking_no=${awb}`, {
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-            },
-        });
-        const data3 = await response3.json();
-        if (!data3[0].errors) {
-            return res.status(200).json({
-                status: 200, data: data3[0], success: true, id: 2
-            });
+
+    const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+    })
+    const shiprocketLoginData = await shipRocketLogin.json()
+    const shiprocketAccess = shiprocketLoginData.access
+    const shipRocketTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
+        headers: {
+            'Authorization': `Bearer ${shiprocketAccess}`,
+            'Accept': 'application/json'
         }
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({
-            status: 500, message: "Error fetching tracking data", success: false
+    })
+    const shiprocketTrackData = await shipRocketTrack.json()
+    if (shiprocketTrackData.id) {
+        return res.status(200).json({
+            status: 200,
+            data: shiprocketTrackData.status_history, success: true, id: 4,
         });
     }
+
     const loginPayload = {
         grant_type: "client_credentials",
         client_id: process.env.MOVIN_CLIENT_ID,
@@ -1250,29 +1255,27 @@ const trackShipment = async (req, res) => {
         });
     }
 
-    const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
-    })
-    const shiprocketLoginData = await shipRocketLogin.json()
-    const shiprocketAccess = shiprocketLoginData.access
-    const shipRocketTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
-        headers: {
-            'Authorization': `Bearer ${shiprocketAccess}`,
-            'Accept': 'application/json'
+    try {
+        const response3 = await fetch(`http://admin.flightgo.in/api/tracking_api/get_tracking_data?api_company_id=24&customer_code=1179&tracking_no=${awb}`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+        const data3 = await response3.json();
+        if (data3.length) {
+            if (!data3[0].errors) {
+                return res.status(200).json({
+                    status: 200, data: data3[0], success: true, id: 2
+                });
+            }
         }
-    })
-    const shiprocketTrackData = await shipRocketTrack.json()
-    if (shiprocketTrackData.id) {
-        return {
-            status: 200,
-            data: shiprocketTrackData.status_history, success: true, id: 4,
-        };
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            status: 500, message: "Error fetching tracking data", success: false
+        });
     }
-
     return res.status(404).json({
         status: 404, message: "Service not found"
     });
