@@ -42,7 +42,7 @@ const createIncompleteVerifyRequest = async (req, res) => {
                         status: 400, message: 'You already have a pending verification request'
                     });
                 }
-                await db.query('INSERT INTO MERCHANT_VERIFICATION (uid, address, city, state, pin ,aadhar_number, pan_number, gst, cin, accountNumber, ifsc, bank, msme, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, address, city, state, pin, aadhar, pan, gst, cin, account, ifsc, bank, msme, "incomplete"]);
+                await db.query('INSERT INTO MERCHANT_VERIFICATION (uid, address, city, state, pin ,aadhar_number, pan_number, gst, cin, accountNumber, ifsc, bank, msme, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, address, city, state, pin, aadhar, pan, gst || null, cin || null, account, ifsc, bank, msme || null, "incomplete"]);
                 const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [id]);
                 const email = users[0].email;
                 const name = users[0].fullName;
