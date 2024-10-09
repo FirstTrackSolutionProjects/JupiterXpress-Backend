@@ -1,5 +1,6 @@
 const db = require('../utils/db');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
