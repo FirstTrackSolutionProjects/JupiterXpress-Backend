@@ -458,7 +458,7 @@ const createDomesticShipment = async (req, res) => {
                         await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
                         await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price])
                     }
-                    await connection.commit();
+                    await db.commit(transaction);
                     let mailOptions = {
                         from: process.env.EMAIL_USER,
                         to: email,
