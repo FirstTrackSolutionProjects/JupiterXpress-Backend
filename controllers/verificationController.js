@@ -240,9 +240,14 @@ const getIncompleteVerification = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;
         try {
-            const [req] = await db.query("SELECT * FROM MERCHANT_VERIFICATION WHERE status='incomplete' AND uid = ?", [id]);
+            const [requests] = await db.query("SELECT * FROM MERCHANT_VERIFICATION WHERE status='incomplete' AND uid = ?", [id]);
+            if (requests.length) {
+                return res.status(200).json({
+                    status: 200, success: true, message: requests[0]
+                });
+            }
             return res.status(200).json({
-                status: 200, success: true, message: req[0]
+                status: 200, success: false, message: 'No incomplete verification found'
             });
         } catch (error) {
             return res.status(500).json({
