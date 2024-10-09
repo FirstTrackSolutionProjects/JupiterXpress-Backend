@@ -796,6 +796,32 @@ const getDomesticShipmentLabel = async (req, res) => {
         return res.status(200).json({
             status: 200, label: label.response, success: true
         });
+    } else if (serviceId == 3) {
+        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+        })
+        const shiprocketLoginData = await shipRocketLogin.json()
+        const shiprocketAccess = shiprocketLoginData.access
+        const vendorRefId = shipment.shipping_vendor_reference_id;
+        const getShipmentStatus = await fetch(`https://api-cargo.shiprocket.in/api/external/get_shipment/${vendorRefId}/`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Content-Type': 'application/json'
+            },
+        });
+
+        const getShipmentStatusData = await getShipmentStatus.json();
+
+        const label = getShipmentStatusData.label_url
+        return res.status(200).json({
+            status: 200,
+            label: label, success: true
+        });
     }
 }
 
