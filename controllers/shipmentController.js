@@ -359,6 +359,124 @@ const createDomesticShipment = async (req, res) => {
                 response: response,
                 success: true
             });
+        } else if (serviceId == 3) {
+            const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+            })
+            const shiprocketLoginData = await shipRocketLogin.json()
+            const shiprocketAccess = shiprocketLoginData.access
+            const shiprocketCreateOrderPayload = {
+                "no_of_packages": boxes.length,
+                "approx_weight": total_weight,
+                "is_insured": false,
+                "is_to_pay": false,
+                "to_pay_amount": null,
+                "source_warehouse_name": warehouse.warehouseName,
+                "source_address_line1": warehouse.address,
+                "source_address_line2": warehouse.address,
+                "source_pincode": warehouse.pin,
+                "source_city": warehouse.city,
+                "source_state": warehouse.state,
+                "sender_contact_person_name": verified.name,
+                "sender_contact_person_email": verified.email,
+                "sender_contact_person_contact_no": "1234567890",
+                "destination_warehouse_name": shipment.shipping_city,
+                "destination_address_line1": shipment.shipping_address,
+                "destination_address_line2": shipment.shipping_address_2,
+                "destination_pincode": shipment.shipping_postcode,
+                "destination_city": shipment.shipping_city,
+                "destination_state": shipment.shipping_state,
+                "recipient_contact_person_name": shipment.customer_name,
+                "recipient_contact_person_email": shipment.customer_email,
+                "recipient_contact_person_contact_no": shipment.customer_mobile,
+                "client_id": "6488",
+                "packaging_unit_details": [],
+                "recipient_GST": null,
+                "supporting_docs": [],
+                "is_cod": shipment.pay_method == "Pre-paid" ? false : true,
+                "cod_amount": shipment.cod_amount,
+                "mode_name": shipment.shipping_mode == "Surface" ? "surface" : "air"
+            }
+
+            boxes.map((box, index) => {
+                shiprocketCreateOrderPayload.packaging_unit_details.push({
+                    "units": 1,
+                    "weight": parseInt(box.weight) / 1000,
+                    "length": box.length,
+                    "height": box.height,
+                    "width": box.breadth,
+                    "unit": "cm"
+                },)
+            })
+
+            const shipRocketCreateOrder = await fetch(`https://api-cargo.shiprocket.in/api/external/order_creation/`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketAccess}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(shiprocketCreateOrderPayload)
+            });
+
+            const shipRocketCreateOrderData = await shipRocketCreateOrder.json();
+            const invoiceUrl = process.env.BUCKET_URL + shipment.invoice_url
+            if (shipRocketCreateOrderData.success) {
+                const shipRocketShipmentCreate = await fetch('https://api-cargo.shiprocket.in/api/order_shipment_association/', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${shiprocketAccess}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        "client_id": "6488",
+                        "order_id": shipRocketCreateOrderData.order_id,
+                        "remarks": "Shipment",
+                        "recipient_GST": null,
+                        "to_pay_amount": "0",
+                        "mode_id": shipRocketCreateOrderData.mode_id,
+                        "delivery_partner_id": shipRocketCreateOrderData.delivery_partner_id,
+                        "pickup_date_time": `${shipment.pickup_date} ${shipment.pickup_time}`,
+                        "eway_bill_no": shipment.ewaybill,
+                        "invoice_value": shipment.invoice_amount,
+                        "invoice_number": shipment.invoice_number,
+                        "invoice_date": shipment.invoice_date,
+                        "supporting_docs": [invoiceUrl]
+                    })
+                })
+                const shipRocketShipmentCreateData = await shipRocketShipmentCreate.json();
+                if (shipRocketShipmentCreateData.id) {
+                    const transaction = await db.beginTransaction();
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, shipRocketShipmentCreateData.id, order])
+                    await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
+                    if (shipment.pay_method != "topay") {
+                        await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
+                        await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price])
+                    }
+                    await connection.commit();
+                    let mailOptions = {
+                        from: process.env.EMAIL_USER,
+                        to: email,
+                        subject: 'Shipment created successfully',
+                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Pickrr Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                    };
+                    await transporter.sendMail(mailOptions)
+                    return res.status(200).json({
+                        status: 200, response: shipRocketShipmentCreateData, res2: shipRocketCreateOrderData, success: true
+                    })
+                }
+                return res.status(400).json({
+                    status: 400, success: false, response: shipRocketShipmentCreateData, res2: shipRocketCreateOrderData, message: "Error in creating shipment at Shiprocket"
+                })
+            }
+            return res.status(500).json({
+                status: 500, success: false, shipRocketCreateOrderData, message: "Error in creating order at Shiprocket"
+            })
         }
     }
     catch (err) {
@@ -512,7 +630,7 @@ const createInternationalShipment = async (req, res) => {
         };
         await transporter.sendMail(mailOptions)
         return res.status(200).json({
-            status: 200, req: req, response: response, success: true, user: user
+            status: 200, req: reqBody, response: response, success: true, user: user
         });
 
 
