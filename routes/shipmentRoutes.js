@@ -11,7 +11,8 @@ const { cancelShipment,
         getDomesticShipmentPricing,
         internationalShipmentPricingInquiry,
         domesticShipmentPickupSchedule,
-        trackShipment
+        trackShipment,
+        updateDomesticProcessingShipments
     } = require('../controllers/shipmentController');
 
 const router = express.Router();
@@ -26,6 +27,7 @@ router.post('/domestic/report', getDomesticShipmentReport);
 router.post('/domestic/label', getDomesticShipmentLabel)
 router.post('/domestic/price', getDomesticShipmentPricing)
 router.post('/domestic/pickup/request', domesticShipmentPickupSchedule)
+router.post('/domestic/refresh', updateDomesticProcessingShipments)
 
 router.post('/international/create', createInternationalShipment);
 router.post('/international/report', getInternationalShipmentReport);
