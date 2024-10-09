@@ -38,9 +38,9 @@ const createIncompleteVerifyRequest = async (req, res) => {
             try {
                 const [requests] = await db.query('SELECT * FROM MERCHANT_VERIFICATION WHERE uid = ? AND status = "pending"', [id]);
                 if (requests.length) {
-                    return {
+                    return res.status(400).json({
                         status: 400, message: 'You already have a pending verification request'
-                    };
+                    });
                 }
                 await db.query('INSERT INTO MERCHANT_VERIFICATION (uid, address, city, state, pin ,aadhar_number, pan_number, gst, cin, accountNumber, ifsc, bank, msme, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, address, city, state, pin, aadhar, pan, gst, cin, account, ifsc, bank, msme, "incomplete"]);
                 const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [id]);
@@ -240,9 +240,14 @@ const getIncompleteVerification = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;
         try {
-            const [req] = await db.query("SELECT * FROM MERCHANT_VERIFICATION WHERE status='incomplete' AND uid = ?", [id]);
+            const [requests] = await db.query("SELECT * FROM MERCHANT_VERIFICATION WHERE status='incomplete' AND uid = ?", [id]);
+            if (requests.length){
+                return res.status(200).json({
+                    status: 200, success: true, message: requests[0]
+                });
+            }
             return res.status(200).json({
-                status: 200, success: true, message: req[0]
+                status: 200, success: false, message: 'No incomplete verification request found'
             });
         } catch (error) {
             return res.status(500).json({
