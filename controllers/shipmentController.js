@@ -186,7 +186,7 @@ const createDomesticShipment = async (req, res) => {
             const response = await responseDta.json();
             if (response.success) {
                 const transaction = await db.beginTransaction();
-                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.packages[0].waybill, true, false ,order]);
+                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.packages[0].waybill, true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
@@ -328,7 +328,7 @@ const createDomesticShipment = async (req, res) => {
             }
             const transaction = await db.beginTransaction();
             try {
-                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0],true, false, order]);
+                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
@@ -1448,6 +1448,90 @@ const trackShipment = async (req, res) => {
     });
 }
 
+const updateDomesticProcessingShipments = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return {
+            status: 401,
+            message: 'Access Denied'
+        };
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        if (!id) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Invalid token'
+            });
+        }
+        const { ord_id } = req.body;
+        if (!ord_id) {
+            return {
+                status: 400,
+                message: 'Order id is required'
+            };
+        }
+        try {
+            const [orders] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ?  AND in_process = true', [ord_id]);
+            if (!orders.length) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Order is already processed'
+                });
+            }
+            const order = orders[0];
+            const serviceId = order.serviceId;
+            const categoryId = order.categoryId;
+            const vendorRefId = order.shipping_vendor_reference_id;
+            if (serviceId == 3) {
+
+                const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+                })
+                const shiprocketLoginData = await shipRocketLogin.json()
+                const shiprocketAccess = shiprocketLoginData.access
+
+                const getShipmentStatus = await fetch(`https://api-cargo.shiprocket.in/api/external/get_shipment/${vendorRefId}/`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${shiprocketAccess}`,
+                        'Content-Type': 'application/json'
+                    },
+                });
+
+                const getShipmentStatusData = await getShipmentStatus.json();
+
+                if (getShipmentStatusData.waybill_no) {
+                    await db.query('UPDATE SHIPMENTS SET awb = ?, in_process = ? WHERE ord_id = ?', [getShipmentStatusData.waybill_no, false, ord_id]);
+                    return { status: 200, success: true, message: 'Shipment processed successfully', awb: getShipmentStatusData.waybill_no };
+                } else {
+                    return { status: 200, success: false, message: 'Shipment is still under process' };
+                }
+
+            } else {
+                return { status: 404, message: 'Service not found' };
+            }
+        } catch (e) {
+            console.error(e);
+            return res.status(500).json({
+                status: 500,
+                message: 'Internal Server Error'
+            });
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            status: 500,
+            message: 'Internal Server Error'
+        });
+    }
+}
+
 module.exports = {
     cancelShipment,
     createDomesticShipment,
@@ -1461,6 +1545,7 @@ module.exports = {
     getDomesticShipmentPricing,
     internationalShipmentPricingInquiry,
     domesticShipmentPickupSchedule,
-    trackShipment
+    trackShipment,
+    updateDomesticProcessingShipments
 };
 
