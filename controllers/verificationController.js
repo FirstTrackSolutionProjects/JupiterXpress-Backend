@@ -30,7 +30,7 @@ const createIncompleteVerifyRequest = async (req, res) => {
                 account,
                 cin
             } = req.body;
-            if (!address || !state || !city || !pin || !aadhar || !pan || !gst || !msme || !bank || !ifsc || !account || !cin) {
+            if (!address || !state || !city || !pin || !aadhar || !pan || !bank || !ifsc || !account) {
                 return res.status(400).json({
                     status: 400, message: 'All fields are required'
                 });
