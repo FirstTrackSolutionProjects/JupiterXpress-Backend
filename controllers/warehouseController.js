@@ -252,6 +252,9 @@ const updateWarehouse = async (req, res) => {
         address,
         pin
     } = req.body
+    return res.state(200).json({
+        status: 200, success: false, message: 'This feature is temporarily disabled'
+    })
     try {
         const response = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/edit/`, {
             method: 'POST',
