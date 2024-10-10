@@ -50,7 +50,8 @@ const createDomesticOrder = async (req, res) => {
                 invoiceNumber,
                 invoiceDate,
                 invoiceAmount,
-                invoiceUrl
+                invoiceUrl,
+                ewaybill
             } = req.body;
             if (same) {
                 Baddress = address;
@@ -104,8 +105,9 @@ const createDomesticOrder = async (req, res) => {
                         invoice_number,
                         invoice_date,
                         invoice_amount,
-                        invoice_url
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?)`,
+                        invoice_url,
+                        ewaybill
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?, ?,?,?,?,?)`,
                     [
                         id,
                         order,
@@ -141,7 +143,8 @@ const createDomesticOrder = async (req, res) => {
                         invoiceNumber,
                         invoiceDate,
                         invoiceAmount,
-                        invoiceUrl
+                        invoiceUrl,
+                        ewaybill
                     ]
                 );
                 for (let i = 0; i < boxes.length; i++) {
