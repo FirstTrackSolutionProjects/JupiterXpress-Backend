@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const db = require('../utils/db');
-
+const {transporter} = require('../utils/email');
 const SECRET_KEY = process.env.JWT_SECRET
 
 const getContactRequests = async (req, res) => {
