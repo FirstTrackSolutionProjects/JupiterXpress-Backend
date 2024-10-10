@@ -48,25 +48,27 @@ const getWarehouses = async (req, res) => {
     }
 }
 
-const createWarehouseAsync = async (wid, name, phone, address, city, state, country, pin) => {
+const createWarehouseAsync = async (wid, name, phone, address, city, state, country, pin, verified) => {
     const isWarehouseAlreadyCreatedOnCurrentService = async (serviceId) => {
-        const [checkStatus] = db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION WHERE warehouse_id = ? AND service_id = ?', [wid, serviceId]);
+        const [checkStatus] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION WHERE warehouse_id = ? AND service_id = ?', [wid, serviceId]);
         if (checkStatus.length) {
             return true;
         }
         return false;
     }
     const isServiceDisabled = async (serviceId) => {
-        const [checkStatus] = db.query('SELECT * FROM SERVICES_WITH_WAREHOUSES WHERE service_id =? AND is_active = true', [serviceId]);
+        const [checkStatus] = await db.query('SELECT * FROM SERVICES_WITH_WAREHOUSES WHERE service_id =? AND is_active = false', [serviceId]);
         if (checkStatus.length) {
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
     const createWarehouseDelhivery500gm = async () => {
         const serviceId = 1;
-        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId) || isServiceDisabled(serviceId))
-            return;
+        const warehouseAlreadyExists = await isWarehouseAlreadyCreatedOnCurrentService(serviceId);
+        const isServiceNotActive = await isServiceDisabled(serviceId);
+        if (warehouseAlreadyExists || isServiceNotActive)
+            return {remarks: 'Warehouse already exists'};
 
         const createWarehouseRequest = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
             method: 'POST',
@@ -80,14 +82,18 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         const createWarehouseResponse = await createWarehouseRequest.json();
         if (!createWarehouseResponse.success) {
             console.error(createWarehouseResponse.error);
+            return {response : createWarehouseResponse}
         } else {
             await db.query("INSERT INTO SERVICES_WAREHOUSES_RELATION (warehouse_id, service_id) VALUES (?,?)", [wid, serviceId])
+            return {success : true}
         }
     }
     const createWarehouseDelhivery10kg = async () => {
         const serviceId = 2;
-        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId) || isServiceDisabled(serviceId))
-            return;
+        const warehouseAlreadyExists = await isWarehouseAlreadyCreatedOnCurrentService(serviceId);
+        const isServiceNotActive = await isServiceDisabled(serviceId);
+        if (warehouseAlreadyExists || isServiceNotActive)
+            return {remarks: 'Warehouse already exists'};
         const createWarehouseRequest = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/create/`, {
             method: 'POST',
             headers: {
@@ -100,15 +106,20 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         const createWarehouseResponse = await createWarehouseRequest.json();
         if (!createWarehouseResponse.success) {
             console.error(createWarehouseResponse.error);
+            return {response : createWarehouseResponse}
         } else {
             await db.query("INSERT INTO SERVICES_WAREHOUSES_RELATION (warehouse_id, service_id) VALUES (?,?)", [wid, serviceId])
+            return {success : true}
         }
     }
 
     const createWarehousePickrr20kg = async () => {
         const serviceId = 3;
-        if (isWarehouseAlreadyCreatedOnCurrentService(serviceId) || isServiceDisabled(serviceId))
-            return;
+        const warehouseAlreadyExists = await isWarehouseAlreadyCreatedOnCurrentService(serviceId);
+        const isServiceNotActive = await isServiceDisabled(serviceId);
+        if (warehouseAlreadyExists || isServiceNotActive)
+            return {remarks: 'Warehouse already exists'};
+        
         const shiprocketClientID = process.env.SHIPROCKET_CLIENT_ID
         const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
             method: 'POST',
@@ -146,15 +157,18 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         const data3 = await shipRocketCargo.json();
         if (data3.non_field_errors) {
             console.log(data3.non_field_errors)
+            return {response : data3}
         } else {
             await db.query("INSERT INTO SERVICES_WAREHOUSES_RELATION (warehouse_id, service_id) VALUES (?,?)", [wid, serviceId]);
+            return {success : true}
         }
     }
-    await Promise.all([
-        createWarehouseDelhivery500gm,
-        createWarehouseDelhivery10kg,
-        createWarehousePickrr20kg
+    const final = await Promise.all([
+        createWarehouseDelhivery500gm(),
+        createWarehouseDelhivery10kg(),
+        createWarehousePickrr20kg()
     ])
+    return final;
 }
 const checkWarehouseServicesStatus = async (wid) => {
     const [connectedServices] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION where warehouse_id = ? ORDER BY service_id', [wid]);
@@ -196,7 +210,7 @@ const createWarehouse = async (req, res) => {
         const id = verified.id
         const [warehouse] = await db.query('INSERT INTO WAREHOUSES (uid, warehouseName, address, phone, pin, state, city, country, just_created) VALUES (?,?,?,?,?)', [id, name, address, phone, pin, state, city, country, true]);
         const wid = warehouse.insertId;
-        await createWarehouseAsync(wid, name, phone, address, city, state, country, pin);
+        await createWarehouseAsync(wid, name, phone, address, city, state, country, pin, verified);
         const createWarehouseResult = await checkWarehouseServicesStatus(wid)
         return res.status(200).json({
             status: 200, success: true, response: createWarehouseResult
@@ -228,14 +242,14 @@ const reAttemptWarehouseCreation = async (req, res) => {
         await db.query("UPDATE WAREHOUSES set just_created = true WHERE wid = ? AND uid = ?", [wid, id]);
         const warehouse = warehouses[0];
         const { warehouseName, address, phone, pin, state, city, country } = warehouse;
-        await createWarehouseAsync(wid, warehouseName, phone, address, city, state, country, pin);
+        const responsesB = await createWarehouseAsync(wid, warehouseName, phone, address, city, state, country, pin, verified);
         const result = await checkWarehouseServicesStatus(wid);
         let allCreated = false;
         if (result.every(r => r.warehouse_created)) {
             allCreated = true;
         }
         return res.status(200).json({
-            status: 200, success: true, response: result, all_created: allCreated
+            status: 200, success: true, response: result, all_created: allCreated, responsesB
         });
     } catch (err) {
         console.error(err);
