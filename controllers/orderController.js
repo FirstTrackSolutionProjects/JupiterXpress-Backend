@@ -46,7 +46,11 @@ const createDomesticOrder = async (req, res) => {
                 Cgst,
                 shippingType,
                 pickupDate,
-                pickupTime
+                pickupTime,
+                invoiceNumber,
+                invoiceDate,
+                invoiceAmount,
+                invoiceUrl
             } = req.body;
             if (same) {
                 Baddress = address;
@@ -96,7 +100,11 @@ const createDomesticOrder = async (req, res) => {
                         same,
                         shipping_mode,
                         pickup_date,
-                        pickup_time
+                        pickup_time,
+                        invoice_number,
+                        invoice_date,
+                        invoice_amount,
+                        invoice_url
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?)`,
                     [
                         id,
@@ -129,7 +137,11 @@ const createDomesticOrder = async (req, res) => {
                         same,
                         shippingType,
                         pickupDate,
-                        pickupTime
+                        pickupTime,
+                        invoiceNumber,
+                        invoiceDate,
+                        invoiceAmount,
+                        invoiceUrl
                     ]
                 );
                 for (let i = 0; i < boxes.length; i++) {
