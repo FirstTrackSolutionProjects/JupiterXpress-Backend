@@ -109,7 +109,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         const serviceId = 3;
         if (isWarehouseAlreadyCreatedOnCurrentService(serviceId) || isServiceDisabled(serviceId))
             return;
-
+        const shiprocketClientID = process.env.SHIPROCKET_CLIENT_ID
         const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
             method: 'POST',
             headers: {
@@ -128,7 +128,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
             },
             body: JSON.stringify({
                 name: name,
-                client_id: 6488,
+                client_id: shiprocketClientID,
                 address: {
                     address_line_1: address,
                     address_line_2: address,
