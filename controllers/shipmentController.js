@@ -101,6 +101,10 @@ const createDomesticShipment = async (req, res) => {
             product_description += `${orders[i].product_name} (${orders[i].product_quantity}) (₹${orders[i].selling_price})\n`;
         }
 
+        let total_weight = 0;
+        for (let i = 0; i < boxes.length; i++) {
+            total_weight += parseInt(boxes[i].weight)
+        }
         const firstNameEndsAt = shipment.customer_name.indexOf(' ');
         const splitNames = firstNameEndsAt !== -1 ? [shipment.customer_name.slice(0, firstNameEndsAt), shipment.customer_name.slice(firstNameEndsAt + 1)] : [shipment.customer_name];
         const customerFirstName = splitNames[0];
@@ -186,7 +190,7 @@ const createDomesticShipment = async (req, res) => {
             const response = await responseDta.json();
             if (response.success) {
                 const transaction = await db.beginTransaction();
-                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.packages[0].waybill, true, false, order]); 
+                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.packages[0].waybill, true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
@@ -958,7 +962,7 @@ const getDomesticShipmentLabel = async (req, res) => {
         });
 
         const getShipmentStatusData = await getShipmentStatus.json();
-        
+
         const label = getShipmentStatusData.label_url
         return res.status(200).json({
             status: 200,
@@ -1354,7 +1358,7 @@ const trackShipment = async (req, res) => {
             status: 200, data: data2, success: true, id: 1
         });
     }
-    
+
     const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
         method: 'POST',
         headers: {
