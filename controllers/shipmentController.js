@@ -360,6 +360,7 @@ const createDomesticShipment = async (req, res) => {
                 success: true
             });
         } else if (serviceId == 3) {
+            const shiprocketClientID = process.env.SHIPROCKET_CLIENT_ID;
             const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
                 headers: {
@@ -393,7 +394,7 @@ const createDomesticShipment = async (req, res) => {
                 "recipient_contact_person_name": shipment.customer_name,
                 "recipient_contact_person_email": shipment.customer_email,
                 "recipient_contact_person_contact_no": shipment.customer_mobile,
-                "client_id": "6488",
+                "client_id": shiprocketClientID,
                 "packaging_unit_details": [],
                 "recipient_GST": null,
                 "supporting_docs": [],
@@ -434,7 +435,7 @@ const createDomesticShipment = async (req, res) => {
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        "client_id": "6488",
+                        "client_id": shiprocketClientID,
                         "order_id": shipRocketCreateOrderData.order_id,
                         "remarks": "Shipment",
                         "recipient_GST": null,
