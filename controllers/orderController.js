@@ -724,7 +724,8 @@ const updateDomesticOrder = async (req, res) => {
                 invoiceNumber,
                 invoiceDate,
                 invoiceAmount,
-                invoiceUrl
+                invoiceUrl,
+                ewaybill
             } = req.body;
 
             if (admin) {
@@ -780,9 +781,10 @@ const updateDomesticOrder = async (req, res) => {
             invoice_number =?,
             invoice_date =?,
             invoice_amount =?,
-            invoice_url =?
+            invoice_url =?,
+            ewaybill =?
             WHERE ord_id = ? AND uid = ?`,
-                    [payMode, name, email, phone, address, addressType, address2, addressType2, country, state, city, postcode, Baddress, BaddressType, Baddress2, BaddressType2, Bcountry, Bstate, Bcity, Bpostcode, same, cod, discount, gst, Cgst, wid, shippingType, pickupDate, pickupTime, invoiceNumber, invoiceDate, invoiceAmount, invoiceUrl ,order, id]
+                    [payMode, name, email, phone, address, addressType, address2, addressType2, country, state, city, postcode, Baddress, BaddressType, Baddress2, BaddressType2, Bcountry, Bstate, Bcity, Bpostcode, same, cod, discount, gst, Cgst, wid, shippingType, pickupDate, pickupTime, invoiceNumber, invoiceDate, invoiceAmount, invoiceUrl, ewaybill ,order, id]
                 );
 
                 await transaction.query("DELETE FROM ORDERS WHERE ord_id = ?", [order]);
