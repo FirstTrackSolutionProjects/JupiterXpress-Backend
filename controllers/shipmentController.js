@@ -972,176 +972,201 @@ const getDomesticShipmentLabel = async (req, res) => {
 }
 
 const getDomesticShipmentPricing = async (req, res) => {
-    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes } = req.body
+    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes, isShipment, isB2B } = req.body
     if (!method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status) {
         return res.status(400).json({
             status: 400, message: 'Missing required fields'
         });
     }
+
     try {
         const deliveryVolumetric = parseFloat(volume) / 5;
         const netWeight = (Math.max(deliveryVolumetric, weight)).toString()
         let responses = []
 
-        const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
-            headers: {
-                'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
-                'Content-Type': 'application/json',
-                'Accept': '*/*'
-            }
-        });
-        const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
-            headers: {
-                'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
-                'Content-Type': 'application/json',
-                'Accept': '*/*'
-            }
-        })
-
-        let movinSurfaceActive = false;
-        let movinExpressActive = false;
-        if (movinPincodes[origin] && movinPincodes[dest]) {
-            if (movinPincodes[origin]["Surface"] == "active" && movinPincodes[dest]["Surface"] == "active") {
-                movinSurfaceActive = true;
-            }
-            if (movinPincodes[origin]["Express"] == "active" && movinPincodes[dest]["Express"] == "active") {
-                movinExpressActive = true;
-            }
-        }
-        const movinVolumetric = parseFloat(volume) / (method == "S" ? 4.5 : 5)
-        const movinNetWeight = (Math.max(method == "S" ? 10000 : 5000, Math.max(movinVolumetric, weight))).toString()
-        const originData = await fetch(`http://www.postalpincode.in/api/pincode/${origin}`)
-        const destData = await fetch(`http://www.postalpincode.in/api/pincode/${dest}`)
-        const originPSData = await originData.json()
-        const destPSData = await destData.json()
-        const originState = originPSData.PostOffice[0].State;
-        const destState = destPSData.PostOffice[0].State;
-        let i = 0;
-        for (i = 0; i < movinRegion.length; i++) {
-            if ((movinRegion[i].toLowerCase()).includes((originState.toLowerCase()))) {
-                break;
-            }
-        }
-        let j = 0;
-        for (j = 0; j < movinRegion.length; j++) {
-            if ((movinRegion[j].toLowerCase()).includes((destState.toLowerCase()))) {
-                break;
-            }
-        }
-        let movinPrice = parseFloat(movinPrices[method][i][j]) * parseFloat(movinNetWeight) / 1000;
-        movinPrice = movinPrice * 1.1010;
-        movinPrice = movinPrice + 30;
-        movinPrice = movinPrice * 1.18;
-        movinPrice = movinPrice * (method == "E" ? 1.4 : 1.4);
-        const data = await response.json();
-        const data2 = await response2.json();
-        const price = data[0]['total_amount']
-        const price2 = data2[0]['total_amount']
-        if (quantity == 1) {
-            responses.push({
-                "name": `Delhivery ${method == 'S' ? 'Surface' : 'Express'} Light`,
-                "weight": "500gm",
-                "price": Math.round(price * 1.3),
-                "serviceId": "1",
-                "categoryId": "2",
-                "chargableWeight": netWeight
-            })
-            if (method == 'S') {
+        const delhivery500gmPricing = async () => {
+            if (isShipment && isB2B) return;
+            const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
+                headers: {
+                    'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Accept': '*/*'
+                }
+            });
+            const data = await response.json();
+            const price = data[0]['total_amount']
+            if (quantity == 1) {
                 responses.push({
-                    "name": `Delhivery Surface`,
-                    "weight": "10Kg",
-                    "price": Math.round(price2 * 1.3),
+                    "name": `Delhivery ${method == 'S' ? 'Surface' : 'Express'} Light`,
+                    "weight": "500gm",
+                    "price": Math.round(price * 1.3),
                     "serviceId": "1",
-                    "categoryId": "1",
+                    "categoryId": "2",
                     "chargableWeight": netWeight
-
                 })
             }
         }
-        if (method == 'S' && movinSurfaceActive) {
-            responses.push({
-                "name": `Movin Surface`,
-                "weight": `Min. 10Kg`,
-                "price": Math.round(parseFloat(movinPrice)),
-                "serviceId": "2",
-                "categoryId": "2",
-                "chargableWeight": movinNetWeight
+
+        const delhivery10kgPricing = async () => {
+            if (isShipment && isB2B) return;
+            const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
+                headers: {
+                    'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Accept': '*/*'
+                }
             })
-        }
-        if (method == 'E' && movinExpressActive) {
-            responses.push({
-                "name": `Movin Express`,
-                "weight": `Min. 5Kg`,
-                "price": Math.round(parseFloat(movinPrice)),
-                "serviceId": "2",
-                "categoryId": "1",
-                "chargableWeight": movinNetWeight
-            })
+            const data2 = await response2.json();
+            const price2 = data2[0]['total_amount']
+            if (quantity == 1) {
+                if (method == 'S') {
+                    responses.push({
+                        "name": `Delhivery Surface`,
+                        "weight": "10Kg",
+                        "price": Math.round(price2 * 1.3),
+                        "serviceId": "1",
+                        "categoryId": "1",
+                        "chargableWeight": netWeight
+
+                    })
+                }
+            }
         }
 
+        const movinPricing = async () => {
+            let movinSurfaceActive = false;
+            let movinExpressActive = false;
+            if (movinPincodes[origin] && movinPincodes[dest]) {
+                if (movinPincodes[origin]["Surface"] == "active" && movinPincodes[dest]["Surface"] == "active") {
+                    movinSurfaceActive = true;
+                }
+                if (movinPincodes[origin]["Express"] == "active" && movinPincodes[dest]["Express"] == "active") {
+                    movinExpressActive = true;
+                }
+            }
+            const movinVolumetric = parseFloat(volume) / (method == "S" ? 4.5 : 5)
+            const movinNetWeight = (Math.max(method == "S" ? 10000 : 5000, Math.max(movinVolumetric, weight))).toString()
+            const originData = await fetch(`http://www.postalpincode.in/api/pincode/${origin}`)
+            const destData = await fetch(`http://www.postalpincode.in/api/pincode/${dest}`)
+            const originPSData = await originData.json()
+            const destPSData = await destData.json()
+            const originState = originPSData.PostOffice[0].State;
+            const destState = destPSData.PostOffice[0].State;
+            let i = 0;
+            for (i = 0; i < movinRegion.length; i++) {
+                if ((movinRegion[i].toLowerCase()).includes((originState.toLowerCase()))) {
+                    break;
+                }
+            }
+            let j = 0;
+            for (j = 0; j < movinRegion.length; j++) {
+                if ((movinRegion[j].toLowerCase()).includes((destState.toLowerCase()))) {
+                    break;
+                }
+            }
+            let movinPrice = parseFloat(movinPrices[method][i][j]) * parseFloat(movinNetWeight) / 1000;
+            movinPrice = movinPrice * 1.1010;
+            movinPrice = movinPrice + 30;
+            movinPrice = movinPrice * 1.18;
+            movinPrice = movinPrice * (method == "E" ? 1.4 : 1.4);
 
-        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
-        })
-        const shiprocketLoginData = await shipRocketLogin.json()
-        const shiprocketAccess = shiprocketLoginData.access
-        const shipRocketPriceBody = {
-            "from_pincode": origin,
-            "from_city": "Mumbai",
-            "from_state": "Maharashtra",
-            "to_pincode": dest,
-            "to_city": "New Delhi",
-            "to_state": "Delhi",
-            "quantity": quantity,
-            "invoice_value": 1111,
-            "calculator_page": "true",
-            "packaging_unit_details": []
-        }
-        boxes.map((box, index) => {
-            shipRocketPriceBody.packaging_unit_details.push({
-                "units": 1,
-                "length": box.length,
-                "height": box.height,
-                "weight": parseInt(box.weight) / 1000,
-                "width": box.breadth,
-                "unit": "cm"
-            })
-        })
-        const shipRocketPrice = await fetch(`https://api-cargo.shiprocket.in/api/shipment/charges/`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${shiprocketAccess}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(shipRocketPriceBody)
-        })
-        const shiprocketPriceData = await shipRocketPrice.json()
-        for (const service in shiprocketPriceData) {
-            if (method == 'S' && service.endsWith('-surface')) {
+
+            if (method == 'S' && movinSurfaceActive) {
                 responses.push({
-                    "name": service,
-                    "weight": "20Kg",
-                    "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
-                    "serviceId": "3",
-                    "categoryId": "1",
-                    "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
+                    "name": `Movin Surface`,
+                    "weight": `Min. 10Kg`,
+                    "price": Math.round(parseFloat(movinPrice)),
+                    "serviceId": "2",
+                    "categoryId": "2",
+                    "chargableWeight": movinNetWeight
                 })
-            } else if (method == 'E' && service.endsWith('-air')) {
+            }
+            if (method == 'E' && movinExpressActive) {
                 responses.push({
-                    "name": service,
-                    "weight": "20Kg",
-                    "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
-                    "serviceId": "3",
+                    "name": `Movin Express`,
+                    "weight": `Min. 5Kg`,
+                    "price": Math.round(parseFloat(movinPrice)),
+                    "serviceId": "2",
                     "categoryId": "1",
-                    "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
+                    "chargableWeight": movinNetWeight
                 })
             }
         }
+
+        const pickrr20kgPricing = async () => {
+            if (isShipment && !isB2B) return;
+            const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+            })
+            const shiprocketLoginData = await shipRocketLogin.json()
+            const shiprocketAccess = shiprocketLoginData.access
+            const shipRocketPriceBody = {
+                "from_pincode": origin,
+                "from_city": "Mumbai",
+                "from_state": "Maharashtra",
+                "to_pincode": dest,
+                "to_city": "New Delhi",
+                "to_state": "Delhi",
+                "quantity": quantity,
+                "invoice_value": 1111,
+                "calculator_page": "true",
+                "packaging_unit_details": []
+            }
+            boxes.map((box, index) => {
+                shipRocketPriceBody.packaging_unit_details.push({
+                    "units": 1,
+                    "length": box.length,
+                    "height": box.height,
+                    "weight": parseInt(box.weight) / 1000,
+                    "width": box.breadth,
+                    "unit": "cm"
+                })
+            })
+            const shipRocketPrice = await fetch(`https://api-cargo.shiprocket.in/api/shipment/charges/`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketAccess}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(shipRocketPriceBody)
+            })
+            const shiprocketPriceData = await shipRocketPrice.json()
+            for (const service in shiprocketPriceData) {
+                if (method == 'S' && service.endsWith('-surface')) {
+                    responses.push({
+                        "name": service,
+                        "weight": "20Kg",
+                        "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
+                        "serviceId": "3",
+                        "categoryId": "1",
+                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
+                    })
+                } else if (method == 'E' && service.endsWith('-air')) {
+                    responses.push({
+                        "name": service,
+                        "weight": "20Kg",
+                        "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
+                        "serviceId": "3",
+                        "categoryId": "1",
+                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
+                    })
+                }
+            }
+        }
+
+        await Promise.all([
+            delhivery500gmPricing(),
+            delhivery10kgPricing(),
+            movinPricing(),
+            pickrr20kgPricing(),
+        ])
+
+
         return res.status(200).json({
             status: 200, prices: responses
         });
