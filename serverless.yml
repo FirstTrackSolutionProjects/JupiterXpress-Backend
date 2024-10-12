@@ -34,6 +34,8 @@ provider:
     RAZORPAY_KEY_SECRET : ${env:RAZORPAY_KEY_SECRET}
     S3_BUCKET_NAME_ : ${env:S3_BUCKET_NAME_}
     VERIFY_EMAIL : ${env:VERIFY_EMAIL}
+    SHIPROCKET_CLIENT_ID : ${env:SHIPROCKET_CLIENT_ID}
+    SHIPROCKET_REFRESH_TOKEN : ${env:SHIPROCKET_REFRESH_TOKEN}
 functions:
   app:
     handler: app.handler
