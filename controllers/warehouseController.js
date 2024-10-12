@@ -208,7 +208,7 @@ const createWarehouse = async (req, res) => {
     try {
         const verified = jwt.verify(token, SECRET_KEY)
         const id = verified.id
-        const [warehouse] = await db.query('INSERT INTO WAREHOUSES (uid, warehouseName, address, phone, pin, state, city, country, just_created) VALUES (?,?,?,?,?)', [id, name, address, phone, pin, state, city, country, true]);
+        const [warehouse] = await db.query('INSERT INTO WAREHOUSES (uid, warehouseName, address, phone, pin, state, city, country, just_created) VALUES (?,?,?,?,?,?,?,?,?)', [id, name, address, phone, pin, state, city, country, true]);
         const wid = warehouse.insertId;
         await createWarehouseAsync(wid, name, phone, address, city, state, country, pin, verified);
         const createWarehouseResult = await checkWarehouseServicesStatus(wid)
