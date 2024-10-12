@@ -1481,10 +1481,10 @@ const trackShipment = async (req, res) => {
 const updateDomesticProcessingShipments = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
-        return {
+        return res.status(401).json({
             status: 401,
             message: 'Access Denied'
-        };
+        });
     }
     try {
         const verified = jwt.verify(token, SECRET_KEY);
@@ -1497,10 +1497,10 @@ const updateDomesticProcessingShipments = async (req, res) => {
         }
         const { ord_id } = req.body;
         if (!ord_id) {
-            return {
+            return res.status(400).json({
                 status: 400,
                 message: 'Order id is required'
-            };
+            });
         }
         try {
             const [orders] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ?  AND in_process = true', [ord_id]);
@@ -1534,12 +1534,12 @@ const updateDomesticProcessingShipments = async (req, res) => {
                 const getShipmentStatusData = await getShipmentStatus.json();
                 if (getShipmentStatusData.waybill_no) {
                     await db.query('UPDATE SHIPMENTS SET awb = ?, in_process = ? WHERE ord_id = ?', [getShipmentStatusData.waybill_no, false, ord_id]);
-                    return { status: 200, success: true, message: 'Shipment processed successfully', awb: getShipmentStatusData.waybill_no };
+                    return res.status(200).json({ status: 200, success: true, message: 'Shipment processed successfully', awb: getShipmentStatusData.waybill_no });
                 } else {
-                    return { status: 200, success: false, message: 'Shipment is still under process' };
+                    return res.status(200).json({ status: 200, success: false, message: 'Shipment is still under process' });
                 }
             } else {
-                return { status: 404, message: 'Service not found' };
+                return res.status(404).json({ status: 404, message: 'Service not found' });
             }
         } catch (e) {
             console.error(e);
