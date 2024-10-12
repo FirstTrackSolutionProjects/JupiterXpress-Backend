@@ -76,6 +76,7 @@ const createDomesticShipment = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;
         const [users] = await db.query('SELECT * FROM USERS WHERE uid =?', [id]);
+
         const email = users[0].email;
         const { order, price, serviceId, categoryId } = req.body;
         if (!order || !serviceId || !categoryId || !price) {
@@ -388,7 +389,7 @@ const createDomesticShipment = async (req, res) => {
                 "source_state": warehouse.state,
                 "sender_contact_person_name": verified.name,
                 "sender_contact_person_email": verified.email,
-                "sender_contact_person_contact_no": "1234567890",
+                "sender_contact_person_contact_no": warehouse.phone,
                 "destination_warehouse_name": shipment.shipping_city,
                 "destination_address_line1": shipment.shipping_address,
                 "destination_address_line2": shipment.shipping_address_2,
