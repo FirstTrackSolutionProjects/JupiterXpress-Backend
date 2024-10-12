@@ -476,11 +476,11 @@ const createDomesticShipment = async (req, res) => {
                     })
                 }
                 return res.status(400).json({
-                    status: 400, success: false, response: shipRocketShipmentCreateData, res2: shipRocketCreateOrderData, message: "Error in creating shipment at Shiprocket"
+                    status: 400, success: false, response: shipRocketShipmentCreateData, res2: shipRocketCreateOrderData, message: "Unexpected error encountered while creating shipment"
                 })
             }
             return res.status(500).json({
-                status: 500, success: false, shipRocketCreateOrderData, message: "Error in creating order at Shiprocket"
+                status: 500, success: false, shipRocketCreateOrderData, message: "Unexpected error encountered while creating shipment"
             })
         }
     }
