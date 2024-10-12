@@ -96,11 +96,11 @@ const submitVerifyRequest = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;
         try {
-            const [req] = await db.query(
+            const [requests] = await db.query(
                 "SELECT * FROM MERCHANT_VERIFICATION WHERE status='incomplete' AND uid = ?",
                 [id]
             );
-            if (req.length > 0) {
+            if (requests.length > 0) {
                 await db.query(
                     "UPDATE MERCHANT_VERIFICATION set status='pending' WHERE status='incomplete' AND uid = ?",
                     [id]

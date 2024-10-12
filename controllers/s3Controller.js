@@ -21,13 +21,13 @@ const getGetSignedUrl = async (req, res) => {
 }
 
 const getPutSignedUrl = async (req, res) => {
-    const { filename, filetype } = req.body;
+    const { filename, filetype, isPublic } = req.body;
     const params = {
         Bucket: process.env.S3_BUCKET_NAME_,
         Key: filename,
         Expires: 60,
         ContentType: filetype,
-        ACL: 'private',
+        ACL: isPublic?'public-read':'private'
     };
 
     try {
