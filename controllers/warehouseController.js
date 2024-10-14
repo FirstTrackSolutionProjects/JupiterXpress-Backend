@@ -77,7 +77,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ name, email, phone, address, city, state, country, pin, return_address: address, return_pin: pin, return_city: city, return_state: state, return_country: country })
+            body: JSON.stringify({ name, email : verified.email, phone, address, city, state, country, pin, return_address: address, return_pin: pin, return_city: city, return_state: state, return_country: country })
         })
         const createWarehouseResponse = await createWarehouseRequest.json();
         if (!createWarehouseResponse.success) {
@@ -101,7 +101,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ name, email, phone, address, city, state, country, pin, return_address: address, return_pin: pin, return_city: city, return_state: state, return_country: country })
+            body: JSON.stringify({ name, email : verified.email, phone, address, city, state, country, pin, return_address: address, return_pin: pin, return_city: city, return_state: state, return_country: country })
         });
         const createWarehouseResponse = await createWarehouseRequest.json();
         if (!createWarehouseResponse.success) {
@@ -196,7 +196,6 @@ const checkWarehouseServicesStatus = async (wid) => {
 const createWarehouse = async (req, res) => {
     const {
         name,
-        email,
         phone,
         address,
         city,
