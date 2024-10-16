@@ -260,16 +260,21 @@ const reAttemptWarehouseCreation = async (req, res) => {
 
 const updateWarehouse = async (req, res) => {
     const {
+        wid,
         name,
         phone,
         address,
         pin
     } = req.body
-    return res.state(200).json({
-        status: 200, success: false, message: 'This feature is temporarily disabled'
-    })
-    try {
-        const response = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/edit/`, {
+    const [warehouses] = await db.query('SELECT * FROM WAREHOUSES WHERE wid = ?',[wid])
+    const warehouse = warehouses[0]
+    const pickrrWarehouseId = warehouse.pickrr_warehouse_id;
+    const uid = warehouse.uid;
+    const [users] = await db.query('SELECT * FROM USERS where uid = ?',[uid]);
+    const user = users[0];
+
+    const updateWarehouseDelhivery500gm = async () => {
+        const request = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/edit/`, {
             method: 'POST',
             headers: {
                 'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
@@ -278,39 +283,79 @@ const updateWarehouse = async (req, res) => {
             },
             body: JSON.stringify({ name, phone, address, pin })
         });
-        const response2 = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/edit/`, {
+        const response = await request.json()
+        return response;
+    }
+    const updateWarehouseDelhivery10kg = async () => {
+        const request = await fetch(`https://track.delhivery.com/api/backend/clientwarehouse/edit/`, {
             method: 'POST',
             headers: {
-                'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
             body: JSON.stringify({ name, phone, address, pin })
         });
-        const data = await response.json();
-        const data2 = await response2.json();
-        if (!data.success || !data2.success) {
-            return res.status(400).json({
-                status: 400, success: false, message: data.error + data2.error
-            });
-        }
-        try {
-
-            await db.query('UPDATE WAREHOUSES set address = ?, phone = ?, pin = ? WHERE warehouseName = ?', [address, phone, pin, name]);
-
-        } catch (error) {
-            return res.status(500).json({
-                status: 500, message: error.message, success: false
-            });
-        }
-        return res.status(200).json({
-            status: 200, success: true, message: data.data.message
-        });
-    } catch (error) {
-        return res.status(500).json({
-            status: 500, success: false, message: error
-        });
+        const response = await request.json()
+        return response;
     }
+    
+    const updateWarehousePickrrWarehouse20kg = async () => {
+        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+        })
+        const shiprocketLoginData = await shipRocketLogin.json()
+        const shiprocketAccess = shiprocketLoginData.access
+        const reqBody = {
+            "name": name,
+            "client_id": process.env.SHIPROCKET_CLIENT_ID,
+            "address": {
+                "address_line_1": address,
+                "address_line_2": address,
+                "pincode": pin,
+                "city": warehouse.city,
+                "state": warehouse.state,
+                "country": "India"
+            },
+            "warehouse_code": name.replace(/\s+/g, ''),
+            "contact_person_name": user.fullName,
+            "contact_person_email": user.email,
+            "contact_person_contact_no": warehouse.phone
+        }
+        const request = await fetch(`https://api-cargo.shiprocket.in/api/warehouses/${pickrrWarehouseId}/`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reqBody)
+        })
+        const response = await request.json()
+        return response;
+    }
+
+    try {
+        
+        const responses = await Promise.all([
+            updateWarehouseDelhivery500gm(),
+            updateWarehouseDelhivery10kg(),
+            updateWarehousePickrrWarehouse20kg()
+        ])
+
+        return res.status(200).json({
+            status: 200, success: true, message: "Warehouse Updated Successfully", response : responses
+        });
+    } 
+    // catch (error) {
+    //     return res.status(500).json({
+    //         status: 500, success: false, message: error
+    //     });
+    // } 
+    finally {}
 }
 
 const getWarehousesServicesStatus = async (req, res) => {
