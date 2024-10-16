@@ -415,7 +415,7 @@ const createDomesticShipment = async (req, res) => {
                 "sender_contact_person_contact_no": warehouse.phone,
                 "destination_warehouse_name": shipment.shipping_city,
                 "destination_address_line1": shipment.shipping_address,
-                "destination_address_line2": shipment.shipping_address_2,
+                "destination_address_line2": shipment.shipping_address,
                 "destination_pincode": shipment.shipping_postcode,
                 "destination_city": shipment.shipping_city,
                 "destination_state": shipment.shipping_state,
