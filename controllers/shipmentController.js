@@ -973,7 +973,7 @@ const getDomesticShipmentLabel = async (req, res) => {
 }
 
 const getDomesticShipmentPricing = async (req, res) => {
-    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes, isShipment, isB2B } = req.body
+    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes, isShipment, isB2B, invoiceAmount } = req.body
     if (!method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status) {
         return res.status(400).json({
             status: 400, message: 'Missing required fields'
@@ -1142,7 +1142,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
+                        "price": Math.round((parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3)+Math.max(75,(0.002*invoiceAmount))),
                         "serviceId": "3",
                         "categoryId": "1",
                         "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
