@@ -396,8 +396,23 @@ const createDomesticShipment = async (req, res) => {
                 },
                 body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
             })
+
             const shiprocketLoginData = await shipRocketLogin.json()
             const shiprocketAccess = shiprocketLoginData.access
+
+            const fromAddressLine1 = warehouse.address.substring(0,50);
+            const fromAddressLine2 = warehouse.address.substring(50,100);
+            if (fromAddressLine2 == ""){
+                fromAddressLine2 = fromAddressLine1;
+            }
+
+
+            const toAddressLine1 = shipment.shipping_address.substring(0,50);
+            const toAddressLine2 = shipment.shipping_address.substring(50,100);
+            if (toAddressLine2 == ""){
+                toAddressLine2 = toAddressLine1;
+            }
+
             const shiprocketCreateOrderPayload = {
                 "no_of_packages": boxes.length,
                 "approx_weight": total_weight,
@@ -405,8 +420,8 @@ const createDomesticShipment = async (req, res) => {
                 "is_to_pay": false,
                 "to_pay_amount": null,
                 "source_warehouse_name": warehouse.warehouseName,
-                "source_address_line1": warehouse.address,
-                "source_address_line2": warehouse.address,
+                "source_address_line1": fromAddressLine1,
+                "source_address_line2": fromAddressLine2,
                 "source_pincode": warehouse.pin,
                 "source_city": warehouse.city,
                 "source_state": warehouse.state,
@@ -414,8 +429,8 @@ const createDomesticShipment = async (req, res) => {
                 "sender_contact_person_email": verified.email,
                 "sender_contact_person_contact_no": warehouse.phone,
                 "destination_warehouse_name": shipment.shipping_city,
-                "destination_address_line1": shipment.shipping_address,
-                "destination_address_line2": shipment.shipping_address,
+                "destination_address_line1": toAddressLine1,
+                "destination_address_line2": toAddressLine2,
                 "destination_pincode": shipment.shipping_postcode,
                 "destination_city": shipment.shipping_city,
                 "destination_state": shipment.shipping_state,
