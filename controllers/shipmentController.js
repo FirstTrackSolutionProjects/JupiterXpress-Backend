@@ -507,7 +507,7 @@ const createDomesticShipment = async (req, res) => {
                         from: process.env.EMAIL_USER,
                         to: email,
                         subject: 'Shipment created successfully',
-                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Pickrr Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Smart Cargo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
                     };
                     await transporter.sendMail(mailOptions)
                     return res.status(200).json({
