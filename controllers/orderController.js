@@ -22,17 +22,13 @@ const createDomesticOrder = async (req, res) => {
                 email,
                 phone,
                 address,
-                address2,
                 addressType,
-                addressType2,
                 postcode,
                 city,
                 state,
                 country,
                 Baddress,
-                Baddress2,
                 BaddressType,
-                BaddressType2,
                 Bpostcode,
                 Bcity,
                 Bstate,
@@ -57,8 +53,6 @@ const createDomesticOrder = async (req, res) => {
             if (same) {
                 Baddress = address;
                 BaddressType = addressType;
-                Baddress2 = address2;
-                BaddressType2 = addressType2;
                 Bcountry = country;
                 Bstate = state;
                 Bcity = city;
@@ -80,16 +74,12 @@ const createDomesticOrder = async (req, res) => {
                         customer_mobile,
                         shipping_address,
                         shipping_address_type,
-                        shipping_address_2,
-                        shipping_address_type_2,
                         shipping_country,
                         shipping_state,
                         shipping_city,
                         shipping_postcode,
                         billing_address,
                         billing_address_type,
-                        billing_address_2,
-                        billing_address_type_2,
                         billing_country,
                         billing_state,
                         billing_city,
@@ -109,7 +99,7 @@ const createDomesticOrder = async (req, res) => {
                         invoice_url,
                         ewaybill,
                         is_b2b
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?, ?,?,?,?,?,?)`,
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?, ?,?)`,
                     [
                         id,
                         order,
@@ -119,16 +109,12 @@ const createDomesticOrder = async (req, res) => {
                         phone,
                         address,
                         addressType,
-                        address2,
-                        addressType2,
                         country,
                         state,
                         city,
                         postcode,
                         Baddress,
                         BaddressType,
-                        Baddress2,
-                        BaddressType2,
                         Bcountry,
                         Bstate,
                         Bcity,
