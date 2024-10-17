@@ -245,9 +245,9 @@ const createDomesticShipment = async (req, res) => {
             const loginRes = await login.json();
             const token = loginRes.access_token;
 
-            const fromAddressLine1 = warehouse.address.substring(0,50);
-            const fromAddressLine2 = warehouse.address.substring(50,100);
-            const fromAddressLine3 = warehouse.address.substring(100,150);
+            let fromAddressLine1 = warehouse.address.substring(0,50);
+            let fromAddressLine2 = warehouse.address.substring(50,100);
+            let fromAddressLine3 = warehouse.address.substring(100,150);
             if (fromAddressLine2 == ""){
                 fromAddressLine2 = fromAddressLine1;
                 fromAddressLine3 = fromAddressLine1;
@@ -256,9 +256,9 @@ const createDomesticShipment = async (req, res) => {
             }
 
 
-            const toAddressLine1 = shipment.shipping_address.substring(0,50);
-            const toAddressLine2 = shipment.shipping_address.substring(50,100);
-            const toAddressLine3 = shipment.shipping_address.substring(100,150);
+            let toAddressLine1 = shipment.shipping_address.substring(0,50);
+            let toAddressLine2 = shipment.shipping_address.substring(50,100);
+            let toAddressLine3 = shipment.shipping_address.substring(100,150);
             if (toAddressLine2 == ""){
                 toAddressLine2 = toAddressLine1;
                 toAddressLine3 = toAddressLine1;
@@ -400,15 +400,15 @@ const createDomesticShipment = async (req, res) => {
             const shiprocketLoginData = await shipRocketLogin.json()
             const shiprocketAccess = shiprocketLoginData.access
 
-            const fromAddressLine1 = warehouse.address.substring(0,50);
-            const fromAddressLine2 = warehouse.address.substring(50,100);
+            let fromAddressLine1 = warehouse.address.substring(0,50);
+            let fromAddressLine2 = warehouse.address.substring(50,100);
             if (fromAddressLine2 == ""){
                 fromAddressLine2 = fromAddressLine1;
             }
 
 
-            const toAddressLine1 = shipment.shipping_address.substring(0,50);
-            const toAddressLine2 = shipment.shipping_address.substring(50,100);
+            let toAddressLine1 = shipment.shipping_address.substring(0,50);
+            let toAddressLine2 = shipment.shipping_address.substring(50,100);
             if (toAddressLine2 == ""){
                 toAddressLine2 = toAddressLine1;
             }
