@@ -244,6 +244,29 @@ const createDomesticShipment = async (req, res) => {
 
             const loginRes = await login.json();
             const token = loginRes.access_token;
+
+            let fromAddressLine1 = warehouse.address.substring(0,50);
+            let fromAddressLine2 = warehouse.address.substring(50,100);
+            let fromAddressLine3 = warehouse.address.substring(100,150);
+            if (fromAddressLine2 == ""){
+                fromAddressLine2 = fromAddressLine1;
+                fromAddressLine3 = fromAddressLine1;
+            } else if (fromAddressLine3 == ""){
+                fromAddressLine3 = fromAddressLine1;
+            }
+
+
+            let toAddressLine1 = shipment.shipping_address.substring(0,50);
+            let toAddressLine2 = shipment.shipping_address.substring(50,100);
+            let toAddressLine3 = shipment.shipping_address.substring(100,150);
+            if (toAddressLine2 == ""){
+                toAddressLine2 = toAddressLine1;
+                toAddressLine3 = toAddressLine1;
+            } else if (toAddressLine3 == ""){
+                toAddressLine3 = toAddressLine1;
+            }
+
+
             const reqBody = {
                 communication_email: "jupiterxpress2024@gmail.com",
                 payload: [
@@ -254,9 +277,9 @@ const createDomesticShipment = async (req, res) => {
                             forward_shipment_number: `JUP${refId}`,
                             ship_from_account: process.env.MOVIN_ACCOUNT_NUMBER,
                             ship_from_company: users[0].businessName,
-                            ship_from_address_line1: warehouse.address,
-                            ship_from_address_line2: warehouse.address,
-                            ship_from_address_line3: warehouse.address,
+                            ship_from_address_line1: fromAddressLine1,
+                            ship_from_address_line2: fromAddressLine2,
+                            ship_from_address_line3: fromAddressLine3,
                             ship_from_zipcode: warehouse.pin,
                             ship_from_email: "jupiterxpress2024@gmail.com",
                             ship_from_phone: users[0].phone,
@@ -265,9 +288,9 @@ const createDomesticShipment = async (req, res) => {
                             ship_to_first_name: customerFirstName,
                             ship_to_last_name: customerLastName,
                             ship_to_company: "Customer",
-                            ship_to_address_line1: shipment.shipping_address,
-                            ship_to_address_line2: shipment.shipping_address_2 || shipment.shipping_address,
-                            ship_to_address_line3: shipment.shipping_address_2 || shipment.shipping_address,
+                            ship_to_address_line1: toAddressLine1,
+                            ship_to_address_line2: toAddressLine2,
+                            ship_to_address_line3: toAddressLine3,
                             ship_to_zipcode: shipment.shipping_postcode,
                             ship_to_phone: shipment.customer_mobile,
                             ship_to_email: email,
@@ -373,8 +396,23 @@ const createDomesticShipment = async (req, res) => {
                 },
                 body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
             })
+
             const shiprocketLoginData = await shipRocketLogin.json()
             const shiprocketAccess = shiprocketLoginData.access
+
+            let fromAddressLine1 = warehouse.address.substring(0,50);
+            let fromAddressLine2 = warehouse.address.substring(50,100);
+            if (fromAddressLine2 == ""){
+                fromAddressLine2 = fromAddressLine1;
+            }
+
+
+            let toAddressLine1 = shipment.shipping_address.substring(0,50);
+            let toAddressLine2 = shipment.shipping_address.substring(50,100);
+            if (toAddressLine2 == ""){
+                toAddressLine2 = toAddressLine1;
+            }
+
             const shiprocketCreateOrderPayload = {
                 "no_of_packages": boxes.length,
                 "approx_weight": total_weight,
@@ -382,8 +420,8 @@ const createDomesticShipment = async (req, res) => {
                 "is_to_pay": false,
                 "to_pay_amount": null,
                 "source_warehouse_name": warehouse.warehouseName,
-                "source_address_line1": warehouse.address,
-                "source_address_line2": warehouse.address,
+                "source_address_line1": fromAddressLine1,
+                "source_address_line2": fromAddressLine2,
                 "source_pincode": warehouse.pin,
                 "source_city": warehouse.city,
                 "source_state": warehouse.state,
@@ -391,8 +429,8 @@ const createDomesticShipment = async (req, res) => {
                 "sender_contact_person_email": verified.email,
                 "sender_contact_person_contact_no": warehouse.phone,
                 "destination_warehouse_name": shipment.shipping_city,
-                "destination_address_line1": shipment.shipping_address,
-                "destination_address_line2": shipment.shipping_address_2,
+                "destination_address_line1": toAddressLine1,
+                "destination_address_line2": toAddressLine2,
                 "destination_pincode": shipment.shipping_postcode,
                 "destination_city": shipment.shipping_city,
                 "destination_state": shipment.shipping_state,
