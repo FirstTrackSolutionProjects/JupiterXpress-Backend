@@ -151,7 +151,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
                 "warehouse_code": name.replace(/\s+/g, ''),
                 "contact_person_name": verified.name,
                 "contact_person_email": verified.email,
-                "contact_person_contact_no": "1234567890"
+                "contact_person_contact_no": phone
             })
         });
         const data3 = await shipRocketCargo.json();
