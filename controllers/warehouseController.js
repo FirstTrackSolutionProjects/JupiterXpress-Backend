@@ -159,7 +159,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
             console.log(data3.non_field_errors)
             return {response : data3}
         } else {
-            const transaction = db.beginTransaction();
+            const transaction = await db.beginTransaction();
             await transaction.query("INSERT INTO SERVICES_WAREHOUSES_RELATION (warehouse_id, service_id) VALUES (?,?)", [wid, serviceId]);
             await transaction.query("UPDATE WAREHOUSES set pickrr_warehouse_id = ? WHERE wid = ?",[data3.id, wid])
             await db.commit(transaction);
