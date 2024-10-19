@@ -1180,7 +1180,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round((parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3)+Math.max(75,(0.002*invoiceAmount))),
+                        "price": Math.round((parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3)+invoiceAmount?(Math.max(75,(0.002*invoiceAmount))):0),
                         "serviceId": "3",
                         "categoryId": "1",
                         "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
