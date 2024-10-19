@@ -1183,7 +1183,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "price": Math.round(((parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3))+((invoiceAmount)?(Math.max(75,(0.002*invoiceAmount))):0)),
                         "serviceId": "3",
                         "categoryId": "1",
-                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
+                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight*1000
                     })
                 } else if (method == 'E' && service.endsWith('-air')) {
                     responses.push({
@@ -1192,7 +1192,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
                         "serviceId": "3",
                         "categoryId": "1",
-                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight
+                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight*1000
                     })
                 }
             }
