@@ -193,9 +193,9 @@ const createDomesticShipment = async (req, res) => {
                 const transaction = await db.beginTransaction();
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.packages[0].waybill, true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price]);
                 }
                 await db.commit(transaction);
             } else {
@@ -358,9 +358,9 @@ const createDomesticShipment = async (req, res) => {
             try {
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price]);
                 }
                 await db.commit(transaction);
             } catch (err) {
@@ -498,9 +498,9 @@ const createDomesticShipment = async (req, res) => {
                     const transaction = await db.beginTransaction();
                     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, shipRocketShipmentCreateData.id, order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
+                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
                     if (shipment.pay_method != "topay") {
                         await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                        await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price])
                     }
                     await db.commit(transaction);
                     let mailOptions = {
@@ -1595,6 +1595,80 @@ const updateDomesticProcessingShipments = async (req, res) => {
         });
     }
 }
+
+const getAllDomesticShipmentReportsData = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401,
+            message: 'Access Denied'
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        if (!admin) {
+            return res.status(401).json({
+                status: 401,
+                message: 'Unauthorized!'
+            });
+        }
+        const { startDate, endDate } = req.body;
+        if (!startDate ||!endDate) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Start date and end date are required'
+            });
+        }
+        const [reportData] = await db.query(`SELECT 
+                                            s.ord_id AS ORDER_ID,
+                                            e.date AS ORDER_SHIPMENT_DATE,
+                                            s.cancelled AS IS_ORDER_CANCELLED,
+                                            u.uid AS MERCHANT_ID,
+                                            u.businessName AS MERCHANT_BUSINESS_NAME, 
+                                            u.email AS MERCHANT_EMAIL, 
+                                            u.phone AS MERCHANT_PHONE_NUMBER, 
+                                            w.warehouseName AS SHIPPER_WAREHOUSE_NAME, 
+                                            w.address AS SHIPPER_WAREHOUSE_ADDRESS, 
+                                            w.pin AS SHIPPER_WAREHOUSE_PIN, 
+                                            w.city AS SHIPPER_WAREHOUSE_CITY, 
+                                            w.state AS SHIPPER_WAREHOUSE_STATE, 
+                                            w.country AS SHIPPER_WAREHOUSE_COUNTRY,
+                                            s.pay_method AS SHIPMENT_PAYMENT_METHOD,
+                                            s.customer_name AS CUSTOMER_NAME,
+                                            s.customer_mobile AS CUSTOMER_CONTACT, 
+                                            s.customer_email AS CUSTOMER_EMAIL, 
+                                            s.shipping_address AS SHIPPING_ADDRESS, 
+                                            s.shipping_postcode AS SHIPPING_PINCODE,
+                                            s.shipping_city AS SHIPPING_CITY,
+                                            s.shipping_state AS SHIPPING_STATE, 
+                                            s.shipping_country AS SHIPPING_COUNTRY,
+                                            s.same AS SHIPPING_IS_BILLING,
+                                            s.billing_address AS BILLING_ADDRESS,
+                                            s.billing_postcode AS BILLING_PINCODE, 
+                                            s.billing_city AS BILLING_CITY, 
+                                            s.billing_state AS BILLING_STATE, 
+                                            s.billing_country AS BILLING_COUNTRY,
+                                            s.awb AS AWB,
+                                            s.ewaybill AS EWAYBILL
+                                            FROM SHIPMENTS s
+                                            JOIN EXPENSES e ON e.expense_order = s.ord_id
+                                            JOIN USERS u ON u.uid = s.uid 
+                                            JOIN WAREHOUSES w ON w.wid = s.wid 
+                                            WHERE
+                                            s.is_manifested = true AND 
+                                            e.date BETWEEN ? AND ?`, [startDate+'T00:00:00',endDate+'T23:59:59'])
+        return res.status(200).json({ status: 200, data: reportData, success: true });
+    }
+    catch (err){
+        console.error(err)
+        return res.status(500).json({
+            status: 500,
+            message: 'Internal Server Error'
+        });
+    }
+}
+
 module.exports = {
     cancelShipment,
     createDomesticShipment,
@@ -1609,6 +1683,7 @@ module.exports = {
     internationalShipmentPricingInquiry,
     domesticShipmentPickupSchedule,
     trackShipment,
-    updateDomesticProcessingShipments
+    updateDomesticProcessingShipments,
+    getAllDomesticShipmentReportsData
 };
 
