@@ -193,9 +193,9 @@ const createDomesticShipment = async (req, res) => {
                 const transaction = await db.beginTransaction();
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.packages[0].waybill, true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price]);
                 }
                 await db.commit(transaction);
             } else {
@@ -358,9 +358,9 @@ const createDomesticShipment = async (req, res) => {
             try {
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price]);
                 }
                 await db.commit(transaction);
             } catch (err) {
@@ -498,9 +498,9 @@ const createDomesticShipment = async (req, res) => {
                     const transaction = await db.beginTransaction();
                     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, shipRocketShipmentCreateData.id, order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
+                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
                     if (shipment.pay_method != "topay") {
                         await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                        await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, price])
                     }
                     await db.commit(transaction);
                     let mailOptions = {
