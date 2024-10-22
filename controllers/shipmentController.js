@@ -1622,6 +1622,8 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
         }
         const [reportData] = await db.query(`SELECT 
                                             s.ord_id AS ORDER_ID,
+                                            e.date AS ORDER_SHIPMENT_DATE,
+                                            s.cancelled AS IS_ORDER_CANCELLED,
                                             u.uid AS MERCHANT_ID,
                                             u.businessName AS MERCHANT_BUSINESS_NAME, 
                                             u.email AS MERCHANT_EMAIL, 
@@ -1650,11 +1652,12 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
                                             s.awb AS AWB,
                                             s.ewaybill AS EWAYBILL
                                             FROM SHIPMENTS s
+                                            JOIN EXPENSES e ON e.expense_order = s.ord_id
                                             JOIN USERS u ON u.uid = s.uid 
                                             JOIN WAREHOUSES w ON w.wid = s.wid 
                                             WHERE
-                                            is_manifested = true AND 
-                                            date BETWEEN ? AND ?`, [startDate+'T00:00:00',endDate+'T23:59:59'])
+                                            s.is_manifested = true AND 
+                                            e.date BETWEEN ? AND ?`, [startDate+'T00:00:00',endDate+'T23:59:59'])
         return res.status(200).json({ status: 200, data: reportData, success: true });
     }
     catch (err){
