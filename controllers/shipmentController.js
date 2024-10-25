@@ -1491,6 +1491,14 @@ const trackShipment = async (req, res) => {
         });
     }
 
+    const dillikingTrackingRequest = await fetch(`https://dilliking.com/integration/tracking/v1/tracking.php?key=${process.env.DILLIKING_SECRET_KEY}&airway_bill=${awb}`)
+    const dillikingTrackingData = await dillikingTrackingRequest.json();
+    if (dillikingTrackingData.status == 200) {
+        return res.status(200).json({
+            status: 200, data: dillikingTrackingData.data, success: true, id: 5
+        });
+    }
+
     try {
         const response3 = await fetch(`http://admin.flightgo.in/api/tracking_api/get_tracking_data?api_company_id=24&customer_code=1179&tracking_no=${awb}`, {
             headers: {
