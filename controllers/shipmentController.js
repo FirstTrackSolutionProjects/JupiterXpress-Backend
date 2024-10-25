@@ -193,7 +193,7 @@ const createDomesticShipment = async (req, res) => {
                 const transaction = await db.beginTransaction();
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.packages[0].waybill, true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
-                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
                 }
@@ -245,24 +245,24 @@ const createDomesticShipment = async (req, res) => {
             const loginRes = await login.json();
             const token = loginRes.access_token;
 
-            let fromAddressLine1 = warehouse.address.substring(0,50);
-            let fromAddressLine2 = warehouse.address.substring(50,100);
-            let fromAddressLine3 = warehouse.address.substring(100,150);
-            if (fromAddressLine2 == ""){
+            let fromAddressLine1 = warehouse.address.substring(0, 50);
+            let fromAddressLine2 = warehouse.address.substring(50, 100);
+            let fromAddressLine3 = warehouse.address.substring(100, 150);
+            if (fromAddressLine2 == "") {
                 fromAddressLine2 = fromAddressLine1;
                 fromAddressLine3 = fromAddressLine1;
-            } else if (fromAddressLine3 == ""){
+            } else if (fromAddressLine3 == "") {
                 fromAddressLine3 = fromAddressLine1;
             }
 
 
-            let toAddressLine1 = shipment.shipping_address.substring(0,50);
-            let toAddressLine2 = shipment.shipping_address.substring(50,100);
-            let toAddressLine3 = shipment.shipping_address.substring(100,150);
-            if (toAddressLine2 == ""){
+            let toAddressLine1 = shipment.shipping_address.substring(0, 50);
+            let toAddressLine2 = shipment.shipping_address.substring(50, 100);
+            let toAddressLine3 = shipment.shipping_address.substring(100, 150);
+            if (toAddressLine2 == "") {
                 toAddressLine2 = toAddressLine1;
                 toAddressLine3 = toAddressLine1;
-            } else if (toAddressLine3 == ""){
+            } else if (toAddressLine3 == "") {
                 toAddressLine3 = toAddressLine1;
             }
 
@@ -358,7 +358,7 @@ const createDomesticShipment = async (req, res) => {
             try {
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
-                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
                 }
@@ -400,16 +400,16 @@ const createDomesticShipment = async (req, res) => {
             const shiprocketLoginData = await shipRocketLogin.json()
             const shiprocketAccess = shiprocketLoginData.access
 
-            let fromAddressLine1 = warehouse.address.substring(0,50);
-            let fromAddressLine2 = warehouse.address.substring(50,100);
-            if (fromAddressLine2 == ""){
+            let fromAddressLine1 = warehouse.address.substring(0, 50);
+            let fromAddressLine2 = warehouse.address.substring(50, 100);
+            if (fromAddressLine2 == "") {
                 fromAddressLine2 = fromAddressLine1;
             }
 
 
-            let toAddressLine1 = shipment.shipping_address.substring(0,50);
-            let toAddressLine2 = shipment.shipping_address.substring(50,100);
-            if (toAddressLine2 == ""){
+            let toAddressLine1 = shipment.shipping_address.substring(0, 50);
+            let toAddressLine2 = shipment.shipping_address.substring(50, 100);
+            if (toAddressLine2 == "") {
                 toAddressLine2 = toAddressLine1;
             }
 
@@ -498,7 +498,7 @@ const createDomesticShipment = async (req, res) => {
                     const transaction = await db.beginTransaction();
                     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, shipRocketShipmentCreateData.id, order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
-                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay")?0:price]);
+                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                     if (shipment.pay_method != "topay") {
                         await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
                     }
@@ -515,7 +515,7 @@ const createDomesticShipment = async (req, res) => {
                     })
                 }
                 return res.status(400).json({
-                    status: 400, success: false, response: shipRocketShipmentCreateData, res2: shipRocketCreateOrderData, message:  shipRocketShipmentCreateData.non_field_errors[0] || "Unexpected error encountered while creating shipment"
+                    status: 400, success: false, response: shipRocketShipmentCreateData, res2: shipRocketCreateOrderData, message: shipRocketShipmentCreateData.non_field_errors[0] || "Unexpected error encountered while creating shipment"
                 })
             }
             return res.status(500).json({
@@ -1180,10 +1180,10 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round(((parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3))+((invoiceAmount)?(Math.max(75,(0.002*invoiceAmount))):0)),
+                        "price": Math.round(((parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3)) + ((invoiceAmount) ? (Math.max(75, (0.002 * invoiceAmount))) : 0)),
                         "serviceId": "3",
                         "categoryId": "1",
-                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight*1000
+                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight * 1000
                     })
                 } else if (method == 'E' && service.endsWith('-air')) {
                     responses.push({
@@ -1192,7 +1192,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
                         "serviceId": "3",
                         "categoryId": "1",
-                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight*1000
+                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight * 1000
                     })
                 }
             }
@@ -1391,131 +1391,131 @@ const domesticShipmentPickupSchedule = async (req, res) => {
 
 const trackShipment = async (req, res) => {
     const { awb } = req.body;
-    const response1 = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
-        headers: {
-            'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-    });
-
-    const data1 = await response1.json();
-
-    if (data1.ShipmentData) {
-        return res.status(200).json({
-            status: 200, data: data1, success: true, id: 1
+    if (!awb) {
+        return res.status(400).json({
+            status: 400, message: 'No AWB provided', success: false
         });
     }
 
-    const response2 = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
-        headers: {
-            'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-    });
-
-    const data2 = await response2.json();
-
-    if (data2.ShipmentData) {
-        return res.status(200).json({
-            status: 200, data: data2, success: true, id: 1
-        });
-    }
-
-    const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
-    })
-    const shiprocketLoginData = await shipRocketLogin.json()
-    const shiprocketAccess = shiprocketLoginData.access
-    const shipRocketTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
-        headers: {
-            'Authorization': `Bearer ${shiprocketAccess}`,
-            'Accept': 'application/json'
-        }
-    })
-    const shiprocketTrackData = await shipRocketTrack.json()
-    if (shiprocketTrackData.id) {
-        return res.status(200).json({
-            status: 200,
-            data: shiprocketTrackData.status_history, success: true, id: 4,
-        });
-    }
-
-    const loginPayload = {
-        grant_type: "client_credentials",
-        client_id: process.env.MOVIN_CLIENT_ID,
-        client_secret: process.env.MOVIN_CLIENT_SECRET,
-        Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
-    };
-    const formBody = Object.entries(loginPayload).map(
-        ([key, value]) =>
-            encodeURIComponent(key) + "=" + encodeURIComponent(value)
-    ).join("&");
-    const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
-        },
-        body: formBody
-    })
-    const loginRes = await login.json()
-    const movinToken = loginRes.access_token
-    const response4 = await fetch(`https://apim.iristransport.co.in/rest/v2/order/track`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${movinToken}`,
-            'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
-        },
-        body: JSON.stringify({ "tracking_numbers": [awb] }),
-    });
-    const data4 = await response4.json();
-    if (data4.data[awb] != "Tracking number is not valid.") {
-        const ResultStatus = [];
-        for (const [key, value] of Object.entries(data4.data[awb])) {
-            if (key.startsWith(awb)) {
-                for (let i = 0; i < value.length; i++) {
-                    ResultStatus.push(data4.data[awb][key][i])
-                }
-            }
-        }
-        return res.status(200).json({
-            status: 200, data: ResultStatus, success: true, id: 3
-        });
-    }
-
-    try {
-        const response3 = await fetch(`http://admin.flightgo.in/api/tracking_api/get_tracking_data?api_company_id=24&customer_code=1179&tracking_no=${awb}`, {
+    const delhivery500gmTracking = async () => {
+        const response1 = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
             headers: {
+                'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
             },
         });
-        const data3 = await response3.json();
-        if (data3.length) {
-            if (!data3[0].errors) {
-                return res.status(200).json({
-                    status: 200, data: data3[0], success: true, id: 2
-                });
-            }
-        }
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({
-            status: 500, message: "Error fetching tracking data", success: false
+        const data1 = await response1.json();
+        if (data1.ShipmentData) return { status: 200, data: data1, success: true, id: 1 };
+    };
+
+    const delhivery10kgTracking = async () => {
+        const response2 = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
+            headers: {
+                'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
         });
+        const data2 = await response2.json();
+        if (data2.ShipmentData) return { status: 200, data: data2, success: true, id: 1 };
+    };
+
+    const pickrr20kgTracking = async () => {
+        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+        });
+        const shiprocketLoginData = await shipRocketLogin.json();
+        const shiprocketAccess = shiprocketLoginData.access;
+        const shipRocketTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
+            headers: {
+                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Accept': 'application/json'
+            }
+        });
+        const shiprocketTrackData = await shipRocketTrack.json();
+        if (shiprocketTrackData.id) return { status: 200, data: shiprocketTrackData.status_history, success: true, id: 4 };
+    };
+
+    const movinTracking = async () => {
+        const loginPayload = {
+            grant_type: "client_credentials",
+            client_id: process.env.MOVIN_CLIENT_ID,
+            client_secret: process.env.MOVIN_CLIENT_SECRET,
+            Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
+        };
+        const formBody = Object.entries(loginPayload).map(
+            ([key, value]) => encodeURIComponent(key) + "=" + encodeURIComponent(value)
+        ).join("&");
+        const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+            body: formBody
+        });
+        const loginRes = await login.json();
+        const movinToken = loginRes.access_token;
+        const response4 = await fetch(`https://apim.iristransport.co.in/rest/v2/order/track`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${movinToken}`,
+                'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
+            },
+            body: JSON.stringify({ "tracking_numbers": [awb] }),
+        });
+        const data4 = await response4.json();
+        if (data4.data[awb] != "Tracking number is not valid.") {
+            const ResultStatus = [];
+            for (const [key, value] of Object.entries(data4.data[awb])) {
+                if (key.startsWith(awb)) {
+                    for (let i = 0; i < value.length; i++) {
+                        ResultStatus.push(data4.data[awb][key][i]);
+                    }
+                }
+            }
+            return { status: 200, data: ResultStatus, success: true, id: 3 };
+        }
+    };
+
+    const dillikingTracking = async () => {
+        const dillikingTrackingRequest = await fetch(`https://dilliking.com/integration/tracking/v1/tracking.php?key=${process.env.DILLIKING_SECRET_KEY}&airway_bill=${awb}`);
+        const dillikingTrackingData = await dillikingTrackingRequest.json();
+        if (dillikingTrackingData.status == 200) return { status: 200, data: dillikingTrackingData, success: true, id: 5 };
+    };
+
+    const flightGoTracking = async () => {
+        try {
+            const response3 = await fetch(`http://admin.flightgo.in/api/tracking_api/get_tracking_data?api_company_id=24&customer_code=1179&tracking_no=${awb}`, {
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            });
+            const data3 = await response3.json();
+            if (data3.length && !data3[0].errors) return { status: 200, data: data3[0], success: true, id: 2 };
+        } catch (err) {
+            console.error(err);
+            return { status: 500, message: "Error fetching tracking data", success: false };
+        }
+    };
+
+    const results = await Promise.all([
+        delhivery500gmTracking(),
+        delhivery10kgTracking(),
+        pickrr20kgTracking(),
+        movinTracking(),
+        dillikingTracking(),
+        flightGoTracking()
+    ]);
+
+    const successfulResult = results.find(result => result && result.success);
+    if (successfulResult) {
+        return res.status(successfulResult.status).json(successfulResult);
     }
-    return res.status(404).json({
-        status: 404, message: "Service not found"
-    });
-}
+
+    return res.status(404).json({ status: 404, message: "Service not found", success: false });
+};
+
 
 const updateDomesticProcessingShipments = async (req, res) => {
     const token = req.headers.authorization;
@@ -1614,7 +1614,7 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
             });
         }
         const { startDate, endDate } = req.body;
-        if (!startDate ||!endDate) {
+        if (!startDate || !endDate) {
             return res.status(400).json({
                 status: 400,
                 message: 'Start date and end date are required'
@@ -1657,10 +1657,10 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
                                             JOIN WAREHOUSES w ON w.wid = s.wid 
                                             WHERE
                                             s.is_manifested = true AND 
-                                            e.date BETWEEN ? AND ?`, [startDate+'T00:00:00',endDate+'T23:59:59'])
+                                            e.date BETWEEN ? AND ?`, [startDate + 'T00:00:00', endDate + 'T23:59:59'])
         return res.status(200).json({ status: 200, data: reportData, success: true });
     }
-    catch (err){
+    catch (err) {
         console.error(err)
         return res.status(500).json({
             status: 500,

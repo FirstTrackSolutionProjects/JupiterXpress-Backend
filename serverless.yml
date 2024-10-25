@@ -36,6 +36,7 @@ provider:
     VERIFY_EMAIL : ${env:VERIFY_EMAIL}
     SHIPROCKET_CLIENT_ID : ${env:SHIPROCKET_CLIENT_ID}
     SHIPROCKET_REFRESH_TOKEN : ${env:SHIPROCKET_REFRESH_TOKEN}
+    DILLIKING_SECRET_KEY : ${env:DILLIKING_SECRET_KEY}
 functions:
   app:
     handler: app.handler
