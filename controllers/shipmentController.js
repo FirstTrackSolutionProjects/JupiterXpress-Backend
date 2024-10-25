@@ -1391,6 +1391,11 @@ const domesticShipmentPickupSchedule = async (req, res) => {
 
 const trackShipment = async (req, res) => {
     const { awb } = req.body;
+    if (!awb) {
+        return res.status(400).json({
+            status: 400, message: 'No AWB provided', success: false
+        });
+    }
     const response1 = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
         headers: {
             'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
