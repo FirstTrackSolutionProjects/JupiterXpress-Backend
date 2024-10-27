@@ -1483,7 +1483,7 @@ const trackShipment = async (req, res) => {
     const dillikingTracking = async () => {
         const dillikingTrackingRequest = await fetch(`https://dilliking.com/integration/tracking/v1/tracking.php?key=${process.env.DILLIKING_SECRET_KEY}&airway_bill=${awb}`);
         const dillikingTrackingData = await dillikingTrackingRequest.json();
-        if (dillikingTrackingData.status == 200) return { status: 200, data: dillikingTrackingData, success: true, id: 5 };
+        if (dillikingTrackingData.status == 200) return { status: 200, data: dillikingTrackingData.data, success: true, id: 5 };
     };
 
     const flightGoTracking = async () => {
