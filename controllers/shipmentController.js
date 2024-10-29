@@ -317,7 +317,7 @@ const createDomesticShipment = async (req, res) => {
                     "package_unique_id": `PACK_${index + 1}`,
                     "length": box.length,
                     "width": box.breadth,
-                    "height": box.length,
+                    "height": box.height,
                     "weight_actual": parseInt(box.weight) / 1000,
                     "identical_package_count": 1
                 })
