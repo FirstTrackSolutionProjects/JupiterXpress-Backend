@@ -415,7 +415,7 @@ const createDomesticShipment = async (req, res) => {
 
             const shiprocketCreateOrderPayload = {
                 "no_of_packages": boxes.length,
-                "approx_weight": total_weight,
+                "approx_weight": parseFloat(total_weight)/1000,
                 "is_insured": false,
                 "is_to_pay": false,
                 "to_pay_amount": null,
