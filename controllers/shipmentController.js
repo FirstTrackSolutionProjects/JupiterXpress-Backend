@@ -1649,9 +1649,16 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
                                             s.billing_city AS BILLING_CITY, 
                                             s.billing_state AS BILLING_STATE, 
                                             s.billing_country AS BILLING_COUNTRY,
+                                            sp.box_no AS BOX_NO,
+                                            sp.length AS BOX_LENGTH,
+                                            sp.breadth AS BOX_WIDTH,
+                                            sp.height AS BOX_HEIGHT,
+                                            sp.weight AS BOX_WEIGHT,
+                                            sp.hsn AS BOX_HSN,
                                             s.awb AS AWB,
                                             s.ewaybill AS EWAYBILL
                                             FROM SHIPMENTS s
+                                            JOIN SHIPMENT_PACKAGES sp ON s.ord_id = sp.ord_id
                                             JOIN EXPENSES e ON e.expense_order = s.ord_id
                                             JOIN USERS u ON u.uid = s.uid 
                                             JOIN WAREHOUSES w ON w.wid = s.wid 
