@@ -170,7 +170,7 @@ const createDomesticOrder = async (req, res) => {
                 });
             }
             catch (error) {
-                returnres.status(500).json({
+                return res.status(500).json({
                     status: 500,
                     message: error.message,
                     orders: orders,
@@ -229,9 +229,13 @@ const createInternationalOrder = async (req, res) => {
 
             try {
                 const transaction = await db.beginTransaction();
+                const [orderIds] = await transaction.query("SELECT international_order_ids FROM SYSTEM_CODE_GENERATOR");
+                await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET international_order_ids = international_order_ids + 1")
+                const orderId = `JUPXI${orderIds[0].international_order_ids}`;
                 const [shipment] = await transaction.query(
                     `INSERT INTO INTERNATIONAL_SHIPMENTS (
                         uid,
+                        iid,
                         wid,
                         contents,
                         service_code,
@@ -251,9 +255,10 @@ const createInternationalOrder = async (req, res) => {
                         gst,
                         shipping_price,
                         actual_weight
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,  ?, ?, ?, ?, ?)`,
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         id,
+                        orderId,
                         wid,
                         contents,
                         serviceCode,
@@ -275,13 +280,12 @@ const createInternationalOrder = async (req, res) => {
                         actual_weight
                     ]
                 );
-                const iid = shipment.insertId;
                 for (let i = 0; i < dockets.length; i++) {
                     const [docket] = await transaction.query(
                         `INSERT INTO DOCKETS (box_no, iid, docket_weight, length, breadth, height ) VALUES (?, ?, ?, ?, ?, ?)`,
                         [
                             dockets[i].box_no,
-                            iid,
+                            orderId,
                             dockets[i].docket_weight,
                             dockets[i].length,
                             dockets[i].breadth,
@@ -303,7 +307,7 @@ const createInternationalOrder = async (req, res) => {
                                 docketItems[j].unit,
                                 docketItems[j].unit_weight,
                                 docketItems[j].igst_amount,
-                                iid
+                                orderId
                             ]
                         );
                     }
@@ -313,7 +317,7 @@ const createInternationalOrder = async (req, res) => {
                     status: 200, success: true, message: "Order Created"
                 });
             } catch (error) {
-                returnres.status(500).json({
+                return res.status(500).json({
                     status: 500,
                     message: error.message,
                     error: error.message

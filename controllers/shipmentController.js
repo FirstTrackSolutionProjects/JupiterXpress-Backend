@@ -566,8 +566,13 @@ const createInternationalShipment = async (req, res) => {
             total_amount += (parseFloat(items[i].rate) * parseFloat(items[i].quantity))
         }
         const downloadURL = await s3.getSignedUrlPromise('getObject', params);
+        const transaction = await db.beginTransaction();
+        const [shipmentIds] = await transaction.query('SELECT international_shipment_reference_id FROM SYSTEM_CODE_GENERATOR');
+        await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET international_shipment_reference_id = international_shipment_reference_id + 1")
+        const shipmentId = `JUPINT${shipmentIds[0].international_shipment_reference_id}`
+
         const reqBody = {
-            "tracking_no": `JUPINT${iid}`,
+            "tracking_no": shipmentId,
             "origin_code": "IN",
             // "customer_id"  : "181",
             "product_code": "NONDOX",
@@ -578,7 +583,7 @@ const createInternationalShipment = async (req, res) => {
             "shipment_value": total_amount,
             "shipment_value_currency": "INR",
             "actual_weight": shipment.actual_weight,
-            "shipment_invoice_no": `JUPINT${iid}`,
+            "shipment_invoice_no": shipmentId,
             "shipment_invoice_date": shipment.invoice_date,
             "shipment_content": shipment.contents,
             "free_form_note_master_code": shipment.shippingType,
@@ -655,13 +660,14 @@ const createInternationalShipment = async (req, res) => {
         })
         const response = await responseDta.json()
         if (response.success) {
-            const transaction = await db.beginTransaction();
+            await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)',[shipmentId, iid])
             await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?,docket_id = ?, status = ? WHERE iid = ?', [1, 1, response.data.awb_no, response.data.docket_id, "MANIFESTED", iid])
             await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [parseFloat(shipment.shipping_price), id]);
-            await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPINT${iid}`, parseFloat(shipment.shipping_price)])
+            await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPXI${iid}`, parseFloat(shipment.shipping_price)])
             await db.commit(transaction);
         }
         else {
+            await db.rollback(transaction);
             return res.status(400).json({
                 status: 400, success: false, response: response, request: reqBody
             });
@@ -670,7 +676,7 @@ const createInternationalShipment = async (req, res) => {
             from: process.env.EMAIL_USER,
             to: email,
             subject: 'Shipment created successfully',
-            text: `Dear Merchant, \nYour shipment request for Order id : JUPINT${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            text: `Dear Merchant, \nYour shipment request for Order id : JUPXI${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
         };
         await transporter.sendMail(mailOptions)
         return res.status(200).json({
@@ -755,12 +761,12 @@ const getInternationalShipments = async (req, res) => {
 
         try {
             if (admin) {
-                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON u.uid=s.uid WHERE s.awb IS NOT NULL');
+                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON u.uid=s.uid JOIN INTERNATIONAL_SHIPMENT_REPORTS isr ON s.iid=isr.iid JOIN EXPENSES e ON e.expense_order=s.iid');
                 return res.status(200).json({
                     status: 200, success: true, order: rows
                 });
             } else {
-                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid WHERE s.uid = ? AND s.awb IS NOT NULL', [id]);
+                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN INTERNATIONAL_SHIPMENT_REPORTS isr ON s.iid=isr.iid JOIN EXPENSES e ON e.expense_order=s.iid WHERE s.uid = ?', [id]);
                 return res.status(200).json({
                     status: 200, success: true, order: rows
                 });
