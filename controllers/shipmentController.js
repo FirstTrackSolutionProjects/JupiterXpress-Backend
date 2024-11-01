@@ -568,8 +568,9 @@ const createInternationalShipment = async (req, res) => {
         const downloadURL = await s3.getSignedUrlPromise('getObject', params);
         const transaction = await db.beginTransaction();
         const [shipmentIds] = await transaction.query('SELECT international_shipment_reference_id FROM SYSTEM_CODE_GENERATOR');
+        await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET international_shipment_reference_id = international_shipment_reference_id + 1")
         const shipmentId = `JUPINT${shipmentIds[0].international_shipment_reference_id}`
-
+        
         const reqBody = {
             "tracking_no": shipmentId,
             "origin_code": "IN",
