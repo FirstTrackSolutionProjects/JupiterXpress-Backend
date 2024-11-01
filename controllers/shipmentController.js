@@ -760,12 +760,12 @@ const getInternationalShipments = async (req, res) => {
 
         try {
             if (admin) {
-                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON u.uid=s.uid WHERE s.awb IS NOT NULL');
+                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON u.uid=s.uid JOIN INTERNATIONAL_SHIPMENT_REPORTS isr ON s.iid=isr.iid JOIN EXPENSES e ON e.expense_order=s.iid');
                 return res.status(200).json({
                     status: 200, success: true, order: rows
                 });
             } else {
-                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid WHERE s.uid = ? AND s.awb IS NOT NULL', [id]);
+                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN INTERNATIONAL_SHIPMENT_REPORTS isr ON s.iid=isr.iid JOIN EXPENSES e ON e.expense_order=s.iid WHERE s.uid = ?', [id]);
                 return res.status(200).json({
                     status: 200, success: true, order: rows
                 });
