@@ -170,7 +170,7 @@ const createDomesticOrder = async (req, res) => {
                 });
             }
             catch (error) {
-                returnres.status(500).json({
+                return res.status(500).json({
                     status: 500,
                     message: error.message,
                     orders: orders,
@@ -317,7 +317,7 @@ const createInternationalOrder = async (req, res) => {
                     status: 200, success: true, message: "Order Created"
                 });
             } catch (error) {
-                returnres.status(500).json({
+                return res.status(500).json({
                     status: 500,
                     message: error.message,
                     error: error.message
