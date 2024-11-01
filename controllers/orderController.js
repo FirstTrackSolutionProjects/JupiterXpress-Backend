@@ -229,9 +229,12 @@ const createInternationalOrder = async (req, res) => {
 
             try {
                 const transaction = await db.beginTransaction();
+                const [orderIds] = await transaction.query("SELECT international_order_ids FROM SYSTEM_CODE_GENERATOR");
+                const orderId = `JUPINT${orderIds[0].international_order_ids}`;
                 const [shipment] = await transaction.query(
                     `INSERT INTO INTERNATIONAL_SHIPMENTS (
                         uid,
+                        iid,
                         wid,
                         contents,
                         service_code,
@@ -254,6 +257,7 @@ const createInternationalOrder = async (req, res) => {
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,  ?, ?, ?, ?, ?)`,
                     [
                         id,
+                        orderId,
                         wid,
                         contents,
                         serviceCode,
@@ -275,13 +279,12 @@ const createInternationalOrder = async (req, res) => {
                         actual_weight
                     ]
                 );
-                const iid = shipment.insertId;
                 for (let i = 0; i < dockets.length; i++) {
                     const [docket] = await transaction.query(
                         `INSERT INTO DOCKETS (box_no, iid, docket_weight, length, breadth, height ) VALUES (?, ?, ?, ?, ?, ?)`,
                         [
                             dockets[i].box_no,
-                            iid,
+                            orderId,
                             dockets[i].docket_weight,
                             dockets[i].length,
                             dockets[i].breadth,
@@ -303,7 +306,7 @@ const createInternationalOrder = async (req, res) => {
                                 docketItems[j].unit,
                                 docketItems[j].unit_weight,
                                 docketItems[j].igst_amount,
-                                iid
+                                orderId
                             ]
                         );
                     }
