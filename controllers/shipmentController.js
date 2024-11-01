@@ -566,8 +566,12 @@ const createInternationalShipment = async (req, res) => {
             total_amount += (parseFloat(items[i].rate) * parseFloat(items[i].quantity))
         }
         const downloadURL = await s3.getSignedUrlPromise('getObject', params);
+        const transaction = await db.beginTransaction();
+        const [shipmentIds] = await transaction.query('SELECT international_shipment_reference_id FROM SYSTEM_CODE_GENERATOR');
+        const shipmentId = `JUPINT${shipmentIds[0].international_shipment_reference_id}`
+
         const reqBody = {
-            "tracking_no": `JUPINT${iid}`,
+            "tracking_no": shipmentId,
             "origin_code": "IN",
             // "customer_id"  : "181",
             "product_code": "NONDOX",
@@ -578,7 +582,7 @@ const createInternationalShipment = async (req, res) => {
             "shipment_value": total_amount,
             "shipment_value_currency": "INR",
             "actual_weight": shipment.actual_weight,
-            "shipment_invoice_no": `JUPINT${iid}`,
+            "shipment_invoice_no": shipmentId,
             "shipment_invoice_date": shipment.invoice_date,
             "shipment_content": shipment.contents,
             "free_form_note_master_code": shipment.shippingType,
@@ -655,13 +659,14 @@ const createInternationalShipment = async (req, res) => {
         })
         const response = await responseDta.json()
         if (response.success) {
-            const transaction = await db.beginTransaction();
+            await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)',[shipmentId, iid])
             await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?,docket_id = ?, status = ? WHERE iid = ?', [1, 1, response.data.awb_no, response.data.docket_id, "MANIFESTED", iid])
             await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [parseFloat(shipment.shipping_price), id]);
-            await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPINT${iid}`, parseFloat(shipment.shipping_price)])
+            await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPXI${iid}`, parseFloat(shipment.shipping_price)])
             await db.commit(transaction);
         }
         else {
+            await db.commit(transaction);
             return res.status(400).json({
                 status: 400, success: false, response: response, request: reqBody
             });
@@ -670,7 +675,7 @@ const createInternationalShipment = async (req, res) => {
             from: process.env.EMAIL_USER,
             to: email,
             subject: 'Shipment created successfully',
-            text: `Dear Merchant, \nYour shipment request for Order id : JUPINT${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            text: `Dear Merchant, \nYour shipment request for Order id : JUPXI${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
         };
         await transporter.sendMail(mailOptions)
         return res.status(200).json({
