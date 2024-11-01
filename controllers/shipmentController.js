@@ -570,7 +570,7 @@ const createInternationalShipment = async (req, res) => {
         const [shipmentIds] = await transaction.query('SELECT international_shipment_reference_id FROM SYSTEM_CODE_GENERATOR');
         await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET international_shipment_reference_id = international_shipment_reference_id + 1")
         const shipmentId = `JUPINT${shipmentIds[0].international_shipment_reference_id}`
-        
+
         const reqBody = {
             "tracking_no": shipmentId,
             "origin_code": "IN",
@@ -667,7 +667,7 @@ const createInternationalShipment = async (req, res) => {
             await db.commit(transaction);
         }
         else {
-            await db.commit(transaction);
+            await db.rollback(transaction);
             return res.status(400).json({
                 status: 400, success: false, response: response, request: reqBody
             });
