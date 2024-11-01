@@ -230,7 +230,7 @@ const createInternationalOrder = async (req, res) => {
             try {
                 const transaction = await db.beginTransaction();
                 const [orderIds] = await transaction.query("SELECT international_order_ids FROM SYSTEM_CODE_GENERATOR");
-                const orderId = `JUPINT${orderIds[0].international_order_ids}`;
+                const orderId = `JUPXI${orderIds[0].international_order_ids}`;
                 const [shipment] = await transaction.query(
                     `INSERT INTO INTERNATIONAL_SHIPMENTS (
                         uid,
