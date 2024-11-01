@@ -255,7 +255,7 @@ const createInternationalOrder = async (req, res) => {
                         gst,
                         shipping_price,
                         actual_weight
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,  ?, ?, ?, ?, ?)`,
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         id,
                         orderId,
