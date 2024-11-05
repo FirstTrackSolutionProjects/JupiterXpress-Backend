@@ -1114,6 +1114,27 @@ const getDomesticShipmentLabel = async (req, res) => {
             status: 200,
             label: label, success: true
         });
+    } else if (serviceId == 4){
+        try{
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const labelRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/shipments/${shipment.shipping_vendor_reference_id}`,{
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+            })
+            const labelResponseData = await labelRequest.json();
+            const label = labelResponseData.data.label_url
+            return res.status(200).json({
+                status: 200, label: label, success: true
+            });
+        } catch (e) {
+            return res.status(500).json({
+                status: 500, message: 'Failed to get label', error: e.message
+            });
+        }
     }
 }
 
