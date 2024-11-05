@@ -464,12 +464,12 @@ const createDomesticShipment = async (req, res) => {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify(shiprocketCreateOrderPayload)
+                body: JSON.stringify(pickrrCreateOrderPayload)
             });
 
             const pickrrCreateOrderData = await pickrrCreateOrder.json();
             const invoiceUrl = process.env.BUCKET_URL + shipment.invoice_url
-            if (shipRocketCreateOrderData.success) {
+            if (pickrrCreateOrderData.success) {
                 const pickrrShipmentCreate = await fetch('https://api-cargo.shiprocket.in/api/order_shipment_association/', {
                     method: 'POST',
                     headers: {
@@ -494,7 +494,7 @@ const createDomesticShipment = async (req, res) => {
                     })
                 })
                 const pickrrShipmentCreateData = await pickrrShipmentCreate.json();
-                if (shipRocketShipmentCreateData.id) {
+                if (pickrrShipmentCreateData.id) {
                     const transaction = await db.beginTransaction();
                     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, pickrrShipmentCreateData.id, order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
@@ -883,7 +883,7 @@ const getDomesticShipmentReport = async (req, res) => {
                 }
             })
             const pickrrTrackData = await pickrrTrack.json()
-            if (shiprocketTrackData.id) {
+            if (pickrrTrackData.id) {
                 return res.status(200).json({
                     status: 200,
                     data: pickrrTrackData.status_history, success: true, id: 4,
@@ -1178,7 +1178,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify(shipRocketPriceBody)
+                body: JSON.stringify(pickrrPriceBody)
             })
             const pickrrPriceData = await pickrrPrice.json()
             for (const service in pickrrPriceData) {
@@ -1186,7 +1186,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round(((parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3)) + ((invoiceAmount) ? (Math.max(75, (0.002 * invoiceAmount))) : 0)),
+                        "price": Math.round(((parseFloat(pickrrPriceData[service].working.grand_total) * 1.3)) + ((invoiceAmount) ? (Math.max(75, (0.002 * invoiceAmount))) : 0)),
                         "serviceId": "3",
                         "categoryId": "1",
                         "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
@@ -1195,7 +1195,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
+                        "price": Math.round(parseFloat(pickrrPriceData[service].working.grand_total) * 1.3),
                         "serviceId": "3",
                         "categoryId": "1",
                         "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
@@ -1442,7 +1442,7 @@ const trackShipment = async (req, res) => {
             }
         });
         const pickrrTrackData = await pickrrTrack.json();
-        if (shiprocketTrackData.id) return { status: 200, data: pickrrTrackData.status_history, success: true, id: 4 };
+        if (pickrrTrackData.id) return { status: 200, data: pickrrTrackData.status_history, success: true, id: 4 };
     };
 
     const movinTracking = async () => {
