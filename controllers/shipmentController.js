@@ -1606,13 +1606,39 @@ const trackShipment = async (req, res) => {
         }
     };
 
+    const shiprocketTracking = async () => {
+        const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+        const shiprocketApiKey = apiKeys[0].Shiprocket;
+        const trackingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`, {
+            headers: {
+                'Authorization': `Bearer ${shiprocketApiKey}`,
+                'Accept': 'application/json'
+            }
+        })
+        const trackingData = await trackingRequest.json();
+        if (trackingData.status_code == 404) {
+            return {
+                status: 404, message: trackingData.message, id: 5
+            };
+        } else if (trackingData.tracking_data.track_status == 0){
+            return {
+                status: 400, message: trackingData.tracking_data.error, success: false, id: 5
+            };
+        } else if (trackingData.tracking_data.track_status == 1){
+            return {
+                status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 5
+            };
+        }
+    }
+
     const results = await Promise.all([
         delhivery500gmTracking(),
         delhivery10kgTracking(),
         pickrr20kgTracking(),
         movinTracking(),
         dillikingTracking(),
-        flightGoTracking()
+        flightGoTracking(),
+        shiprocketTracking()
     ]);
 
     const successfulResult = results.find(result => result && result.success);
