@@ -120,26 +120,26 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         if (warehouseAlreadyExists || isServiceNotActive)
             return {remarks: 'Warehouse already exists'};
         
-        const shiprocketClientID = process.env.SHIPROCKET_CLIENT_ID
-        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+        const pickrrClientID = process.env.PICKRR_CLIENT_ID
+        const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+            body: JSON.stringify({ refresh: process.env.PICKRR_REFRESH_TOKEN }),
         })
-        const shiprocketLoginData = await shipRocketLogin.json()
-        const shiprocketAccess = shiprocketLoginData.access
-        const shipRocketCargo = await fetch(`https://api-cargo.shiprocket.in/api/warehouses/`, {
+        const pickrrLoginData = await pickrrLogin.json()
+        const pickrrAccess = pickrrLoginData.access
+        const pickrrCargo = await fetch(`https://api-cargo.shiprocket.in/api/warehouses/`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Authorization': `Bearer ${pickrrAccess}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
                 name: name,
-                client_id: shiprocketClientID,
+                client_id: pickrrClientID,
                 address: {
                     address_line_1: address,
                     address_line_2: address,
@@ -154,7 +154,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
                 "contact_person_contact_no": phone
             })
         });
-        const data3 = await shipRocketCargo.json();
+        const data3 = await pickrrCargo.json();
         if (data3.non_field_errors) {
             console.log(data3.non_field_errors)
             return {response : data3}
@@ -304,18 +304,18 @@ const updateWarehouse = async (req, res) => {
     }
     
     const updateWarehousePickrrWarehouse20kg = async () => {
-        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+        const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+            body: JSON.stringify({ refresh: process.env.PICKRR_REFRESH_TOKEN }),
         })
-        const shiprocketLoginData = await shipRocketLogin.json()
-        const shiprocketAccess = shiprocketLoginData.access
+        const pickrrLoginData = await pickrrLogin.json()
+        const pickrrAccess = pickrrLoginData.access
         const reqBody = {
             "name": name,
-            "client_id": process.env.SHIPROCKET_CLIENT_ID,
+            "client_id": process.env.PICKRR_CLIENT_ID,
             "address": {
                 "address_line_1": address,
                 "address_line_2": address,
@@ -332,7 +332,7 @@ const updateWarehouse = async (req, res) => {
         const request = await fetch(`https://api-cargo.shiprocket.in/api/warehouses/${pickrrWarehouseId}/`, {
             method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Authorization': `Bearer ${pickrrAccess}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(reqBody)
