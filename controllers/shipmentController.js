@@ -388,17 +388,17 @@ const createDomesticShipment = async (req, res) => {
                 success: true
             });
         } else if (serviceId == 3) {
-            const shiprocketClientID = process.env.SHIPROCKET_CLIENT_ID;
-            const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+            const pickrrClientID = process.env.PICKRR_CLIENT_ID;
+            const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+                body: JSON.stringify({ refresh: process.env.PICKRR_REFRESH_TOKEN }),
             })
 
-            const shiprocketLoginData = await shipRocketLogin.json()
-            const shiprocketAccess = shiprocketLoginData.access
+            const pickrrLoginData = await pickrrLogin.json()
+            const pickrrAccess = pickrrLoginData.access
 
             let fromAddressLine1 = warehouse.address.substring(0, 50);
             let fromAddressLine2 = warehouse.address.substring(50, 100);
@@ -413,7 +413,7 @@ const createDomesticShipment = async (req, res) => {
                 toAddressLine2 = toAddressLine1;
             }
 
-            const shiprocketCreateOrderPayload = {
+            const pickrrCreateOrderPayload = {
                 "no_of_packages": boxes.length,
                 "approx_weight": parseFloat(total_weight)/1000,
                 "is_insured": false,
@@ -437,7 +437,7 @@ const createDomesticShipment = async (req, res) => {
                 "recipient_contact_person_name": shipment.customer_name,
                 "recipient_contact_person_email": shipment.customer_email,
                 "recipient_contact_person_contact_no": shipment.customer_mobile,
-                "client_id": shiprocketClientID,
+                "client_id": pickrrClientID,
                 "packaging_unit_details": [],
                 "recipient_GST": null,
                 "supporting_docs": [],
@@ -447,7 +447,7 @@ const createDomesticShipment = async (req, res) => {
             }
 
             boxes.map((box, index) => {
-                shiprocketCreateOrderPayload.packaging_unit_details.push({
+                pickrrCreateOrderPayload.packaging_unit_details.push({
                     "units": 1,
                     "weight": parseInt(box.weight) / 1000,
                     "length": box.length,
@@ -457,34 +457,34 @@ const createDomesticShipment = async (req, res) => {
                 },)
             })
 
-            const shipRocketCreateOrder = await fetch(`https://api-cargo.shiprocket.in/api/external/order_creation/`, {
+            const pickrrCreateOrder = await fetch(`https://api-cargo.shiprocket.in/api/external/order_creation/`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${shiprocketAccess}`,
+                    'Authorization': `Bearer ${pickrrAccess}`,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify(shiprocketCreateOrderPayload)
             });
 
-            const shipRocketCreateOrderData = await shipRocketCreateOrder.json();
+            const pickrrCreateOrderData = await pickrrCreateOrder.json();
             const invoiceUrl = process.env.BUCKET_URL + shipment.invoice_url
             if (shipRocketCreateOrderData.success) {
-                const shipRocketShipmentCreate = await fetch('https://api-cargo.shiprocket.in/api/order_shipment_association/', {
+                const pickrrShipmentCreate = await fetch('https://api-cargo.shiprocket.in/api/order_shipment_association/', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${shiprocketAccess}`,
+                        'Authorization': `Bearer ${pickrrAccess}`,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        "client_id": shiprocketClientID,
-                        "order_id": shipRocketCreateOrderData.order_id,
+                        "client_id": pickrrClientID,
+                        "order_id": pickrrCreateOrderData.order_id,
                         "remarks": "Shipment",
                         "recipient_GST": null,
                         "to_pay_amount": "0",
-                        "mode_id": shipRocketCreateOrderData.mode_id,
-                        "delivery_partner_id": shipRocketCreateOrderData.delivery_partner_id,
+                        "mode_id": pickrrCreateOrderData.mode_id,
+                        "delivery_partner_id": pickrrCreateOrderData.delivery_partner_id,
                         "pickup_date_time": `${shipment.pickup_date} ${shipment.pickup_time}`,
                         "eway_bill_no": shipment.ewaybill,
                         "invoice_value": shipment.invoice_amount,
@@ -493,10 +493,10 @@ const createDomesticShipment = async (req, res) => {
                         "supporting_docs": [invoiceUrl]
                     })
                 })
-                const shipRocketShipmentCreateData = await shipRocketShipmentCreate.json();
+                const pickrrShipmentCreateData = await pickrrShipmentCreate.json();
                 if (shipRocketShipmentCreateData.id) {
                     const transaction = await db.beginTransaction();
-                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, shipRocketShipmentCreateData.id, order])
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, pickrrShipmentCreateData.id, order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                     await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                     if (shipment.pay_method != "topay") {
@@ -511,15 +511,15 @@ const createDomesticShipment = async (req, res) => {
                     };
                     await transporter.sendMail(mailOptions)
                     return res.status(200).json({
-                        status: 200, response: shipRocketShipmentCreateData, res2: shipRocketCreateOrderData, success: true
+                        status: 200, response: pickrrShipmentCreateData, res2: pickrrCreateOrderData, success: true
                     })
                 }
                 return res.status(400).json({
-                    status: 400, success: false, response: shipRocketShipmentCreateData, res2: shipRocketCreateOrderData, message: shipRocketShipmentCreateData.non_field_errors[0].error_msg || "Unexpected error encountered while creating shipment"
+                    status: 400, success: false, response: pickrrShipmentCreateData, res2: pickrrCreateOrderData, message: pickrrShipmentCreateData.non_field_errors[0].error_msg || "Unexpected error encountered while creating shipment"
                 })
             }
             return res.status(500).json({
-                status: 500, success: false, shipRocketCreateOrderData, message: "Unexpected error encountered while creating shipment"
+                status: 500, success: false, pickrrCreateOrderData, message: "Unexpected error encountered while creating shipment"
             })
         }
     }
@@ -867,26 +867,26 @@ const getDomesticShipmentReport = async (req, res) => {
                 });
             }
         } else if (serviceId == 3) {
-            const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+            const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+                body: JSON.stringify({ refresh: process.env.PICKRR_REFRESH_TOKEN }),
             })
-            const shiprocketLoginData = await shipRocketLogin.json()
-            const shiprocketAccess = shiprocketLoginData.access
-            const shipRocketTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
+            const pickrrLoginData = await pickrrLogin.json()
+            const pickrrAccess = pickrrLoginData.access
+            const pickrrTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
                 headers: {
-                    'Authorization': `Bearer ${shiprocketAccess}`,
+                    'Authorization': `Bearer ${pickrrAccess}`,
                     'Accept': 'application/json'
                 }
             })
-            const shiprocketTrackData = await shipRocketTrack.json()
+            const pickrrTrackData = await pickrrTrack.json()
             if (shiprocketTrackData.id) {
                 return res.status(200).json({
                     status: 200,
-                    data: shiprocketTrackData.status_history, success: true, id: 4,
+                    data: pickrrTrackData.status_history, success: true, id: 4,
                 });
             }
         }
@@ -988,20 +988,20 @@ const getDomesticShipmentLabel = async (req, res) => {
             status: 200, label: label.response, success: true
         });
     } else if (serviceId == 3) {
-        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+        const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
             method: "POST",
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+            body: JSON.stringify({ refresh: process.env.PICKRR_REFRESH_TOKEN }),
         })
-        const shiprocketLoginData = await shipRocketLogin.json()
-        const shiprocketAccess = shiprocketLoginData.access
+        const pickrrLoginData = await pickrrLogin.json()
+        const pickrrAccess = pickrrLoginData.access
         const vendorRefId = shipment.shipping_vendor_reference_id;
         const getShipmentStatus = await fetch(`https://api-cargo.shiprocket.in/api/external/get_shipment/${vendorRefId}/`, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Authorization': `Bearer ${pickrrAccess}`,
                 'Content-Type': 'application/json'
             },
         });
@@ -1140,16 +1140,16 @@ const getDomesticShipmentPricing = async (req, res) => {
 
         const pickrr20kgPricing = async () => {
             if (isShipment && !isB2B) return;
-            const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+            const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+                body: JSON.stringify({ refresh: process.env.PICKRR_REFRESH_TOKEN }),
             })
-            const shiprocketLoginData = await shipRocketLogin.json()
-            const shiprocketAccess = shiprocketLoginData.access
-            const shipRocketPriceBody = {
+            const pickrrLoginData = await pickrrLogin.json()
+            const pickrrAccess = pickrrLoginData.access
+            const pickrrPriceBody = {
                 "from_pincode": origin,
                 "from_city": "Mumbai",
                 "from_state": "Maharashtra",
@@ -1162,7 +1162,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                 "packaging_unit_details": []
             }
             boxes.map((box, index) => {
-                shipRocketPriceBody.packaging_unit_details.push({
+                pickrrPriceBody.packaging_unit_details.push({
                     "units": 1,
                     "length": box.length,
                     "height": box.height,
@@ -1171,17 +1171,17 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "unit": "cm"
                 })
             })
-            const shipRocketPrice = await fetch(`https://api-cargo.shiprocket.in/api/shipment/charges/`, {
+            const pickrrPrice = await fetch(`https://api-cargo.shiprocket.in/api/shipment/charges/`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${shiprocketAccess}`,
+                    'Authorization': `Bearer ${pickrrAccess}`,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify(shipRocketPriceBody)
             })
-            const shiprocketPriceData = await shipRocketPrice.json()
-            for (const service in shiprocketPriceData) {
+            const pickrrPriceData = await pickrrPrice.json()
+            for (const service in pickrrPriceData) {
                 if (method == 'S' && service.endsWith('-surface')) {
                     responses.push({
                         "name": service,
@@ -1189,7 +1189,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "price": Math.round(((parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3)) + ((invoiceAmount) ? (Math.max(75, (0.002 * invoiceAmount))) : 0)),
                         "serviceId": "3",
                         "categoryId": "1",
-                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight * 1000
+                        "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
                     })
                 } else if (method == 'E' && service.endsWith('-air')) {
                     responses.push({
@@ -1198,7 +1198,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "price": Math.round(parseFloat(shiprocketPriceData[service].working.grand_total) * 1.3),
                         "serviceId": "3",
                         "categoryId": "1",
-                        "chargableWeight": shiprocketPriceData[service].working.chargeable_weight * 1000
+                        "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
                     })
                 }
             }
@@ -1428,21 +1428,21 @@ const trackShipment = async (req, res) => {
     };
 
     const pickrr20kgTracking = async () => {
-        const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+        const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+            body: JSON.stringify({ refresh: process.env.PICKRR_REFRESH_TOKEN }),
         });
-        const shiprocketLoginData = await shipRocketLogin.json();
-        const shiprocketAccess = shiprocketLoginData.access;
-        const shipRocketTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
+        const pickrrLoginData = await pickrrLogin.json();
+        const pickrrAccess = pickrrLoginData.access;
+        const pickrrTrack = await fetch(`https://api-cargo.shiprocket.in/api/shipment/track/${awb}/`, {
             headers: {
-                'Authorization': `Bearer ${shiprocketAccess}`,
+                'Authorization': `Bearer ${pickrrAccess}`,
                 'Accept': 'application/json'
             }
         });
-        const shiprocketTrackData = await shipRocketTrack.json();
-        if (shiprocketTrackData.id) return { status: 200, data: shiprocketTrackData.status_history, success: true, id: 4 };
+        const pickrrTrackData = await pickrrTrack.json();
+        if (shiprocketTrackData.id) return { status: 200, data: pickrrTrackData.status_history, success: true, id: 4 };
     };
 
     const movinTracking = async () => {
@@ -1560,19 +1560,19 @@ const updateDomesticProcessingShipments = async (req, res) => {
             const categoryId = order.categoryId;
             const vendorRefId = order.shipping_vendor_reference_id;
             if (serviceId == 3) {
-                const shipRocketLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
+                const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                     method: "POST",
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ refresh: process.env.SHIPROCKET_REFRESH_TOKEN }),
+                    body: JSON.stringify({ refresh: process.env.PICKRR_REFRESH_TOKEN }),
                 })
-                const shiprocketLoginData = await shipRocketLogin.json()
-                const shiprocketAccess = shiprocketLoginData.access
+                const pickrrLoginData = await pickrrLogin.json()
+                const pickrrAccess = pickrrLoginData.access
                 const getShipmentStatus = await fetch(`https://api-cargo.shiprocket.in/api/external/get_shipment/${vendorRefId}/`, {
                     method: 'GET',
                     headers: {
-                        'Authorization': `Bearer ${shiprocketAccess}`,
+                        'Authorization': `Bearer ${pickrrAccess}`,
                         'Content-Type': 'application/json'
                     },
                 });
