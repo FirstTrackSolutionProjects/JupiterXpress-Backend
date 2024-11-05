@@ -6,6 +6,12 @@ const { movinPincodes, movinPrices, movinRegion, IndianStateInfo } = require('..
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
+const getCurrentDateAndTime = () => {
+    const now = new Date();
+    const formattedDate = now.toISOString().slice(0, 16).replace("T", " ");
+    return formattedDate;
+}
+
 const cancelShipment = async (req, res) => {
     try {
         const token = req.headers.authorization;
@@ -415,7 +421,7 @@ const createDomesticShipment = async (req, res) => {
 
             const pickrrCreateOrderPayload = {
                 "no_of_packages": boxes.length,
-                "approx_weight": parseFloat(total_weight)/1000,
+                "approx_weight": parseFloat(total_weight) / 1000,
                 "is_insured": false,
                 "is_to_pay": false,
                 "to_pay_amount": null,
@@ -521,6 +527,78 @@ const createDomesticShipment = async (req, res) => {
             return res.status(500).json({
                 status: 500, success: false, pickrrCreateOrderData, message: "Unexpected error encountered while creating shipment"
             })
+        }
+        else if (serviceId == 4) {
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const createShipmentRequestBody = {
+                "order_id": `JUP${refId}`,
+                "mode": `${shipment.shipping_mode=="Surface"?"Surface":"Air"}`,
+                "order_date": getCurrentDateAndTime(),
+                "channel_id": "",
+                "billing_customer_name": `${customerFirstName}`,
+                "billing_last_name": `${customerLastName}`,
+                "billing_address": shipment.billing_address.substring(0,80),
+                "billing_address_2": shipment.billing_address.substring(80),
+                "billing_city": shipment.billing_city,
+                "billing_pincode": shipment.billing_postcode,
+                "billing_state": shipment.billing_state,
+                "billing_country": shipment.billing_country,
+                "billing_email": shipment.customer_email,
+                "billing_phone": shipment.customer_mobile,
+                "shipping_is_billing": true,
+                "order_items": [],
+                "payment_method": "COD",
+                "sub_total": total_amount,
+                "length": boxes[0].length,
+                "breadth": boxes[0].breadth,
+                "height": boxes[0].height,
+                "weight": parseInt(boxes[0].weight)/1000,
+                "pickup_location": warehouse.warehouseName.substring(0,36)
+            }
+            orders.map((item,index)=>{
+                createShipmentRequestBody.order_items.push({
+                    "name": item.product_name,
+                    "sku": item.product_name,
+                    "units": item.product_quantity,
+                    "selling_price": item.selling_price
+                })
+            })
+            const createShipmentRequest = await fetch('https://apiv2.shiprocket.in/v1/external/shipments/create/forward-shipment',{
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(createShipmentRequestBody)
+            })
+            const createShipmentData = await createShipmentRequest.json()
+            if (createShipmentData.status){
+                const transaction = await db.beginTransaction();
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, createShipmentData.payload.awb_code , order])
+                    await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
+                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
+                    if (shipment.pay_method != "topay") {
+                        await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
+                    }
+                    await db.commit(transaction);
+                    let mailOptions = {
+                        from: process.env.EMAIL_USER,
+                        to: email,
+                        subject: 'Shipment created successfully',
+                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at New Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                    };
+                    await transporter.sendMail(mailOptions)
+                    return res.status(200).json({
+                        status: 200, response: createShipmentData, success: true
+                    })
+            } else {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    response: createShipmentData
+                })
+            }
         }
     }
     catch (err) {
@@ -660,7 +738,7 @@ const createInternationalShipment = async (req, res) => {
         })
         const response = await responseDta.json()
         if (response.success) {
-            await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)',[shipmentId, iid])
+            await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)', [shipmentId, iid])
             await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?,docket_id = ?, status = ? WHERE iid = ?', [1, 1, response.data.awb_no, response.data.docket_id, "MANIFESTED", iid])
             await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [parseFloat(shipment.shipping_price), id]);
             await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPXI${iid}`, parseFloat(shipment.shipping_price)])
