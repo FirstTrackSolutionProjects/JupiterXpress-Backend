@@ -1326,11 +1326,49 @@ const getDomesticShipmentPricing = async (req, res) => {
             }
         }
 
+        const shiprocketPricing = async () => {
+            if (quantity !== 1) return;
+            if (isShipment && isB2B) return;
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const [servicesWithWarehouse] = await db.query("SELECT service_name FROM SERVICES_WITH_WAREHOUSES WHERE service_id = 4");
+            const serviceName = servicesWithWarehouse[0].service_name;
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const pricingRequestQuery = `
+            pickup_postcode=${origin}&
+            delivery_postcode=${dest}&
+            weight=${weight/1000}&
+            mode=${method=='S'?'Surface':'Air'}
+            `
+            const pricingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/serviceability?${pricingRequestQuery}`,{
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            const pricingResponseData = await pricingRequest.json();
+            const services = pricingResponseData.data.available_courier_companies || [];
+
+            services.map((service,index)=>{
+                responses.push({
+                    "name": `${serviceName} - ${service.courier_name}`,
+                    "weight": "10Kg",
+                    "price": service.rate,
+                    "serviceId": "4",
+                    "categoryId": "1",
+                    "chargableWeight": 0,
+                    "parentServiceId": 4,
+                    "courierId": service.id
+                })
+            })
+        }
+
         await Promise.all([
             delhivery500gmPricing(),
             delhivery10kgPricing(),
             movinPricing(),
             pickrr20kgPricing(),
+            shiprocketPricing()
         ])
 
 
