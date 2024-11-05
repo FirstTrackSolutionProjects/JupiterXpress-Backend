@@ -979,15 +979,15 @@ const getDomesticShipmentReport = async (req, res) => {
             const trackingData = await trackingRequest.json();
             if (trackingData.status_code == 404) {
                 return res.status(404).json({
-                    status: 404, message: trackingData.message, id: 5
+                    status: 404, message: trackingData.message, id: 6
                 });
             } else if (trackingData.tracking_data.track_status == 0){
                 return res.status(400).json({
-                    status: 400, message: trackingData.tracking_data.error, success: false, id: 5
+                    status: 400, message: trackingData.tracking_data.error, success: false, id: 6
                 });
             } else if (trackingData.tracking_data.track_status == 1){
                 return res.status(200).json({
-                    status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 5
+                    status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 6
                 });
             }
         }
@@ -1677,15 +1677,15 @@ const trackShipment = async (req, res) => {
         const trackingData = await trackingRequest.json();
         if (trackingData.status_code == 404) {
             return {
-                status: 404, message: trackingData.message, id: 5
+                status: 404, message: trackingData.message, id: 6
             };
         } else if (trackingData.tracking_data.track_status == 0){
             return {
-                status: 400, message: trackingData.tracking_data.error, success: false, id: 5
+                status: 400, message: trackingData.tracking_data.error, success: false, id: 6
             };
         } else if (trackingData.tracking_data.track_status == 1){
             return {
-                status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 5
+                status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 6
             };
         }
     }
