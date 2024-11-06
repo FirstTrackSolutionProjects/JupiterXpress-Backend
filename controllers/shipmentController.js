@@ -1337,7 +1337,8 @@ const getDomesticShipmentPricing = async (req, res) => {
             pickup_postcode=${origin}&
             delivery_postcode=${dest}&
             weight=${weight/1000}&
-            mode=${method=='S'?'Surface':'Air'}
+            mode=${method=='S'?'Surface':'Air'}&
+            cod=${payMode=="COD"?'1':'0'}
             `
             const pricingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/serviceability?${pricingRequestQuery}`,{
                 method: 'GET',
