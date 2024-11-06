@@ -1336,9 +1336,13 @@ const getDomesticShipmentPricing = async (req, res) => {
             const pricingRequestQuery = `
             pickup_postcode=${origin}&
             delivery_postcode=${dest}&
-            weight=${weight/1000}&
+            weight=${boxes[0].weight/1000}&
+            length=${boxes[0].length}&
+            breadth=${boxes[0].breadth}&
+            height=${boxes[0].height}&
             mode=${method=='S'?'Surface':'Air'}&
-            cod=${payMode=="COD"?'1':'0'}
+            cod=${payMode=="COD"?'1':'0'}&
+            
             `
             const pricingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/serviceability?${pricingRequestQuery}`,{
                 method: 'GET',
@@ -1353,11 +1357,11 @@ const getDomesticShipmentPricing = async (req, res) => {
             services.map((service,index)=>{
                 responses.push({
                     "name": `${serviceName} - ${service.courier_name}`,
-                    "weight": "10Kg",
-                    "price": service.rate,
+                    "weight": `${service.min_weight}Kg`,
+                    "price": service.rate*1.3,
                     "serviceId": "4",
                     "categoryId": "1",
-                    "chargableWeight": 0,
+                    "chargableWeight": service.charge_weight*1000,
                     "parentServiceId": 4,
                     "courierId": service.id
                 })
