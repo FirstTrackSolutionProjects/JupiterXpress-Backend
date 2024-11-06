@@ -1376,6 +1376,7 @@ const getDomesticShipmentPricing = async (req, res) => {
             shiprocketPricing()
         ])
 
+        responses.sort((a,b)=>(a.price - b.price))
 
         return res.status(200).json({
             status: 200, prices: responses
