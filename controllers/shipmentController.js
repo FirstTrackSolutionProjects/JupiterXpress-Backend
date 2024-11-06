@@ -84,7 +84,7 @@ const createDomesticShipment = async (req, res) => {
         const [users] = await db.query('SELECT * FROM USERS WHERE uid =?', [id]);
 
         const email = users[0].email;
-        const { order, price, serviceId, categoryId } = req.body;
+        const { order, price, serviceId, categoryId, courierId } = req.body;
         if (!order || !serviceId || !categoryId || !price) {
             return res.status(400).json({ message: 'All fields are required' });
         }
@@ -536,6 +536,7 @@ const createDomesticShipment = async (req, res) => {
                 "mode": `${shipment.shipping_mode=="Surface"?"Surface":"Air"}`,
                 "order_date": getCurrentDateAndTime(),
                 "channel_id": "",
+                "courier_id": courierId,
                 "billing_customer_name": `${customerFirstName}`,
                 "billing_last_name": `${customerLastName}`,
                 "billing_address": shipment.billing_address.substring(0,80),
