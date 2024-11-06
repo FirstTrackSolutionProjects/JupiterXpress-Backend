@@ -1364,7 +1364,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "categoryId": "1",
                     "chargableWeight": service.charge_weight*1000,
                     "parentServiceId": 4,
-                    "courierId": service.id
+                    "courierId": service.courier_company_id
                 })
             })
         }
