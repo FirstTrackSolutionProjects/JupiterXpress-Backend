@@ -166,10 +166,57 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
             return {success : true}
         }
     }
+    const createWarehouseShiprocket = async () => {
+        const serviceId = 4;
+        const warehouseAlreadyExists = await isWarehouseAlreadyCreatedOnCurrentService(serviceId);
+        const isServiceNotActive = await isServiceDisabled(serviceId);
+        if (warehouseAlreadyExists || isServiceNotActive)
+            return {remarks: 'Warehouse already exists'};
+
+        try{
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const containsDigit = (str) => {
+                return /\d/.test(str);
+            }
+            const shiprocketWarehouseAddress = containsDigit(address)?(address):(1+address);
+            const createWarehouseRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/settings/company/addpickup`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    "pickup_location": name.substring(0, 36),
+                    "name": name,
+                    "email": verified.email,
+                    "phone": phone,
+                    "address": shiprocketWarehouseAddress,
+                    "address_2": "",
+                    "city": city,
+                    "state":state,
+                    "country": country,
+                    "pin_code": pin
+                })
+            });
+            const createWarehouseResponse = await createWarehouseRequest.json();
+            if (createWarehouseResponse.success){
+                await db.query("INSERT INTO SERVICES_WAREHOUSES_RELATION (warehouse_id, service_id) VALUES (?,?)", [wid, serviceId]);
+                return {success : true}
+            } else {
+                return {response : createWarehouseResponse}
+            }
+        } catch (e) {
+            console.error(e)
+            return {response : {error: e.message}}
+        }
+    }
     const final = await Promise.all([
         createWarehouseDelhivery500gm(),
         createWarehouseDelhivery10kg(),
-        createWarehousePickrr20kg()
+        createWarehousePickrr20kg(),
+        createWarehouseShiprocket()
     ])
     return final;
 }

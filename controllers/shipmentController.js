@@ -6,6 +6,12 @@ const { movinPincodes, movinPrices, movinRegion, IndianStateInfo } = require('..
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
+const getCurrentDateAndTime = () => {
+    const now = new Date();
+    const formattedDate = now.toISOString().slice(0, 16).replace("T", " ");
+    return formattedDate;
+}
+
 const cancelShipment = async (req, res) => {
     try {
         const token = req.headers.authorization;
@@ -78,7 +84,7 @@ const createDomesticShipment = async (req, res) => {
         const [users] = await db.query('SELECT * FROM USERS WHERE uid =?', [id]);
 
         const email = users[0].email;
-        const { order, price, serviceId, categoryId } = req.body;
+        const { order, price, serviceId, categoryId, courierId } = req.body;
         if (!order || !serviceId || !categoryId || !price) {
             return res.status(400).json({ message: 'All fields are required' });
         }
@@ -88,6 +94,7 @@ const createDomesticShipment = async (req, res) => {
         const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
         const [warehouses] = await db.query('SELECT * FROM WAREHOUSES WHERE uid = ? AND wid = ?', [id, shipment.wid]);
         const warehouse = warehouses[0];
+        const wid = warehouse.wid;
         const [systemCodes] = await db.query('SELECT * FROM SYSTEM_CODE_GENERATOR');
         const refId = systemCodes[0].shipment_reference_id;
         await db.query('UPDATE SYSTEM_CODE_GENERATOR SET shipment_reference_id = ? WHERE shipment_reference_id = ?', [parseInt(refId) + 1, refId]);
@@ -110,6 +117,15 @@ const createDomesticShipment = async (req, res) => {
         const splitNames = firstNameEndsAt !== -1 ? [shipment.customer_name.slice(0, firstNameEndsAt), shipment.customer_name.slice(firstNameEndsAt + 1)] : [shipment.customer_name];
         const customerFirstName = splitNames[0];
         const customerLastName = splitNames.length > 1 ? splitNames[1] : customerFirstName;
+
+        const warehouseNotCreatedOnCurrentService = async (serviceId) => {
+            const [checkStatus] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION WHERE warehouse_id = ? AND service_id = ?', [wid, serviceId]);
+            if (checkStatus.length == 0) {
+                return true;
+            }
+            return false;
+        }
+
         if (serviceId === "1") {
             if (boxes.length > 1) {
                 return res.status(200).json({
@@ -118,7 +134,15 @@ const createDomesticShipment = async (req, res) => {
                     message: "More than 1 box is not allowed on this service"
                 });
             }
-
+            const id = categoryId==1?2:1;
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(id);
+            if (warehouseNotAvailable){
+                return res.status(200).json({
+                    status: 200,
+                    success: false,
+                    message: "This warehouse is not created on this service. Check your warehouse status."
+                });
+            }
             const waybillReq = await fetch(`https://track.delhivery.com/waybill/api/bulk/json/?count=1`, {
                 method: 'GET',
                 headers: {
@@ -388,6 +412,14 @@ const createDomesticShipment = async (req, res) => {
                 success: true
             });
         } else if (serviceId == 3) {
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(3);
+            if (warehouseNotAvailable){
+                return res.status(200).json({
+                    status: 200,
+                    success: false,
+                    message: "This warehouse is not created on this service. Check your warehouse status."
+                });
+            }
             const pickrrClientID = process.env.PICKRR_CLIENT_ID;
             const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
@@ -415,7 +447,7 @@ const createDomesticShipment = async (req, res) => {
 
             const pickrrCreateOrderPayload = {
                 "no_of_packages": boxes.length,
-                "approx_weight": parseFloat(total_weight)/1000,
+                "approx_weight": parseFloat(total_weight) / 1000,
                 "is_insured": false,
                 "is_to_pay": false,
                 "to_pay_amount": null,
@@ -507,7 +539,7 @@ const createDomesticShipment = async (req, res) => {
                         from: process.env.EMAIL_USER,
                         to: email,
                         subject: 'Shipment created successfully',
-                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Smart Cargo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Smart Cargo (B2B) Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
                     };
                     await transporter.sendMail(mailOptions)
                     return res.status(200).json({
@@ -521,6 +553,87 @@ const createDomesticShipment = async (req, res) => {
             return res.status(500).json({
                 status: 500, success: false, pickrrCreateOrderData, message: "Unexpected error encountered while creating shipment"
             })
+        }
+        else if (serviceId == 4) {
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(4);
+            if (warehouseNotAvailable){
+                return res.status(200).json({
+                    status: 200,
+                    success: false,
+                    message: "This warehouse is not created on this service. Check your warehouse status."
+                });
+            }
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const createShipmentRequestBody = {
+                "order_id": `JUP${refId}`,
+                "mode": `${shipment.shipping_mode=="Surface"?"Surface":"Air"}`,
+                "order_date": getCurrentDateAndTime(),
+                "channel_id": "",
+                "courier_id": courierId,
+                "billing_customer_name": `${customerFirstName}`,
+                "billing_last_name": `${customerLastName}`,
+                "billing_address": shipment.billing_address.substring(0,80),
+                "billing_address_2": shipment.billing_address.substring(80),
+                "billing_city": shipment.billing_city,
+                "billing_pincode": shipment.billing_postcode,
+                "billing_state": shipment.billing_state,
+                "billing_country": shipment.billing_country,
+                "billing_email": shipment.customer_email,
+                "billing_phone": shipment.customer_mobile,
+                "shipping_is_billing": true,
+                "order_items": [],
+                "payment_method": shipment.pay_method=="COD"?"COD":"Prepaid",
+                "sub_total": total_amount,
+                "length": boxes[0].length,
+                "breadth": boxes[0].breadth,
+                "height": boxes[0].height,
+                "weight": parseInt(boxes[0].weight)/1000,
+                "pickup_location": warehouse.warehouseName.substring(0,36)
+            }
+            orders.map((item,index)=>{
+                createShipmentRequestBody.order_items.push({
+                    "name": item.product_name,
+                    "sku": item.product_name,
+                    "units": item.product_quantity,
+                    "selling_price": item.selling_price
+                })
+            })
+            const createShipmentRequest = await fetch('https://apiv2.shiprocket.in/v1/external/shipments/create/forward-shipment',{
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(createShipmentRequestBody)
+            })
+            const createShipmentData = await createShipmentRequest.json()
+            if (createShipmentData.status){
+                const transaction = await db.beginTransaction();
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id , order])
+                    await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
+                    await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
+                    if (shipment.pay_method != "topay") {
+                        await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
+                    }
+                    await db.commit(transaction);
+                    let mailOptions = {
+                        from: process.env.EMAIL_USER,
+                        to: email,
+                        subject: 'Shipment created successfully',
+                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Smart Cargo (B2C) and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                    };
+                    await transporter.sendMail(mailOptions)
+                    return res.status(200).json({
+                        status: 200, response: createShipmentData, success: true
+                    })
+            } else {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    response: createShipmentData
+                })
+            }
         }
     }
     catch (err) {
@@ -660,7 +773,7 @@ const createInternationalShipment = async (req, res) => {
         })
         const response = await responseDta.json()
         if (response.success) {
-            await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)',[shipmentId, iid])
+            await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)', [shipmentId, iid])
             await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?,docket_id = ?, status = ? WHERE iid = ?', [1, 1, response.data.awb_no, response.data.docket_id, "MANIFESTED", iid])
             await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [parseFloat(shipment.shipping_price), id]);
             await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPXI${iid}`, parseFloat(shipment.shipping_price)])
@@ -889,6 +1002,29 @@ const getDomesticShipmentReport = async (req, res) => {
                     data: pickrrTrackData.status_history, success: true, id: 4,
                 });
             }
+        } else if (serviceId == 4){
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const trackingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`, {
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Accept': 'application/json'
+                }
+            })
+            const trackingData = await trackingRequest.json();
+            if (trackingData.status_code == 404) {
+                return res.status(404).json({
+                    status: 404, message: trackingData.message, id: 6
+                });
+            } else if (trackingData.tracking_data.track_status == 0){
+                return res.status(400).json({
+                    status: 400, message: trackingData.tracking_data.error, success: false, id: 6
+                });
+            } else if (trackingData.tracking_data.track_status == 1){
+                return res.status(200).json({
+                    status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 6
+                });
+            }
         }
     } catch (err) {
         console.error(err);
@@ -1013,6 +1149,28 @@ const getDomesticShipmentLabel = async (req, res) => {
             status: 200,
             label: label, success: true
         });
+    } else if (serviceId == 4){
+        try{
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const labelRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/generate/label`,{
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({"shipment_id": [shipment.shipping_vendor_reference_id]})
+            })
+            const labelResponseData = await labelRequest.json();
+            const label = labelResponseData.label_url
+            return res.status(200).json({
+                status: 200, label: label, success: true
+            });
+        } catch (e) {
+            return res.status(500).json({
+                status: 500, message: 'Failed to get label', error: e.message
+            });
+        }
     }
 }
 
@@ -1204,13 +1362,57 @@ const getDomesticShipmentPricing = async (req, res) => {
             }
         }
 
+        const shiprocketPricing = async () => {
+            if (quantity !== 1) return;
+            if (isShipment && isB2B) return;
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const [servicesWithWarehouse] = await db.query("SELECT service_name FROM SERVICES_WITH_WAREHOUSES WHERE service_id = 4");
+            const serviceName = servicesWithWarehouse[0].service_name;
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const pricingRequestQuery = `
+            pickup_postcode=${origin}&
+            delivery_postcode=${dest}&
+            weight=${boxes[0].weight/1000}&
+            length=${boxes[0].length}&
+            breadth=${boxes[0].breadth}&
+            height=${boxes[0].height}&
+            mode=${method=='S'?'Surface':'Air'}&
+            cod=${payMode=="COD"?'1':'0'}&
+            
+            `
+            const pricingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/serviceability?${pricingRequestQuery}`,{
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            const pricingResponseData = await pricingRequest.json();
+            const services = pricingResponseData.data.available_courier_companies || [];
+
+            services.map((service,index)=>{
+                responses.push({
+                    "name": `${serviceName} - ${service.courier_name}`,
+                    "weight": `${service.min_weight}Kg`,
+                    "price": service.rate*1.3,
+                    "serviceId": "4",
+                    "categoryId": "1",
+                    "chargableWeight": service.charge_weight*1000,
+                    "parentServiceId": 4,
+                    "courierId": service.courier_company_id
+                })
+            })
+        }
+
         await Promise.all([
             delhivery500gmPricing(),
             delhivery10kgPricing(),
             movinPricing(),
             pickrr20kgPricing(),
+            shiprocketPricing()
         ])
 
+        responses.sort((a,b)=>(a.price - b.price))
 
         return res.status(200).json({
             status: 200, prices: responses
@@ -1505,13 +1707,39 @@ const trackShipment = async (req, res) => {
         }
     };
 
+    const shiprocketTracking = async () => {
+        const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+        const shiprocketApiKey = apiKeys[0].Shiprocket;
+        const trackingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`, {
+            headers: {
+                'Authorization': `Bearer ${shiprocketApiKey}`,
+                'Accept': 'application/json'
+            }
+        })
+        const trackingData = await trackingRequest.json();
+        if (trackingData.status_code == 404) {
+            return {
+                status: 404, message: trackingData.message, id: 6
+            };
+        } else if (trackingData.tracking_data.track_status == 0){
+            return {
+                status: 400, message: trackingData.tracking_data.error, success: false, id: 6
+            };
+        } else if (trackingData.tracking_data.track_status == 1){
+            return {
+                status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 6
+            };
+        }
+    }
+
     const results = await Promise.all([
         delhivery500gmTracking(),
         delhivery10kgTracking(),
         pickrr20kgTracking(),
         movinTracking(),
         dillikingTracking(),
-        flightGoTracking()
+        flightGoTracking(),
+        shiprocketTracking()
     ]);
 
     const successfulResult = results.find(result => result && result.success);
