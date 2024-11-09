@@ -94,6 +94,7 @@ const createDomesticShipment = async (req, res) => {
         const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
         const [warehouses] = await db.query('SELECT * FROM WAREHOUSES WHERE uid = ? AND wid = ?', [id, shipment.wid]);
         const warehouse = warehouses[0];
+        const wid = warehouse.wid;
         const [systemCodes] = await db.query('SELECT * FROM SYSTEM_CODE_GENERATOR');
         const refId = systemCodes[0].shipment_reference_id;
         await db.query('UPDATE SYSTEM_CODE_GENERATOR SET shipment_reference_id = ? WHERE shipment_reference_id = ?', [parseInt(refId) + 1, refId]);
@@ -116,6 +117,15 @@ const createDomesticShipment = async (req, res) => {
         const splitNames = firstNameEndsAt !== -1 ? [shipment.customer_name.slice(0, firstNameEndsAt), shipment.customer_name.slice(firstNameEndsAt + 1)] : [shipment.customer_name];
         const customerFirstName = splitNames[0];
         const customerLastName = splitNames.length > 1 ? splitNames[1] : customerFirstName;
+
+        const warehouseNotCreatedOnCurrentService = async (serviceId) => {
+            const [checkStatus] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION WHERE warehouse_id = ? AND service_id = ?', [wid, serviceId]);
+            if (!checkStatus.length) {
+                return true;
+            }
+            return false;
+        }
+
         if (serviceId === "1") {
             if (boxes.length > 1) {
                 return res.status(200).json({
@@ -124,7 +134,14 @@ const createDomesticShipment = async (req, res) => {
                     message: "More than 1 box is not allowed on this service"
                 });
             }
-
+            const id = categoryId==1?2:1;
+            if (warehouseNotCreatedOnCurrentService(id)){
+                return res.status(200).json({
+                    status: 200,
+                    success: false,
+                    message: "This warehouse is not created on this service. Check your warehouse status."
+                });
+            }
             const waybillReq = await fetch(`https://track.delhivery.com/waybill/api/bulk/json/?count=1`, {
                 method: 'GET',
                 headers: {
@@ -394,6 +411,13 @@ const createDomesticShipment = async (req, res) => {
                 success: true
             });
         } else if (serviceId == 3) {
+            if (warehouseNotCreatedOnCurrentService(3)){
+                return res.status(200).json({
+                    status: 200,
+                    success: false,
+                    message: "This warehouse is not created on this service. Check your warehouse status."
+                });
+            }
             const pickrrClientID = process.env.PICKRR_CLIENT_ID;
             const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
@@ -529,6 +553,13 @@ const createDomesticShipment = async (req, res) => {
             })
         }
         else if (serviceId == 4) {
+            if (warehouseNotCreatedOnCurrentService(4)){
+                return res.status(200).json({
+                    status: 200,
+                    success: false,
+                    message: "This warehouse is not created on this service. Check your warehouse status."
+                });
+            }
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const shiprocketApiKey = apiKeys[0].Shiprocket;
             const createShipmentRequestBody = {
