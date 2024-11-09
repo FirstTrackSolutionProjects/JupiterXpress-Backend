@@ -1119,15 +1119,16 @@ const getDomesticShipmentLabel = async (req, res) => {
         try{
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const shiprocketApiKey = apiKeys[0].Shiprocket;
-            const labelRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/shipments/${shipment.shipping_vendor_reference_id}`,{
-                method: 'GET',
+            const labelRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/generate/label`,{
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${shiprocketApiKey}`,
                     'Content-Type': 'application/json'
                 },
+                body: JSON.stringify({"shipment_id": [shipment.shipping_vendor_reference_id]})
             })
             const labelResponseData = await labelRequest.json();
-            const label = labelResponseData.data.label_url
+            const label = labelResponseData.label_url
             return res.status(200).json({
                 status: 200, label: label, success: true
             });
