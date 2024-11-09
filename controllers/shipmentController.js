@@ -120,7 +120,7 @@ const createDomesticShipment = async (req, res) => {
 
         const warehouseNotCreatedOnCurrentService = async (serviceId) => {
             const [checkStatus] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION WHERE warehouse_id = ? AND service_id = ?', [wid, serviceId]);
-            if (!checkStatus.length) {
+            if (checkStatus.length == 0) {
                 return true;
             }
             return false;
@@ -135,7 +135,8 @@ const createDomesticShipment = async (req, res) => {
                 });
             }
             const id = categoryId==1?2:1;
-            if (warehouseNotCreatedOnCurrentService(id)){
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(id);
+            if (warehouseNotAvailable){
                 return res.status(200).json({
                     status: 200,
                     success: false,
@@ -411,7 +412,8 @@ const createDomesticShipment = async (req, res) => {
                 success: true
             });
         } else if (serviceId == 3) {
-            if (warehouseNotCreatedOnCurrentService(3)){
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(3);
+            if (warehouseNotAvailable){
                 return res.status(200).json({
                     status: 200,
                     success: false,
@@ -553,7 +555,8 @@ const createDomesticShipment = async (req, res) => {
             })
         }
         else if (serviceId == 4) {
-            if (warehouseNotCreatedOnCurrentService(4)){
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(4);
+            if (warehouseNotAvailable){
                 return res.status(200).json({
                     status: 200,
                     success: false,
