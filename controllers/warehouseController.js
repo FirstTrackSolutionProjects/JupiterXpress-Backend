@@ -176,6 +176,10 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         try{
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const containsDigit = (str) => {
+                return /\d/.test(str);
+            }
+            const shiprocketWarehouseAddress = containsDigit(address)?(address):(1+address);
             const createWarehouseRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/settings/company/addpickup`, {
                 method: 'POST',
                 headers: {
@@ -188,8 +192,8 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
                     "name": name,
                     "email": verified.email,
                     "phone": phone,
-                    "address": address.substring(0,80),
-                    "address_2": address.substring(80),
+                    "address": shiprocketWarehouseAddress,
+                    "address_2": "",
                     "city": city,
                     "state":state,
                     "country": country,
