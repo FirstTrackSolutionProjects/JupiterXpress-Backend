@@ -549,7 +549,7 @@ const createDomesticShipment = async (req, res) => {
                 "billing_phone": shipment.customer_mobile,
                 "shipping_is_billing": true,
                 "order_items": [],
-                "payment_method": "COD",
+                "payment_method": shipment.pay_method=="COD"?"COD":"Prepaid",
                 "sub_total": total_amount,
                 "length": boxes[0].length,
                 "breadth": boxes[0].breadth,
