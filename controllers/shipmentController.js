@@ -513,7 +513,7 @@ const createDomesticShipment = async (req, res) => {
                         from: process.env.EMAIL_USER,
                         to: email,
                         subject: 'Shipment created successfully',
-                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Smart Cargo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Smart Cargo (B2B) Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
                     };
                     await transporter.sendMail(mailOptions)
                     return res.status(200).json({
@@ -587,7 +587,7 @@ const createDomesticShipment = async (req, res) => {
                         from: process.env.EMAIL_USER,
                         to: email,
                         subject: 'Shipment created successfully',
-                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at New Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                        text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Smart Cargo (B2C) and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
                     };
                     await transporter.sendMail(mailOptions)
                     return res.status(200).json({
