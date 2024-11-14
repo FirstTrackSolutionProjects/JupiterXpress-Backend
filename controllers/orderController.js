@@ -3,6 +3,42 @@ const db = require('../utils/db');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
+const deleteDomesticOrder = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: "Access Denied"
+        })
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        try {
+            const {orderId} = req.body;
+            const [orders] = await db.query('SELECT is_manifested FROM SHIPMENTS WHERE ord_id = ?', [orderId]);
+            if (orders[0].is_manifested){
+                return res.status(400).json({
+                    status: 400, message: "Cannot delete a manifested order"
+                });
+            }
+            await db.query('DELETE FROM SHIPMENTS WHERE ord_id = ?', [orderId, id]);
+            return res.status(200).json({
+                status: 200, message: "Order deleted successfully", success : true
+            });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({
+                status: 500, message: "Internal Server Error"
+            });
+        }
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({
+            status: 500, message: "Internal Server Error"
+        });
+    }
+}
+
 const createDomesticOrder = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
@@ -838,5 +874,6 @@ module.exports = {
     getInternationalOrders,
     getDomesticOrder,
     updateDomesticOrder,
-    updateInternationalOrder
+    updateInternationalOrder,
+    deleteDomesticOrder
 }

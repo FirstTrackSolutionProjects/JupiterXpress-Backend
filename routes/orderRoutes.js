@@ -8,7 +8,8 @@ const { createDomesticOrder,
         getInternationalOrders,
         getDomesticOrder,
         updateDomesticOrder,
-        updateInternationalOrder
+        updateInternationalOrder,
+        deleteDomesticOrder
     } = require('../controllers/orderController');
 
 const router = express.Router();
@@ -23,5 +24,6 @@ router.post('/international/items', getInternationalOrderDocketItems )
 router.post('/international/dockets', getInternationalOrderDockets )
 router.post('/international/all', getInternationalOrders)
 router.post('/domestic', getDomesticOrder)
+router.post('/domestic/delete', deleteDomesticOrder)
 
 module.exports = router;
