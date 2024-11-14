@@ -645,6 +645,27 @@ const createDomesticShipment = async (req, res) => {
             })
             const createShipmentData = await createShipmentRequest.json()
             if (createShipmentData.status){
+                if (!createShipmentData.payload.awb_code){
+                    const responseDta = await fetch(`https://apiv2.shiprocket.in/v1/external/orders/cancel`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': `Bearer ${shiprocketApiKey}`
+                        },
+                        body: JSON.stringify({ ids : [createShipmentData.payload.order_id] })
+                    })
+                    const response = await responseDta.json()
+                    if (response.status == 200){
+                        return res.status(400).json({
+                            status: 400,
+                            success: false,
+                            data : 'This service is experiencing some error processing your package. Please try another service',
+                            message: createShipmentData,
+                            cancellation: response
+                        })
+                    }
+                }
                 const transaction = await db.beginTransaction();
                     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ?, shipping_vendor_order_id = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id, createShipmentData.payload.order_id , order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
