@@ -66,7 +66,7 @@ const cancelShipment = async (req, res) => {
             };
             await transporter.sendMail(mailOptions)
             return res.status(200).json({
-                status: 200, message: response, success: true
+                status: 200, message: response, success: true, data: 'Shipment cancelled successfully, your refund is credited to your wallet'
             })
         } else if (serviceId == 4){
             const orderId = shipment.shipping_vendor_order_id;
@@ -87,11 +87,6 @@ const cancelShipment = async (req, res) => {
                 const [expenses] = await transaction.query('SELECT * FROM EXPENSES WHERE expense_order = ? AND uid = ?', [order, uid])
                 const price = expenses[0].expense_cost
                 await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
-                await transaction.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', order]);
-                if (shipment.pay_method != "topay") {
-                    await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [parseInt(price), uid]);
-                    await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
-                }
                 await db.commit(transaction)
                 let mailOptions = {
                     from: process.env.EMAIL_USER,
@@ -101,8 +96,12 @@ const cancelShipment = async (req, res) => {
                 };
                 await transporter.sendMail(mailOptions)
                 return res.status(200).json({
-                    status: 200, message: response, success: true
+                    status: 200, message: response, success: true, data: 'Cancellation request completed successfully, your refund will credited to your wallet in 3-4 working days'
                 })
+            } else {
+                return res.status(400).json({
+                    status: 400, success: false, message: response
+                });
             }
         }
 
@@ -647,7 +646,7 @@ const createDomesticShipment = async (req, res) => {
             const createShipmentData = await createShipmentRequest.json()
             if (createShipmentData.status){
                 const transaction = await db.beginTransaction();
-                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id , order])
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ?, shipping_vendor_order_id = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id, createShipmentData.payload.order_id , order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                     await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                     if (shipment.pay_method != "topay") {
