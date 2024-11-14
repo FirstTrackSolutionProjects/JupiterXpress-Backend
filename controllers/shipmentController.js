@@ -46,6 +46,7 @@ const cancelShipment = async (req, res) => {
                 const [expenses] = await transaction.query('SELECT * FROM EXPENSES WHERE expense_order = ? AND uid = ?', [order, uid])
                 const price = expenses[0].expense_cost
                 await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
+                await transaction.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', order]);
                 if (shipment.pay_method != "topay") {
                     await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [parseInt(price), uid]);
                     await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
@@ -65,8 +66,43 @@ const cancelShipment = async (req, res) => {
             };
             await transporter.sendMail(mailOptions)
             return res.status(200).json({
-                status: 200, message: response, success: true
+                status: 200, message: response, success: true, data: 'Shipment cancelled successfully, your refund is credited to your wallet'
             })
+        } else if (serviceId == 4){
+            const orderId = shipment.shipping_vendor_order_id;
+            const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
+            const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const responseDta = await fetch(`https://apiv2.shiprocket.in/v1/external/orders/cancel`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${shiprocketApiKey}`
+                },
+                body: JSON.stringify({ ids : [orderId] })
+            })
+            const response = await responseDta.json()
+            if (response.status == 200){
+                const transaction = await db.beginTransaction()
+                const [expenses] = await transaction.query('SELECT * FROM EXPENSES WHERE expense_order = ? AND uid = ?', [order, uid])
+                const price = expenses[0].expense_cost
+                await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
+                await db.commit(transaction)
+                let mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: 'Shipment cancelled successfully',
+                    text: `Dear Merchant, \nYour cancellation request for Order id : ${order} is submitted successfully and the corresponding refund will credited to your wallet in 3-4 working days.\nRegards,\nJupiter Xpress`
+                };
+                await transporter.sendMail(mailOptions)
+                return res.status(200).json({
+                    status: 200, message: response, success: true, data: 'Cancellation request completed successfully, your refund will credited to your wallet in 3-4 working days'
+                })
+            } else {
+                return res.status(400).json({
+                    status: 400, success: false, message: response
+                });
+            }
         }
 
     } catch (error) {
@@ -609,8 +645,29 @@ const createDomesticShipment = async (req, res) => {
             })
             const createShipmentData = await createShipmentRequest.json()
             if (createShipmentData.status){
+                if (!createShipmentData.payload.awb_code){
+                    const responseDta = await fetch(`https://apiv2.shiprocket.in/v1/external/orders/cancel`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': `Bearer ${shiprocketApiKey}`
+                        },
+                        body: JSON.stringify({ ids : [createShipmentData.payload.order_id] })
+                    })
+                    const response = await responseDta.json()
+                    if (response.status == 200){
+                        return res.status(400).json({
+                            status: 400,
+                            success: false,
+                            data : 'This service is experiencing some error processing your package. Please try another service',
+                            message: createShipmentData,
+                            cancellation: response
+                        })
+                    }
+                }
                 const transaction = await db.beginTransaction();
-                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id , order])
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ?, shipping_vendor_order_id = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id, createShipmentData.payload.order_id , order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                     await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                     if (shipment.pay_method != "topay") {
