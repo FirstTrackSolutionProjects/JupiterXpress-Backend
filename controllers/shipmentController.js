@@ -170,8 +170,8 @@ const createDomesticShipment = async (req, res) => {
                     message: "More than 1 box is not allowed on this service"
                 });
             }
-            const id = categoryId==1?2:1;
-            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(id);
+            const warehouseServiceId = categoryId==1?2:1;
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(warehouseServiceId);
             if (warehouseNotAvailable){
                 return res.status(200).json({
                     status: 200,
