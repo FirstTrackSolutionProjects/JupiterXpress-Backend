@@ -39,7 +39,7 @@ const getStatistics = async (req, res) => {
                 total_refund += parseFloat(refunds[0][i].refund_amount)
             }
             const net_expense = total_expense - total_refund;
-            const revenue = ((net_expense / 1.3) * 0.3).toFixed(2)
+            const revenue = ((net_expense / 1.3)).toFixed(2)
             return res.status(200).json({
                 status: 200, warehouse, shipment, merchant, delivered, unDelivered, inTransit, revenue, expense: expense[0][0].expense_cost, refunds, success: true
             });
