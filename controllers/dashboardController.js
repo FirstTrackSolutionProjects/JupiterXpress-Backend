@@ -28,8 +28,8 @@ const getStatistics = async (req, res) => {
             const unDelivered = unDelivereds[0].unDelivereds;
             const [inTransits] = await db.query('SELECT COUNT(*) AS inTransits FROM SHIPMENT_REPORTS WHERE status = "In Transit" ')
             const inTransit = inTransits[0].inTransits;
-            const expense = await db.query('SELECT * FROM EXPENSES')
-            const refunds = await db.query('SELECT * FROM REFUND')
+            const expense = await db.query('SELECT * FROM EXPENSES WHERE uid - 8')
+            const refunds = await db.query('SELECT * FROM REFUND WHERE uid - 8')
             let total_expense = 0;
             for (let i = 0; i < expense[0].length; i++) {
                 total_expense += parseFloat(expense[0][i].expense_cost)
