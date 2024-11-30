@@ -262,7 +262,8 @@ const createDomesticShipment = async (req, res) => {
                 return res.status(400).json({
                     status: 400,
                     success: false,
-                    message: response
+                    message: response?.packages[0]?.rmk,
+                    response : response
                 });
             }
 
@@ -400,7 +401,8 @@ const createDomesticShipment = async (req, res) => {
                 return res.status(400).json({
                     status: 400,
                     success: false,
-                    message: response
+                    message: response.packages[0].rmk,
+                    response : response
                 });
             }
             try {
