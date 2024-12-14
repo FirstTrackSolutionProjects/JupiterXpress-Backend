@@ -1447,7 +1447,8 @@ const getDomesticShipmentPricing = async (req, res) => {
                 }
             })
             const pricingResponseData = await pricingRequest.json();
-            const services = pricingResponseData.data.available_courier_companies || [];
+            console.error(pricingResponseData)
+            const services = pricingResponseData?.data?.available_courier_companies || [];
 
             services.map((service,index)=>{
                 responses.push({
