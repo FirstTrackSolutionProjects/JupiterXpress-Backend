@@ -1234,7 +1234,7 @@ const getDomesticShipmentLabel = async (req, res) => {
 }
 
 const getDomesticShipmentPricing = async (req, res) => {
-    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes, isShipment, isB2B, invoiceAmount } = req.body
+    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes, isB2B, invoiceAmount } = req.body
     if (!method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status) {
         return res.status(400).json({
             status: 400, message: 'Missing required fields'
@@ -1247,7 +1247,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         let responses = []
 
         const delhivery500gmPricing = async () => {
-            if (isShipment && isB2B) return;
+            if (isB2B) return;
             const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
@@ -1270,7 +1270,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         }
 
         const delhivery10kgPricing = async () => {
-            if (isShipment && isB2B) return;
+            if (isB2B) return;
             const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
@@ -1356,7 +1356,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         }
 
         const pickrr20kgPricing = async () => {
-            if (isShipment && !isB2B) return;
+            if (!isB2B) return;
             const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
                 headers: {
@@ -1403,7 +1403,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round(((parseFloat(pickrrPriceData[service].working.grand_total) * 1.3)) + ((invoiceAmount) ? (Math.max(75, (0.002 * invoiceAmount))) : 0)),
+                        "price": Math.round(((parseFloat(pickrrPriceData[service].working.grand_total) * 1.3)) + (Math.max(75, (0.002 * invoiceAmount)))),
                         "serviceId": "3",
                         "categoryId": "1",
                         "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
@@ -1423,7 +1423,7 @@ const getDomesticShipmentPricing = async (req, res) => {
 
         const shiprocketPricing = async () => {
             if (quantity !== 1) return;
-            if (isShipment && isB2B) return;
+            if (isB2B) return;
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const [servicesWithWarehouse] = await db.query("SELECT service_name FROM SERVICES_WITH_WAREHOUSES WHERE service_id = 4");
             const serviceName = servicesWithWarehouse[0].service_name;
