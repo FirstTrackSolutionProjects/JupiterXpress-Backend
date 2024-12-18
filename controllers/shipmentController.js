@@ -1374,7 +1374,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                 "to_city": "New Delhi",
                 "to_state": "Delhi",
                 "quantity": quantity,
-                "invoice_value": 1111,
+                "invoice_value": invoiceAmount,
                 "calculator_page": "true",
                 "packaging_unit_details": []
             }
@@ -1403,7 +1403,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round(((parseFloat(pickrrPriceData[service].working.grand_total) * 1.3)) + (Math.max(75, (0.002 * invoiceAmount)))),
+                        "price": Math.round(parseFloat(pickrrPriceData[service].working.grand_total) * 1.3),
                         "serviceId": "3",
                         "categoryId": "1",
                         "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
