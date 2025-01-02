@@ -298,174 +298,176 @@ const createDomesticShipment = async (req, res) => {
                 success: true
             });
 
-        } else if (serviceId == '2') {
-            const loginPayload = {
-                grant_type: "client_credentials",
-                client_id: process.env.MOVIN_CLIENT_ID,
-                client_secret: process.env.MOVIN_CLIENT_SECRET,
-                Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
-            };
-            const formBody = Object.entries(loginPayload).map(
-                ([key, value]) =>
-                    encodeURIComponent(key) + "=" + encodeURIComponent(value)
-            ).join("&");
+        } 
+        // else if (serviceId == '2') {
+        //     const loginPayload = {
+        //         grant_type: "client_credentials",
+        //         client_id: process.env.MOVIN_CLIENT_ID,
+        //         client_secret: process.env.MOVIN_CLIENT_SECRET,
+        //         Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
+        //     };
+        //     const formBody = Object.entries(loginPayload).map(
+        //         ([key, value]) =>
+        //             encodeURIComponent(key) + "=" + encodeURIComponent(value)
+        //     ).join("&");
 
-            const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json',
-                },
-                body: formBody
-            });
+        //     const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/x-www-form-urlencoded',
+        //             'Accept': 'application/json',
+        //         },
+        //         body: formBody
+        //     });
 
-            const loginRes = await login.json();
-            const token = loginRes.access_token;
+        //     const loginRes = await login.json();
+        //     const token = loginRes.access_token;
 
-            let fromAddressLine1 = warehouse.address.substring(0, 50);
-            let fromAddressLine2 = warehouse.address.substring(50, 100);
-            let fromAddressLine3 = warehouse.address.substring(100, 150);
-            if (fromAddressLine2 == "") {
-                fromAddressLine2 = fromAddressLine1;
-                fromAddressLine3 = fromAddressLine1;
-            } else if (fromAddressLine3 == "") {
-                fromAddressLine3 = fromAddressLine1;
-            }
-
-
-            let toAddressLine1 = shipment.shipping_address.substring(0, 50);
-            let toAddressLine2 = shipment.shipping_address.substring(50, 100);
-            let toAddressLine3 = shipment.shipping_address.substring(100, 150);
-            if (toAddressLine2 == "") {
-                toAddressLine2 = toAddressLine1;
-                toAddressLine3 = toAddressLine1;
-            } else if (toAddressLine3 == "") {
-                toAddressLine3 = toAddressLine1;
-            }
+        //     let fromAddressLine1 = warehouse.address.substring(0, 50);
+        //     let fromAddressLine2 = warehouse.address.substring(50, 100);
+        //     let fromAddressLine3 = warehouse.address.substring(100, 150);
+        //     if (fromAddressLine2 == "") {
+        //         fromAddressLine2 = fromAddressLine1;
+        //         fromAddressLine3 = fromAddressLine1;
+        //     } else if (fromAddressLine3 == "") {
+        //         fromAddressLine3 = fromAddressLine1;
+        //     }
 
 
-            const reqBody = {
-                communication_email: "jupiterxpress2024@gmail.com",
-                payload: [
-                    {
-                        shipment: {
-                            shipment_unique_id: `JUP${refId}`,
-                            shipment_type: 'Forward',
-                            forward_shipment_number: `JUP${refId}`,
-                            ship_from_account: process.env.MOVIN_ACCOUNT_NUMBER,
-                            ship_from_company: users[0].businessName,
-                            ship_from_address_line1: fromAddressLine1,
-                            ship_from_address_line2: fromAddressLine2,
-                            ship_from_address_line3: fromAddressLine3,
-                            ship_from_zipcode: warehouse.pin,
-                            ship_from_email: "jupiterxpress2024@gmail.com",
-                            ship_from_phone: users[0].phone,
-                            shipment_date: shipment.pickup_date,
-                            shipment_priority: categoryId == 1 ? 'Express End of Day' : 'Standard Premium',
-                            ship_to_first_name: customerFirstName,
-                            ship_to_last_name: customerLastName,
-                            ship_to_company: "Customer",
-                            ship_to_address_line1: toAddressLine1,
-                            ship_to_address_line2: toAddressLine2,
-                            ship_to_address_line3: toAddressLine3,
-                            ship_to_zipcode: shipment.shipping_postcode,
-                            ship_to_phone: shipment.customer_mobile,
-                            ship_to_email: email,
-                            package_type: "Package",
-                            total_weight: shipment.weight,
-                            invoice_value: shipment.cod_amount,
-                            invoice_currency: "INR",
-                            payment_type: 'Prepaid',
-                            goods_general_description: "Shipment Items",
-                            goods_value: total_amount.toString(),
-                            bill_to: "Shipper",
-                            include_insurance: "No",
-                            email_notification: "Yes",
-                            mobile_notification: "Yes",
-                            add_adult_signature: "Yes",
-                            cash_on_delivery: "No"
-                        },
-                        package: []
-                    }
-                ]
-            };
-            boxes.map((box, index) => {
-                reqBody.payload[0].package.push({
-                    "package_unique_id": `PACK_${index + 1}`,
-                    "length": box.length,
-                    "width": box.breadth,
-                    "height": box.height,
-                    "weight_actual": parseInt(box.weight) / 1000,
-                    "identical_package_count": 1
-                })
-            })
+        //     let toAddressLine1 = shipment.shipping_address.substring(0, 50);
+        //     let toAddressLine2 = shipment.shipping_address.substring(50, 100);
+        //     let toAddressLine3 = shipment.shipping_address.substring(100, 150);
+        //     if (toAddressLine2 == "") {
+        //         toAddressLine2 = toAddressLine1;
+        //         toAddressLine3 = toAddressLine1;
+        //     } else if (toAddressLine3 == "") {
+        //         toAddressLine3 = toAddressLine1;
+        //     }
 
-            const responseDta = await fetch(`https://apim.iristransport.co.in/rest/v2/shipment/sync/create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
-                },
-                body: JSON.stringify(reqBody)
-            });
 
-            const response = await responseDta.json();
-            console.log(response)
-            if (response.error) {
-                return res.status(400).json({
-                    status: 400,
-                    success: false,
-                    message: response.packages[0].rmk,
-                    response : response
-                });
-            }
-            try {
-                if (response.response.errors[0].shipment[`JUP${refId}`][0].error) {
-                    return res.status(400).json({
-                        status: 400,
-                        success: false,
-                        message: response.response.errors[0].shipment[`JUP${refId}`][0].error
-                    });
-                }
-            } catch (err) {
-                //No error found, so shipment creation can be procedded
-            }
-            const transaction = await db.beginTransaction();
-            try {
-                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], true, false, order]);
-                await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
-                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
-                if (shipment.pay_method != "topay") {
-                    await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                }
-                await db.commit(transaction);
-            } catch (err) {
-                await db.rollback(transaction);
-                console.log(err);
-                return res.status(500).json({
-                    status: 500,
-                    response: response,
-                    error: err
-                });
-            }
+        //     const reqBody = {
+        //         communication_email: "jupiterxpress2024@gmail.com",
+        //         payload: [
+        //             {
+        //                 shipment: {
+        //                     shipment_unique_id: `JUP${refId}`,
+        //                     shipment_type: 'Forward',
+        //                     forward_shipment_number: `JUP${refId}`,
+        //                     ship_from_account: process.env.MOVIN_ACCOUNT_NUMBER,
+        //                     ship_from_company: users[0].businessName,
+        //                     ship_from_address_line1: fromAddressLine1,
+        //                     ship_from_address_line2: fromAddressLine2,
+        //                     ship_from_address_line3: fromAddressLine3,
+        //                     ship_from_zipcode: warehouse.pin,
+        //                     ship_from_email: "jupiterxpress2024@gmail.com",
+        //                     ship_from_phone: users[0].phone,
+        //                     shipment_date: shipment.pickup_date,
+        //                     shipment_priority: categoryId == 1 ? 'Express End of Day' : 'Standard Premium',
+        //                     ship_to_first_name: customerFirstName,
+        //                     ship_to_last_name: customerLastName,
+        //                     ship_to_company: "Customer",
+        //                     ship_to_address_line1: toAddressLine1,
+        //                     ship_to_address_line2: toAddressLine2,
+        //                     ship_to_address_line3: toAddressLine3,
+        //                     ship_to_zipcode: shipment.shipping_postcode,
+        //                     ship_to_phone: shipment.customer_mobile,
+        //                     ship_to_email: email,
+        //                     package_type: "Package",
+        //                     total_weight: shipment.weight,
+        //                     invoice_value: shipment.cod_amount,
+        //                     invoice_currency: "INR",
+        //                     payment_type: 'Prepaid',
+        //                     goods_general_description: "Shipment Items",
+        //                     goods_value: total_amount.toString(),
+        //                     bill_to: "Shipper",
+        //                     include_insurance: "No",
+        //                     email_notification: "Yes",
+        //                     mobile_notification: "Yes",
+        //                     add_adult_signature: "Yes",
+        //                     cash_on_delivery: "No"
+        //                 },
+        //                 package: []
+        //             }
+        //         ]
+        //     };
+        //     boxes.map((box, index) => {
+        //         reqBody.payload[0].package.push({
+        //             "package_unique_id": `PACK_${index + 1}`,
+        //             "length": box.length,
+        //             "width": box.breadth,
+        //             "height": box.height,
+        //             "weight_actual": parseInt(box.weight) / 1000,
+        //             "identical_package_count": 1
+        //         })
+        //     })
 
-            let mailOptions = {
-                from: process.env.EMAIL_USER,
-                to: email,
-                subject: 'Shipment created successfully',
-                text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Movin Courier Service 
-              and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
-            };
-            await transporter.sendMail(mailOptions);
+        //     const responseDta = await fetch(`https://apim.iristransport.co.in/rest/v2/shipment/sync/create`, {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //             'Accept': 'application/json',
+        //             'Authorization': `Bearer ${token}`,
+        //             'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
+        //         },
+        //         body: JSON.stringify(reqBody)
+        //     });
 
-            return res.status(200).json({
-                status: 200,
-                response: response,
-                success: true
-            });
-        } else if (serviceId == 3) {
+        //     const response = await responseDta.json();
+        //     console.log(response)
+        //     if (response.error) {
+        //         return res.status(400).json({
+        //             status: 400,
+        //             success: false,
+        //             message: response.packages[0].rmk,
+        //             response : response
+        //         });
+        //     }
+        //     try {
+        //         if (response.response.errors[0].shipment[`JUP${refId}`][0].error) {
+        //             return res.status(400).json({
+        //                 status: 400,
+        //                 success: false,
+        //                 message: response.response.errors[0].shipment[`JUP${refId}`][0].error
+        //             });
+        //         }
+        //     } catch (err) {
+        //         //No error found, so shipment creation can be procedded
+        //     }
+        //     const transaction = await db.beginTransaction();
+        //     try {
+        //         await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], true, false, order]);
+        //         await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+        //         await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
+        //         if (shipment.pay_method != "topay") {
+        //             await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
+        //         }
+        //         await db.commit(transaction);
+        //     } catch (err) {
+        //         await db.rollback(transaction);
+        //         console.log(err);
+        //         return res.status(500).json({
+        //             status: 500,
+        //             response: response,
+        //             error: err
+        //         });
+        //     }
+
+        //     let mailOptions = {
+        //         from: process.env.EMAIL_USER,
+        //         to: email,
+        //         subject: 'Shipment created successfully',
+        //         text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Movin Courier Service 
+        //       and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+        //     };
+        //     await transporter.sendMail(mailOptions);
+
+        //     return res.status(200).json({
+        //         status: 200,
+        //         response: response,
+        //         success: true
+        //     });
+        // } 
+        else if (serviceId == 3) {
             const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(3);
             if (warehouseNotAvailable){
                 return res.status(200).json({
@@ -1009,53 +1011,55 @@ const getDomesticShipmentReport = async (req, res) => {
             return res.status(200).json({
                 status: 200, data: statusData, success: true
             });
-        } else if (serviceId == 2) {
-            const loginPayload = {
-                grant_type: "client_credentials",
-                client_id: process.env.MOVIN_CLIENT_ID,
-                client_secret: process.env.MOVIN_CLIENT_SECRET,
-                Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
-            };
-            const formBody = Object.entries(loginPayload).map(
-                ([key, value]) =>
-                    encodeURIComponent(key) + "=" + encodeURIComponent(value)
-            ).join("&");
-            const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Accept': 'application/json',
-                },
-                body: formBody
-            })
-            const loginRes = await login.json()
-            const movinToken = loginRes.access_token
-            const response4 = await fetch(`https://apim.iristransport.co.in/rest/v2/order/track`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': `Bearer ${movinToken}`,
-                    'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
-                },
-                body: JSON.stringify({ "tracking_numbers": [awb] }),
-            });
-            const data4 = await response4.json();
-            if (data4.data[awb] != "Tracking number is not valid.") {
-                const ResultStatus = [];
-                for (const [key, value] of Object.entries(data4.data[awb])) {
-                    if (key.startsWith(awb)) {
-                        for (let i = 0; i < value.length; i++) {
-                            ResultStatus.push(data4.data[awb][key][i])
-                        }
-                    }
-                }
-                const latestLocation = data4.data[awb].current_branch;
-                return res.status(200).json({
-                    status: 200, data: { scans: ResultStatus, latestLocation }, data4: data4, success: true, id: 3
-                });
-            }
-        } else if (serviceId == 3) {
+        } 
+        // else if (serviceId == 2) {
+        //     const loginPayload = {
+        //         grant_type: "client_credentials",
+        //         client_id: process.env.MOVIN_CLIENT_ID,
+        //         client_secret: process.env.MOVIN_CLIENT_SECRET,
+        //         Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
+        //     };
+        //     const formBody = Object.entries(loginPayload).map(
+        //         ([key, value]) =>
+        //             encodeURIComponent(key) + "=" + encodeURIComponent(value)
+        //     ).join("&");
+        //     const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/x-www-form-urlencoded',
+        //             'Accept': 'application/json',
+        //         },
+        //         body: formBody
+        //     })
+        //     const loginRes = await login.json()
+        //     const movinToken = loginRes.access_token
+        //     const response4 = await fetch(`https://apim.iristransport.co.in/rest/v2/order/track`, {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //             'Accept': 'application/json',
+        //             'Authorization': `Bearer ${movinToken}`,
+        //             'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
+        //         },
+        //         body: JSON.stringify({ "tracking_numbers": [awb] }),
+        //     });
+        //     const data4 = await response4.json();
+        //     if (data4.data[awb] != "Tracking number is not valid.") {
+        //         const ResultStatus = [];
+        //         for (const [key, value] of Object.entries(data4.data[awb])) {
+        //             if (key.startsWith(awb)) {
+        //                 for (let i = 0; i < value.length; i++) {
+        //                     ResultStatus.push(data4.data[awb][key][i])
+        //                 }
+        //             }
+        //         }
+        //         const latestLocation = data4.data[awb].current_branch;
+        //         return res.status(200).json({
+        //             status: 200, data: { scans: ResultStatus, latestLocation }, data4: data4, success: true, id: 3
+        //         });
+        //     }
+        // } 
+        else if (serviceId == 3) {
             const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: 'POST',
                 headers: {
@@ -1484,7 +1488,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         await Promise.all([
             delhivery500gmPricing(),
             delhivery10kgPricing(),
-            movinPricing(),
+            // movinPricing(),
             pickrr20kgPricing(),
             shiprocketPricing()
         ])
