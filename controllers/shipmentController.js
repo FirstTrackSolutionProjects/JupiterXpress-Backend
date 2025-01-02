@@ -8,8 +8,10 @@ const SECRET_KEY = process.env.JWT_SECRET;
 
 const getCurrentDateAndTime = () => {
     const now = new Date();
-    const formattedDate = now.toISOString().slice(0, 16).replace("T", " ");
-    return formattedDate;
+    const offsetIST = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    const istDate = new Date(now.getTime() + offsetIST);
+    const formattedDateIST = istDate.toISOString().slice(0, 16).replace("T", " ");
+    return formattedDateIST;
 }
 
 const cancelShipment = async (req, res) => {
@@ -27,7 +29,7 @@ const cancelShipment = async (req, res) => {
         const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [uid]);
         const email = users[0].email;
         // const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
-
+        
         if (serviceId == "1") {
 
 
@@ -153,6 +155,20 @@ const createDomesticShipment = async (req, res) => {
         const splitNames = firstNameEndsAt !== -1 ? [shipment.customer_name.slice(0, firstNameEndsAt), shipment.customer_name.slice(firstNameEndsAt + 1)] : [shipment.customer_name];
         const customerFirstName = splitNames[0];
         const customerLastName = splitNames.length > 1 ? splitNames[1] : customerFirstName;
+
+        const now = new Date();
+
+        // Convert current time to IST
+        const istOffset = 5.5 * 60 * 60 * 1000; // IST offset in milliseconds
+        const istDate = new Date(now.getTime() + (now.getTimezoneOffset() * 60 * 1000) + istOffset);
+            
+        // Combine shipment pickup date and time into a single Date object
+        const pickupDateAndTime = new Date(`${shipment.pickup_date}T${shipment.pickup_time}:00`);
+            
+        // Compare pickup time with the current IST time
+        if (pickupDateAndTime < istDate) {
+            return res.status(400).json({ message: 'Pickup time is already passed. Please update and try again' });
+        }
 
         const warehouseNotCreatedOnCurrentService = async (serviceId) => {
             const [checkStatus] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION WHERE warehouse_id = ? AND service_id = ?', [wid, serviceId]);
@@ -564,6 +580,7 @@ const createDomesticShipment = async (req, res) => {
                     })
                 })
                 const pickrrShipmentCreateData = await pickrrShipmentCreate.json();
+                console.error(pickrrShipmentCreateData)
                 if (pickrrShipmentCreateData.id) {
                     const transaction = await db.beginTransaction();
                     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, pickrrShipmentCreateData.id, order])
@@ -585,7 +602,7 @@ const createDomesticShipment = async (req, res) => {
                     })
                 }
                 return res.status(400).json({
-                    status: 400, success: false, response: pickrrShipmentCreateData, res2: pickrrCreateOrderData, message: pickrrShipmentCreateData.non_field_errors[0].error_msg || "Unexpected error encountered while creating shipment"
+                    status: 400, success: false, response: pickrrShipmentCreateData, res2: pickrrCreateOrderData, message: pickrrShipmentCreateData?.non_field_errors[0]?.error_msg || pickrrShipmentCreateData?.non_field_errors[0] || "Unexpected error encountered while creating shipment"
                 })
             }
             return res.status(500).json({
