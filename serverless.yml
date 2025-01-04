@@ -37,6 +37,7 @@ provider:
     PICKRR_CLIENT_ID : ${env:PICKRR_CLIENT_ID}
     PICKRR_REFRESH_TOKEN : ${env:PICKRR_REFRESH_TOKEN}
     DILLIKING_SECRET_KEY : ${env:DILLIKING_SECRET_KEY}
+    BUCKET_URL : ${env:BUCKET_URL}
 functions:
   app:
     handler: app.handler

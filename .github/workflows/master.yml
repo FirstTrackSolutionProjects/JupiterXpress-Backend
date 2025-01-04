@@ -55,3 +55,4 @@ jobs:
         PICKRR_CLIENT_ID : ${{ vars.PICKRR_CLIENT_ID }}
         PICKRR_REFRESH_TOKEN : ${{ vars.PICKRR_REFRESH_TOKEN}}
         DILLIKING_SECRET_KEY : ${{ vars.DILLIKING_SECRET_KEY}}
+        BUCKET_URL : ${{ vars.BUCKET_URL }}
