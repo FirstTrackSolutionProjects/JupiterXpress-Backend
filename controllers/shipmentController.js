@@ -545,6 +545,8 @@ const createDomesticShipment = async (req, res) => {
                 },)
             })
 
+            console.error(pickrrCreateOrderPayload)
+
             const pickrrCreateOrder = await fetch(`https://api-cargo.shiprocket.in/api/external/order_creation/`, {
                 method: 'POST',
                 headers: {
@@ -556,8 +558,25 @@ const createDomesticShipment = async (req, res) => {
             });
 
             const pickrrCreateOrderData = await pickrrCreateOrder.json();
+            console.error(pickrrCreateOrderData)
             const invoiceUrl = process.env.BUCKET_URL + shipment.invoice_url
             if (pickrrCreateOrderData.success) {
+                const pickrrCreateShipmentPayload = {
+                    "client_id": pickrrClientID,
+                    "order_id": pickrrCreateOrderData.order_id,
+                    "remarks": "Shipment",
+                    "recipient_GST": null,
+                    "to_pay_amount": "0",
+                    "mode_id": pickrrCreateOrderData.mode_id,
+                    "delivery_partner_id": pickrrCreateOrderData.delivery_partner_id,
+                    "pickup_date_time": `${shipment.pickup_date} ${shipment.pickup_time}`,
+                    "eway_bill_no": shipment.ewaybill,
+                    "invoice_value": shipment.invoice_amount,
+                    "invoice_number": shipment.invoice_number,
+                    "invoice_date": shipment.invoice_date,
+                    "supporting_docs": [invoiceUrl]
+                }
+                console.error(pickrrCreateShipmentPayload)
                 const pickrrShipmentCreate = await fetch('https://api-cargo.shiprocket.in/api/order_shipment_association/', {
                     method: 'POST',
                     headers: {
@@ -565,21 +584,7 @@ const createDomesticShipment = async (req, res) => {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({
-                        "client_id": pickrrClientID,
-                        "order_id": pickrrCreateOrderData.order_id,
-                        "remarks": "Shipment",
-                        "recipient_GST": null,
-                        "to_pay_amount": "0",
-                        "mode_id": pickrrCreateOrderData.mode_id,
-                        "delivery_partner_id": pickrrCreateOrderData.delivery_partner_id,
-                        "pickup_date_time": `${shipment.pickup_date} ${shipment.pickup_time}`,
-                        "eway_bill_no": shipment.ewaybill,
-                        "invoice_value": shipment.invoice_amount,
-                        "invoice_number": shipment.invoice_number,
-                        "invoice_date": shipment.invoice_date,
-                        "supporting_docs": [invoiceUrl]
-                    })
+                    body: JSON.stringify(pickrrCreateShipmentPayload)
                 })
                 const pickrrShipmentCreateData = await pickrrShipmentCreate.json();
                 console.error(pickrrShipmentCreateData)
