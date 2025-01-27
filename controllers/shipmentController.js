@@ -1306,8 +1306,8 @@ const getDomesticShipmentPricing = async (req, res) => {
             })
             const data2 = await response2.json();
             const price2 = data2[0]['total_amount']
-            if (boxes.length == 1) {
-                if (method == 'S' && !priceCalc) {
+            if (quantity == 1) {
+                if (method == 'S') {
                     responses.push({
                         "name": `Delhivery Surface`,
                         "weight": "10Kg",
