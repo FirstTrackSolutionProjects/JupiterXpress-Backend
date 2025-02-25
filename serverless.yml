@@ -38,6 +38,10 @@ provider:
     PICKRR_REFRESH_TOKEN : ${env:PICKRR_REFRESH_TOKEN}
     DILLIKING_SECRET_KEY : ${env:DILLIKING_SECRET_KEY}
     BUCKET_URL : ${env:BUCKET_URL}
+    M5C_ACCOUNT_CODE : ${env:M5C_ACCOUNT_CODE}
+    M5C_USERNAME : ${env:M5C_USERNAME}
+    M5C_PASSWORD : ${env:M5C_PASSWORD}
+    M5C_ACCESS_KEY : ${env:M5C_ACCESS_KEY}
 functions:
   app:
     handler: app.handler
