@@ -1880,7 +1880,7 @@ const trackShipment = async (req, res) => {
         return res.status(successfulResult.status).json(successfulResult);
     }
 
-    return res.status(404).json({ status: 404, message: "Service not found", success: false });
+    return res.status(404).json({ status: 404, message: "Service not found", success: false, results });
 };
 
 
