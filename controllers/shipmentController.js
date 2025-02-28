@@ -1818,6 +1818,52 @@ const trackShipment = async (req, res) => {
         }
     }
 
+    const m5cTracking = async () => {
+        const m5cAccountCode = process.env.M5C_ACCOUNT_CODE;
+        const m5cUsername = process.env.M5C_USERNAME;
+        const m5cPassword = process.env.M5C_PASSWORD;
+        const m5cAccessKey = process.env.M5C_ACCESS_KEY
+        if (!m5cAccountCode || !m5cUsername || !m5cPassword || !m5cAccessKey){
+            return {
+                status: 400, message: 'Missing required M5C credentials', success: false
+            };
+        }
+        const trackingRequestPayload = {
+            "ValidateAccount": [
+              {
+                "AccountCode": m5cAccountCode,
+                "Username": m5cUsername,
+                "Password": m5cPassword,
+                "AccessKey": m5cAccessKey
+              }
+            ],
+            "Awbno": awb
+        }
+        const trackingRequest = await fetch('http://apiv2.m5clogs.com/api/Track/GetTrackings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(trackingRequestPayload)
+        })
+        if (!trackingRequest.ok){
+            return {
+                status: trackingRequest.status, message: 'Failed to fetch tracking data', success: false
+            }
+        }
+        const trackingResponse = await trackingRequest.json()
+        const isSuccess = trackingResponse[0]?.Event;
+        if (!isSuccess){
+            return {
+                status: 400, message: trackingResponse, success: false
+            }
+        } else {
+            return {
+                status: 200, data: trackingResponse[0]?.Event || [], success: true, id: 7
+            };
+        }
+    }
+
     const results = await Promise.all([
         delhivery500gmTracking(),
         delhivery10kgTracking(),
@@ -1825,7 +1871,8 @@ const trackShipment = async (req, res) => {
         movinTracking(),
         dillikingTracking(),
         flightGoTracking(),
-        shiprocketTracking()
+        shiprocketTracking(),
+        m5cTracking()
     ]);
 
     const successfulResult = results.find(result => result && result.success);
@@ -1833,7 +1880,7 @@ const trackShipment = async (req, res) => {
         return res.status(successfulResult.status).json(successfulResult);
     }
 
-    return res.status(404).json({ status: 404, message: "Service not found", success: false });
+    return res.status(404).json({ status: 404, message: "Service not found", success: false, results });
 };
 
 
