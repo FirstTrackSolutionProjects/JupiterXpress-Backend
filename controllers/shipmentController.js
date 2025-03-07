@@ -1760,8 +1760,9 @@ const trackShipment = async (req, res) => {
             },
             body: JSON.stringify({ "tracking_numbers": [awb] }),
         });
-        const data4 = await response4.json();
-        if (data4.data[awb] != "Tracking number is not valid.") {
+        const body = await response4.json();
+        const data4 = JSON.parse(body);
+        if (data4?.code != 400) {
             const ResultStatus = [];
             for (const [key, value] of Object.entries(data4.data[awb])) {
                 if (key.startsWith(awb)) {
