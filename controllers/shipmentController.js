@@ -3,6 +3,7 @@ const db = require('../utils/db');
 const { s3 } = require('../utils/aws_s3');
 const { transporter } = require('../utils/email');
 const { movinPincodes, movinPrices, movinRegion, IndianStateInfo } = require('../data/movin');
+const findClosestMatch = require('../helpers/findClosestMatch');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
@@ -105,6 +106,45 @@ const cancelShipment = async (req, res) => {
                     status: 400, success: false, message: response
                 });
             }
+        } else if (serviceId == 5){
+            try {
+                const cancelResponse = await fetch(`https://api.envia.com/ship/cancel/`,{
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                    },
+                    body: JSON.stringify({
+                        "carrier": shipment?.aggregatorServiceId,
+                        "trackingNumber": awb
+                    })
+                })
+                if (!cancelResponse.ok) {
+                    return res.status(400).json({
+                        status: 400, success: false, data: "Unable to cancel shipment. Please try again later"
+                    });
+                }
+
+                const transaction = await db.beginTransaction()
+                const [expenses] = await transaction.query('SELECT * FROM EXPENSES WHERE expense_order = ? AND uid = ?', [order, uid])
+                const price = expenses[0].expense_cost
+                await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
+                await transaction.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', order]);
+                if (shipment.pay_method != "topay") {
+                    await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [parseInt(price), uid]);
+                    await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
+                }
+                await db.commit(transaction)
+
+                return res.status(200).json({
+                    status: 200, success: true, data: "Shipment cancelled successfully, your refund is credited to your wallet"
+                });
+            } catch (error){
+                return res.status(500).json({
+                    status: 500, message: error, success: false
+                });
+            }
         }
 
     } catch (error) {
@@ -120,9 +160,10 @@ const createDomesticShipment = async (req, res) => {
         const verified = jwt.verify(token, SECRET_KEY);
         const id = verified.id;
         const [users] = await db.query('SELECT * FROM USERS WHERE uid =?', [id]);
-
-        const email = users[0].email;
-        const { order, price, serviceId, categoryId, courierId } = req.body;
+        const user = users[0];
+        const email = user.email;
+        const businessName = user.businessName;
+        const { order, price, serviceId, categoryId, courierId, courierServiceId } = req.body;
         if (!order || !serviceId || !categoryId || !price) {
             return res.status(400).json({ message: 'All fields are required' });
         }
@@ -717,6 +758,176 @@ const createDomesticShipment = async (req, res) => {
                     response: createShipmentData
                 })
             }
+        } else if (serviceId == 5){
+            console.log("Creating Shipment")
+            try{
+                const stateResponse = await fetch(`http://queries.envia.com/state?country_code=IN`);
+                if (!stateResponse.ok){
+                    return res.status(400).json({
+                        status: 400, success: false, message: "Shipment creation failed. Please try again... 1"
+                    })
+                }
+                const stateData = await stateResponse.json()
+                const states = stateData?.data?.map((state)=>state.name);
+                const sourceStateIndex = findClosestMatch(warehouse?.state, states);
+                const destStateIndex = findClosestMatch(shipment?.shipping_state, states);
+                const sourceStateCode = stateData?.data?.[sourceStateIndex]?.code_2_digits;
+                const destStateCode = stateData?.data?.[destStateIndex]?.code_2_digits;
+                console.log(sourceStateCode)
+                console.log(destStateCode)
+                if (!sourceStateCode || !destStateCode){
+                    return res.status(400).json({
+                        status: 400, success: false, message: "Shipment creation failed. Please try again... 2"
+                    })
+                }
+                const packages = [];
+                boxes.map((box, index)=>{
+                    packages.push({
+                        "content": "Items",
+                        "amount": 1,
+                        "type": "box",
+                        "dimensions": {
+                            "length": 70,
+                            "width": 5,
+                            "height": 6
+                        },
+                        "weight": 0.5,
+                        "insurance": 0,
+                        "declaredValue": shipment?.invoice_amount || total_amount,
+                        "weightUnit": "KG",
+                        "lengthUnit": "CM"
+                    })
+                })
+                const shipmentPayload = {
+                    "origin": {
+                        "name": warehouse?.warehouseName,
+                        "company": businessName,
+                        "email": "jupiterxpress2024@gmail.com",
+                        "phone": warehouse?.phone,
+                        "street": warehouse?.address.substring(0,61),
+                        "number": warehouse?.address.substring(61) || "0",
+                        "city": warehouse?.city,
+                        "state": sourceStateCode,
+                        "country": "IN",
+                        "postalCode": warehouse?.pin
+                    },
+                    "destination": {
+                        "name": shipment.customer_name,
+                        "company": shipment.customer_name,
+                        "email": shipment.customer_email,
+                        "phone": shipment.customer_mobile,
+                        "street": shipment.shipping_address.substring(0,60),
+                        "number": shipment.shipping_address.substring(60) || "0",
+                        "city": shipment.shipping_city,
+                        "state": destStateCode,
+                        "country": "IN",
+                        "postalCode": shipment?.shipping_postcode
+                    },
+                    "packages": packages,
+                    "shipment": {
+                        "carrier": courierId,
+                        "service": courierServiceId,
+                        "type": 1
+                    },
+                    "settings": {
+                        "printFormat": "PDF",
+                        "printSize": "STOCK_4X6",
+                        "comments": "Label"
+                    }
+                }
+
+                const shipmentResponse = await fetch(`https://api.envia.com/ship/generate`,{
+                    method: 'POST',
+                    headers: {
+                        'Content-Type' : 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                    },
+                    body: JSON.stringify(shipmentPayload)
+                })
+
+                if (!shipmentResponse.ok){
+                    return res.status(400).json({
+                        status: 400, success: false, message: "Shipment creation failed. Please try again... 3"
+                    })
+                }
+
+                const shipmentData = await shipmentResponse.json();
+                console.log(shipmentData)
+                const awb = shipmentData?.data?.[0]?.trackingNumber;
+                if (!awb) {
+                    return res.status(400).json({
+                        status: 400, success: false, message: "Shipment creation failed. Please try again... 4"
+                    })
+                }
+
+                ////SCHEDULE PICKUP START
+                const pickupHour = parseInt(shipment?.pickup_time?.split(":")[0])
+                const pickupPayload = {
+                    "origin": {
+                        "name": warehouse?.warehouseName,
+                        "company": businessName,
+                        "email": "jupiterxpress2024@gmail.com",
+                        "phone": warehouse?.phone,
+                        "street": warehouse?.address.substring(0,61),
+                        "number": warehouse?.address.substring(61) || "0",
+                        "city": warehouse?.city,
+                        "state": sourceStateCode,
+                        "country": "IN",
+                        "postalCode": warehouse?.pin
+                    },
+                    "shipment": {
+                        "carrier": courierServiceId,
+                        "type": 1,
+                        "pickup": {
+                            "timeFrom": pickupHour,
+                            "timeTo": Math.max(pickupHour+12, 23),
+                            "date": shipment?.pickup_date,
+                            "instructions": "Pickup from warehouse",
+                            "totalPackages": 1,
+                            "totalWeight": 0.5
+                        }
+                    },
+                    "settings": {
+                        "currency": "INR",
+                        "labelFormat": "pdf"
+                    }
+                }
+                const pickupResponse = await fetch(`https://api.envia.com/ship/pickup/`,{
+                    method: 'POST',
+                    headers: {
+                        'Content-Type' : 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                    },
+                    body: JSON.stringify(pickupPayload)
+                });
+                
+                ////SCHEDULE PICKUP END
+                const transaction = await db.beginTransaction();
+                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, aggregatorServiceId = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, awb, courierId, order])
+                await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
+                if (shipment.pay_method != "topay") {
+                    await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
+                }
+                await db.commit(transaction);
+                let mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: 'Shipment created successfully',
+                    text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at ENVIA Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                };
+                await transporter.sendMail(mailOptions)
+                return res.status(200).json({
+                    status: 200, response: shipmentData, message: "Shipment created successfully!!!", success: true
+                })
+
+            } catch (error){
+                return res.status(500).json({
+                    status: 500, success: false, message: "Unexpected error encountered while creating shipment"
+                })
+            }
         }
     }
     catch (err) {
@@ -1110,6 +1321,36 @@ const getDomesticShipmentReport = async (req, res) => {
                     status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 6
                 });
             }
+        } else if (serviceId == 5){
+                try {
+                    const response = await fetch(`https://api.envia.com/ship/generaltrack/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            "trackingNumbers": [awb],
+                        })
+                    });
+                    if (!response.ok) {
+                        console.error('Error fetching tracking data:', response.statusText);
+                        return res.status(400).json({ status: 400, message: "Unable to fetch shipment", success: false });
+                    }
+                    const data = await response.json();
+                    const trackingData = data?.data || [];
+                    if (!trackingData?.[0]) {
+                        return res.status(400).json({ status: 400, message: "Shipment not available", success: false });
+                    }
+                    const trackingEvents = trackingData[0]?.eventHistory || [];
+                    if (!trackingEvents?.length) {
+                        return res.status(400).json({ status: 400, message: "No tracking events found", success: false });
+                    }
+                    return res.status(200).json({ status: 200, data: trackingEvents, success: true });
+                } catch (error) {
+                    console.error('Error fetching tracking data:', error);
+                    return res.status(500).json({ status: 500, message: "Error fetching tracking data", success: false });
+                }
         }
     } catch (err) {
         console.error(err);
@@ -1256,6 +1497,24 @@ const getDomesticShipmentLabel = async (req, res) => {
                 status: 500, message: 'Failed to get label', error: e.message
             });
         }
+    } else if (serviceId == 5){
+        try{
+            const label = await fetch(`https://queries.envia.com/guide/${shipment?.awb}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                }
+            }).then((response) => response.json())
+            const labelUrl = label?.data?.[0]?.label_file;
+            return res.status(200).json({
+                status: 200, label: labelUrl, success: true
+            });
+        } catch (e) {
+            return res.status(500).json({
+                status: 500, message: 'Failed to get label', error: e.message
+            });
+        }
     }
 }
 
@@ -1278,7 +1537,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
                     'Content-Type': 'application/json',
-                    'Accept': '*/*'
+                    'Accept': 'application/json'
                 }
             });
             const data = await response.json();
@@ -1463,7 +1722,6 @@ const getDomesticShipmentPricing = async (req, res) => {
             height=${boxes[0].height}&
             mode=${method=='S'?'Surface':'Air'}&
             cod=${payMode=="COD"?'1':'0'}&
-            
             `
             const pricingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/serviceability?${pricingRequestQuery}`,{
                 method: 'GET',
@@ -1490,12 +1748,143 @@ const getDomesticShipmentPricing = async (req, res) => {
             })
         }
 
+        const enviaB2BPricing = async () => {
+            if (quantity !== 1) return;
+            if (isB2B && !priceCalc) return;
+            const enviaServicesResponse = await fetch(`https://queries.envia.com/available-carrier/IN/0`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                }
+            });
+            if (!enviaServicesResponse.ok) {
+                console.error('Error fetching available carriers:', enviaServicesResponse.statusText);
+                return;
+            }
+
+            const enviaServicesData = await enviaServicesResponse.json();
+            const availableCarriers = enviaServicesData?.data || [];
+
+            const enviaPricingPayloads = []
+
+            const packages = [];
+            boxes.map((box, index) => {
+                packages.push({
+                    "content": "items",
+                    "amount": 1,
+                    "type": "box",
+                    "weight": parseInt(box?.weight)/1000,
+                    "insurance": 0,
+                    "declaredValue": invoiceAmount,
+                    "weightUnit": "KG",
+                    "lengthUnit": "CM",
+                    "dimensions": {
+                        "length": box?.length,
+                        "width": box?.breadth,
+                        "height": box?.height
+                    }
+                })
+            })
+            availableCarriers.forEach((carrier) => {
+                const carrierId = carrier?.name;
+                if (!carrierId) return;
+                const payload = {
+                    "origin": {
+                        "name": "USA",
+                        "company": "enviacommarcelo",
+                        "email": "juanpedrovazez@hotmail.com",
+                        "phone": "8182000536",
+                        "street": "351523",
+                        "number": "crescent ave",
+                        "district": "other",
+                        "city": "dallas",
+                        "state": "tx",
+                        "country": "IN",
+                        "postalCode": origin,
+                        "reference": "",
+                        "coordinates": {
+                            "latitude": "32.776272",
+                            "longitude": "-96.796856"
+                        }
+                    },
+                    "destination": {
+                        "name": "francisco",
+                        "company": "",
+                        "email": "",
+                        "phone": "8180180543",
+                        "street": "4th street",
+                        "number": "24",
+                        "district": "other",
+                        "city": "reno",
+                        "state": "nv",
+                        "country": "IN",
+                        "postalCode": dest,
+                        "reference": "",
+                        "coordinates": {
+                            "latitude": "39.512132",
+                            "longitude": "-119.906585"
+                        }
+                    },
+                    "packages": packages,
+                    "shipment": {
+                        "carrier": carrierId,
+                        "type": 1
+                    },
+                    "settings": {
+                        "currency": "INR"
+                    }
+                }
+                enviaPricingPayloads.push(payload)
+            })
+            // console.log(enviaPricingPayloads)
+            // console.log(process.env.ENVIA_API_TOKEN)
+            await Promise.all(enviaPricingPayloads.map(async (payload) => {
+                const response = await fetch(`https://api.envia.com/ship/rate/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    console.error('Error fetching pricing data:', response.statusText);
+                    return;
+                }
+                const data = await response.json();
+                console.log(data)
+                const prices = data?.data || [];
+                console.log(prices)
+                prices.map((price, index) => {
+                    if (price?.totalPrice <= 0) return;
+                    const servDesc = price?.serviceDescription?.toLowerCase();
+                    if ((method == "S") && (servDesc.toLowerCase().includes("express") || servDesc.toLowerCase().includes("air"))) return;
+                    if ((method == "E") && !(servDesc.toLowerCase().includes("express") || servDesc.toLowerCase().includes("air"))) return;
+                    responses.push({
+                        "name": `Envia - ${price?.serviceDescription}`,
+                        "weight": ``,
+                        "price": Math.round(price?.totalPrice * 1.20),
+                        "serviceId": "5",
+                        "categoryId": "1",
+                        "chargableWeight": parseFloat(price?.packageDetails?.totalWeight)*1000,
+                        "parentServiceId": 5,
+                        "courierId": price?.carrier,
+                        "courierServiceId": price?.service,
+                    })
+                })
+            }))
+
+            
+        }
+
         await Promise.all([
             delhivery500gmPricing(),
             delhivery10kgPricing(),
             // movinPricing(),
             pickrr20kgPricing(),
-            shiprocketPricing()
+            shiprocketPricing(),
+            enviaB2BPricing()
         ])
 
         responses.sort((a,b)=>(a.price - b.price))
@@ -1865,6 +2254,38 @@ const trackShipment = async (req, res) => {
         }
     }
 
+    const enviaTracking = async () => {
+        try {
+            const response = await fetch(`https://api.envia.com/ship/generaltrack/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    "trackingNumbers": [awb],
+                })
+            });
+            if (!response.ok) {
+                console.error('Error fetching tracking data:', response.statusText);
+                return { status: 400, message: "Unable to fetch shipment", success: false };
+            }
+            const data = await response.json();
+            const trackingData = data?.data || [];
+            if (!trackingData?.[0]) {
+                return { status: 400, message: "Shipment not available", success: false };
+            }
+            const trackingEvents = trackingData[0]?.eventHistory || [];
+            if (!trackingEvents?.length) {
+                return { status: 400, message: "No tracking events found", success: false };
+            }
+            return { status: 200, data: trackingEvents, success: true, id: 8 };
+        } catch (error) {
+            console.error('Error fetching tracking data:', error);
+            return { status: 500, message: "Error fetching tracking data", success: false };
+        }
+    }
+
     const results = await Promise.all([
         delhivery500gmTracking(),
         delhivery10kgTracking(),
@@ -1873,7 +2294,8 @@ const trackShipment = async (req, res) => {
         dillikingTracking(),
         flightGoTracking(),
         shiprocketTracking(),
-        m5cTracking()
+        m5cTracking(),
+        enviaTracking()
     ]);
 
     const successfulResult = results.find(result => result && result.success);
