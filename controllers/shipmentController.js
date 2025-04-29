@@ -516,7 +516,7 @@ const createDomesticShipment = async (req, res) => {
                 "sender_contact_person_name": verified.name,
                 "sender_contact_person_email": verified.email,
                 "sender_contact_person_contact_no": warehouse.phone,
-                "destination_warehouse_name": shipment.shipping_state.split(' ')[0],
+                "destination_warehouse_name": shipment.customer_name.split(' ')[0],
                 "destination_address_line1": toAddressLine1,
                 "destination_address_line2": toAddressLine2,
                 "destination_pincode": shipment.shipping_postcode,
@@ -1787,7 +1787,7 @@ const trackShipment = async (req, res) => {
                 headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             });
             const data3 = await response3.json();
-            if (data3.length && !data3[0].errors) return { status: 200, data: data3[0], success: true, id: 2 };
+            if (data3.length && !data3[0].errors) return { status: 200, data: data3?.[0]?.docket_events, success: true, id: 2 };
         } catch (err) {
             console.error(err);
             return { status: 500, message: "Error fetching tracking data", success: false };
