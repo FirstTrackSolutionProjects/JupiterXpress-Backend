@@ -1938,6 +1938,10 @@ const getDomesticShipmentPricing = async (req, res) => {
                 console.log(data)
                 const prices = data?.data || [];
                 console.log(prices)
+                const priceChart = {
+                    'amazon' : 0.55,
+                    'ekart': 0.75
+                }
                 prices.map((price, index) => {
                     if (price?.totalPrice <= 0) return;
                     const servDesc = price?.serviceDescription?.toLowerCase();
@@ -1946,7 +1950,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": `Jupiter B2C - ${price?.serviceDescription}`,
                         "weight": ``,
-                        "price": Math.round(price?.totalPrice * 0.6),
+                        "price": Math.round(price?.totalPrice * priceChart?.[price?.carrier]),
                         "serviceId": "5",
                         "categoryId": "1",
                         "chargableWeight": parseFloat(price?.packageDetails?.totalWeight)*1000,
