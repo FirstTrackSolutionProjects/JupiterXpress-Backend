@@ -1844,7 +1844,9 @@ const getDomesticShipmentPricing = async (req, res) => {
             }
 
             const enviaServicesData = await enviaServicesResponse.json();
-            const availableCarriers = enviaServicesData?.data || [];
+            const availableCarriers = enviaServicesData?.data?.filter((carrier) => {
+                return ["amazon", "ekart"].includes(carrier?.carrier);
+            }) || [];
 
             const enviaPricingPayloads = []
 
