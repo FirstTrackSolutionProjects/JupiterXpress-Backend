@@ -9,7 +9,8 @@ const pool = mysql.createPool({
     port: process.env.DB_PORT || 3306, // Default MySQL port is 3306
     waitForConnections: true,         // Wait for a connection if pool is full
     connectionLimit: 10,              // Adjust the connection limit
-    queueLimit: 0                     // No limit to the number of queued connection requests
+    queueLimit: 0,                     // No limit to the number of queued connection requests
+    timezone: '-05:30',             // Set timezone to IST (UTC+5:30)
 });
 
 const connectDB = async () => {
