@@ -996,7 +996,7 @@ const createDomesticShipment = async (req, res) => {
                     from: process.env.EMAIL_USER,
                     to: email,
                     subject: 'Shipment created successfully',
-                    text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at ENVIA Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                    text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Jupiter B2C Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
                 };
                 await transporter.sendMail(mailOptions)
                 return res.status(200).json({
@@ -1942,7 +1942,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     if ((method == "S") && (servDesc.toLowerCase().includes("express") || servDesc.toLowerCase().includes("air"))) return;
                     if ((method == "E") && !(servDesc.toLowerCase().includes("express") || servDesc.toLowerCase().includes("air"))) return;
                     responses.push({
-                        "name": `Envia - ${price?.serviceDescription}`,
+                        "name": `Jupiter B2C - ${price?.serviceDescription}`,
                         "weight": ``,
                         "price": Math.round(price?.totalPrice * 0.6),
                         "serviceId": "5",
