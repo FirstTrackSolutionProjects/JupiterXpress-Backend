@@ -42,6 +42,7 @@ provider:
     M5C_USERNAME : ${env:M5C_USERNAME}
     M5C_PASSWORD : ${env:M5C_PASSWORD}
     M5C_ACCESS_KEY : ${env:M5C_ACCESS_KEY}
+    ENVIA_API_TOKEN : ${env:ENVIA_API_TOKEN}
 functions:
   app:
     handler: app.handler

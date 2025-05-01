@@ -60,3 +60,4 @@ jobs:
         M5C_USERNAME : ${{ vars.M5C_USERNAME }}
         M5C_PASSWORD : ${{ vars.M5C_PASSWORD }}
         M5C_ACCESS_KEY : ${{ vars.M5C_ACCESS_KEY }}
+        ENVIA_API_TOKEN : ${{ vars.ENVIA_API_TOKEN }}
