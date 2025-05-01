@@ -163,7 +163,7 @@ const createDomesticShipment = async (req, res) => {
         const user = users[0];
         const email = user.email;
         const businessName = user.businessName;
-        const { order, price, serviceId, categoryId, courierId, courierServiceId } = req.body;
+        const { order, price, serviceId, categoryId, courierId, carrierId, courierServiceId } = req.body;
         if (!order || !serviceId || !categoryId || !price) {
             return res.status(400).json({ message: 'All fields are required' });
         }
@@ -761,6 +761,67 @@ const createDomesticShipment = async (req, res) => {
         } else if (serviceId == 5){
             console.log("Creating Shipment")
             try{
+                // const enviaPickupServicesResponse = await fetch(`https://queries.envia.com/pickup-rules`,{
+                //     method: 'GET',
+                //     headers: {
+                //         'Content-Type' : 'application/json',
+                //         'Accept': 'application/json',
+                //         'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                //     }
+                // })
+                // if (!enviaPickupServicesResponse.ok){
+                //     return res.status(400).json({
+                //         status: 400, success: false, message: "Shipment creation failed. Please try again... 0"
+                //     })
+                // }
+                // const enviaPickupServicesData = await enviaPickupServicesResponse.json()
+                // const pickupService = enviaPickupServicesData.find((carrier)=>carrier?.carrier_id == carrierId);
+                // if (!pickupService){
+                //     return res.status(400).json({
+                //         status: 400, success: false, message: "Shipment creation failed. Carrier not found. Please try again..."
+                //     })
+                // }
+                // const pickupServiceDays = pickupService?.days;
+                // const todaysDay = new Date().getDay();
+                // const pickupServiceDay = pickupServiceDays.find((day)=>day?.day == todaysDay);
+                // const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+                // const availableDays = pickupServiceDays.map((day)=>{
+                //     if (day?.hour_start) return days[day?.day - 1];
+                // });
+                // if (!pickupServiceDay){
+                //     return res.status(400).json({
+                //         status: 400, success: false, message: `Shipment creation failed. Pickup service not available today. Available days are ${availableDays.join(", ")}`
+                //     })
+                // }
+                // const todaysDate = new Date().toISOString().split("T")[0];
+                // const pickupHour = parseInt(shipment?.pickup_time?.split(":")[0]);
+                // if (!((pickupHour >= pickupServiceDay?.hour_start) && (pickupHour <= pickupServiceDay?.hour_end))){
+                //     return res.status(400).json({
+                //         status: 400, success: false, message: `Shipment creation failed. Pickup time is available from ${pickupServiceDay?.hour_start}:00 to ${pickupServiceDay?.hour_end}:00.`
+                //     })
+                // }
+
+                // if ((todaysDate == shipment?.pickup_date) && (pickupServiceDay?.sameday == 0)){
+                //     return res.status(400).json({
+                //         status: 400, success: false, message: `Shipment creation failed. Same day pickup is not available on this service.`
+                //     })
+                // }
+                
+                // if ((todaysDate == shipment?.pickup_date) && (pickupServiceDay?.sameday == 1) && (pickupHour > pickupServiceDay?.hour_limit)){
+                //     return res.status(400).json({
+                //         status: 400, success: false, message: `Shipment creation failed. Same day pickup is not available after ${pickupServiceDay?.hour_limit}:00 for this service.`
+                //     })
+                // }
+
+                // const pickupHourSpan = pickupServiceDay?.hour_span || 2;
+                // const pickupStartHour = (pickupHour+pickupHourSpan > pickupServiceDay?.hour_end) ? pickupServiceDay?.hour_end - pickupHourSpan : pickupHour;
+                // const pickupEndHour = pickupStartHour + pickupHourSpan;
+
+
+
+
+
+
                 const stateResponse = await fetch(`http://queries.envia.com/state?country_code=IN`);
                 if (!stateResponse.ok){
                     return res.status(400).json({
@@ -862,46 +923,65 @@ const createDomesticShipment = async (req, res) => {
                 }
 
                 ////SCHEDULE PICKUP START
-                const pickupHour = parseInt(shipment?.pickup_time?.split(":")[0])
-                const pickupPayload = {
-                    "origin": {
-                        "name": warehouse?.warehouseName,
-                        "company": businessName,
-                        "email": "jupiterxpress2024@gmail.com",
-                        "phone": warehouse?.phone,
-                        "street": warehouse?.address.substring(0,61),
-                        "number": warehouse?.address.substring(61) || "0",
-                        "city": warehouse?.city,
-                        "state": sourceStateCode,
-                        "country": "IN",
-                        "postalCode": warehouse?.pin
-                    },
-                    "shipment": {
-                        "carrier": courierServiceId,
-                        "type": 1,
-                        "pickup": {
-                            "timeFrom": pickupHour,
-                            "timeTo": Math.max(pickupHour+12, 23),
-                            "date": shipment?.pickup_date,
-                            "instructions": "Pickup from warehouse",
-                            "totalPackages": 1,
-                            "totalWeight": 0.5
-                        }
-                    },
-                    "settings": {
-                        "currency": "INR",
-                        "labelFormat": "pdf"
-                    }
-                }
-                const pickupResponse = await fetch(`https://api.envia.com/ship/pickup/`,{
-                    method: 'POST',
-                    headers: {
-                        'Content-Type' : 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
-                    },
-                    body: JSON.stringify(pickupPayload)
-                });
+                // const pickupPayload = {
+                //     "origin": {
+                //         "name": warehouse?.warehouseName,
+                //         "company": businessName,
+                //         "email": "jupiterxpress2024@gmail.com",
+                //         "phone": warehouse?.phone,
+                //         "street": warehouse?.address.substring(0,61),
+                //         "number": warehouse?.address.substring(61) || "0",
+                //         "city": warehouse?.city,
+                //         "state": sourceStateCode,
+                //         "country": "IN",
+                //         "postalCode": warehouse?.pin
+                //     },
+                //     "shipment": {
+                //         "carrier": courierServiceId,
+                //         "type": 1,
+                //         "pickup": {
+                //             "timeFrom": pickupStartHour,
+                //             "timeTo": pickupEndHour,
+                //             "date": shipment?.pickup_date,
+                //             "instructions": "Pickup from warehouse",
+                //             "totalPackages": 1,
+                //             "totalWeight": 0.5
+                //         }
+                //     },
+                //     "settings": {
+                //         "currency": "INR",
+                //         "labelFormat": "pdf"
+                //     }
+                // }
+                // const pickupResponse = await fetch(`https://api.envia.com/ship/pickup/`,{
+                //     method: 'POST',
+                //     headers: {
+                //         'Content-Type' : 'application/json',
+                //         'Accept': 'application/json',
+                //         'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                //     },
+                //     body: JSON.stringify(pickupPayload)
+                // });
+
+                // if (!pickupResponse.ok){
+                //     const cancelResponse = await fetch(`https://api.envia.com/ship/cancel/`,{
+                //         method: 'POST',
+                //         headers: {
+                //             'Content-Type': 'application/json',
+                //             'Accept': 'application/json',
+                //             'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`
+                //         },
+                //         body: JSON.stringify({
+                //             "carrier": courierId,
+                //             "trackingNumber": awb
+                //         })
+                //     })
+                //     if (!cancelResponse.ok) {
+                //         return res.status(400).json({
+                //             status: 400, success: false, message: "Something went wrong while creating shipment. Error Code: 101"
+                //         });
+                //     }
+                // }
                 
                 ////SCHEDULE PICKUP END
                 const transaction = await db.beginTransaction();
@@ -920,7 +1000,7 @@ const createDomesticShipment = async (req, res) => {
                 };
                 await transporter.sendMail(mailOptions)
                 return res.status(200).json({
-                    status: 200, response: shipmentData, message: "Shipment created successfully!!!", success: true
+                    status: 200, response: shipmentData, message: `Shipment created successfully!!!`, success: true
                 })
 
             } catch (error){
@@ -1864,12 +1944,13 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": `Envia - ${price?.serviceDescription}`,
                         "weight": ``,
-                        "price": Math.round(price?.totalPrice * 1.20),
+                        "price": Math.round(price?.totalPrice * 0.6),
                         "serviceId": "5",
                         "categoryId": "1",
                         "chargableWeight": parseFloat(price?.packageDetails?.totalWeight)*1000,
                         "parentServiceId": 5,
                         "courierId": price?.carrier,
+                        "carrierId": price?.carrierId,
                         "courierServiceId": price?.service,
                     })
                 })
