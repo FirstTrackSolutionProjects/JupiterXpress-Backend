@@ -1938,22 +1938,39 @@ const getDomesticShipmentPricing = async (req, res) => {
                 console.log(data)
                 const prices = data?.data || [];
                 console.log(prices)
-                const priceChart = {
-                    'amazon' : 0.55,
-                    'ekart': 0.75
+                const discountChart = {
+                    'amazon' : 0.45,
+                    'ekart': 0.76
+                }
+
+                const commissionChart = {
+                    'amazon' : 1.38,
+                    'ekart' : 1.12
                 }
                 prices.map((price, index) => {
                     if (price?.totalPrice <= 0) return;
                     const servDesc = price?.serviceDescription?.toLowerCase();
                     if ((method == "S") && (servDesc.toLowerCase().includes("express") || servDesc.toLowerCase().includes("air"))) return;
                     if ((method == "E") && !(servDesc.toLowerCase().includes("express") || servDesc.toLowerCase().includes("air"))) return;
+
+                    let shipmentPrice = price?.totalPrice;
+                    const chargableWeightInGram = parseFloat(price?.packageDetails?.totalWeight)*1000;
+
+                    if (chargableWeightInGram <= 1000){
+                        shipmentPrice = shipmentPrice*commissionChart?.[price?.carrier];
+                    }
+                    
+                    if (chargableWeightInGram > 500){
+                        shipmentPrice = shipmentPrice*discountChart?.[price?.carrier];
+                    }
+
                     responses.push({
                         "name": `Jupiter B2C - ${price?.serviceDescription}`,
                         "weight": ``,
-                        "price": Math.round(price?.totalPrice * priceChart?.[price?.carrier]),
+                        "price": Math.round(shipmentPrice),
                         "serviceId": "5",
                         "categoryId": "1",
-                        "chargableWeight": parseFloat(price?.packageDetails?.totalWeight)*1000,
+                        "chargableWeight": chargableWeightInGram,
                         "parentServiceId": 5,
                         "courierId": price?.carrier,
                         "carrierId": price?.carrierId,
