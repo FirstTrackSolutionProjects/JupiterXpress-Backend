@@ -1938,15 +1938,62 @@ const getDomesticShipmentPricing = async (req, res) => {
                 console.log(data)
                 const prices = data?.data || [];
                 console.log(prices)
+
                 const discountChart = {
-                    'amazon' : 0.45,
+                    'amazon' : 0.50,
                     'ekart': 0.76
                 }
 
-                const commissionChart = {
-                    'amazon' : 1.38,
+                const commissionChartLessThan500g = {
+                    'amazon' : 1.11,
                     'ekart' : 1.12
                 }
+
+                const commissionChartLessThan1000g = {
+                    'amazon' : 0.78,
+                    'ekart' : 0.84
+                }
+
+                // const commissionChartLessThan2000g = {
+                //     'amazon' : 0.78,
+                //     'ekart' : 0.84
+                // }
+
+                // const commissionChartLessThan3000g = {
+                //     'amazon' : 0.78,
+                //     'ekart' : 0.84
+                // }
+
+                // const commissionChartLessThan4000g = {
+                //     'amazon' : 0.78,
+                //     'ekart' : 0.84
+                // }
+
+                // const commissionChartLessThan5000g = {
+                //     'amazon' : 0.78,
+                //     'ekart' : 0.84
+                // }
+
+                // const commissionChartLessThan6000g = {
+                //     'amazon' : 0.78,
+                //     'ekart' : 0.84
+                // }
+
+                // const commissionChartLessThan7000g = {
+                //     'amazon' : 0.78,
+                //     'ekart' : 0.84
+                // }
+
+                // const commissionChartLessThan8000g = {
+                //     'amazon' : 0.78,
+                //     'ekart' : 0.84
+                // }
+
+                // const commissionChartMoreThan8000g = {
+                //     'amazon' : 0.50,
+                //     'ekart': 0.76
+                // }
+
                 prices.map((price, index) => {
                     if (price?.totalPrice <= 0) return;
                     const servDesc = price?.serviceDescription?.toLowerCase();
@@ -1956,11 +2003,11 @@ const getDomesticShipmentPricing = async (req, res) => {
                     let shipmentPrice = price?.totalPrice;
                     const chargableWeightInGram = parseFloat(price?.packageDetails?.totalWeight)*1000;
 
-                    if (chargableWeightInGram <= 1000){
-                        shipmentPrice = shipmentPrice*commissionChart?.[price?.carrier];
-                    }
-                    
-                    if (chargableWeightInGram > 500){
+                    if (chargableWeightInGram <= 500){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan500g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 1000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan1000g?.[price?.carrier];
+                    } else if (chargableWeightInGram > 1000){
                         shipmentPrice = shipmentPrice*discountChart?.[price?.carrier];
                     }
 
