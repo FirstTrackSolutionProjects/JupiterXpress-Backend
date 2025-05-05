@@ -1940,7 +1940,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                 console.log(prices)
 
                 const discountChart = {
-                    'amazon' : 0.50,
+                    'amazon' : 0.45,
                     'ekart': 0.76
                 }
 
