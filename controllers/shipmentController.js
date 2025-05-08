@@ -26,20 +26,18 @@ const cancelShipment = async (req, res) => {
         }
         const [shipments] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ?', [order]);
         const shipment = shipments[0];
-        const { serviceId, categoryId, awb, uid } = shipment;
+        const { serviceId, awb, uid } = shipment;
         const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [uid]);
         const email = users[0].email;
         // const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
         
-        if (serviceId == "1") {
-
-
+        if (serviceId == 1) {
             const responseDta = await fetch(`https://track.delhivery.com/api/p/edit`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'Authorization': `Token ${categoryId == "2" ? process.env.DELHIVERY_500GM_SURFACE_KEY : categoryId == "1" ? process.env.DELHIVERY_10KG_SURFACE_KEY : categoryId == 3 ? '' : ''}`
+                    'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`
                 },
                 body: JSON.stringify({ waybill: awb, cancellation: true })
             })
@@ -71,7 +69,45 @@ const cancelShipment = async (req, res) => {
             return res.status(200).json({
                 status: 200, message: response, success: true, data: 'Shipment cancelled successfully, your refund is credited to your wallet'
             })
-        } else if (serviceId == 4){
+        } else if (serviceId == 2){
+            const responseDta = await fetch(`https://track.delhivery.com/api/p/edit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`
+                },
+                body: JSON.stringify({ waybill: awb, cancellation: true })
+            })
+            const response = await responseDta.json()
+            if (response.status) {
+                const transaction = await db.beginTransaction()
+                const [expenses] = await transaction.query('SELECT * FROM EXPENSES WHERE expense_order = ? AND uid = ?', [order, uid])
+                const price = expenses[0].expense_cost
+                await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
+                await transaction.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', order]);
+                if (shipment.pay_method != "topay") {
+                    await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [parseInt(price), uid]);
+                    await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
+                }
+                await db.commit(transaction)
+            }
+            else {
+                return res.status(400).json({
+                    status: 400, success: false, message: response
+                });
+            }
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Shipment cancelled successfully',
+                text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully cancelled and the corresponding refund is credited to your wallet.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions)
+            return res.status(200).json({
+                status: 200, message: response, success: true, data: 'Shipment cancelled successfully, your refund is credited to your wallet'
+            })
+        } else if (serviceId == 5){
             const orderId = shipment.shipping_vendor_order_id;
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const shiprocketApiKey = apiKeys[0].Shiprocket;
@@ -106,7 +142,7 @@ const cancelShipment = async (req, res) => {
                     status: 400, success: false, message: response
                 });
             }
-        } else if (serviceId == 5){
+        } else if (serviceId == 6){
             try {
                 const cancelResponse = await fetch(`https://api.envia.com/ship/cancel/`,{
                     method: 'POST',
@@ -163,8 +199,8 @@ const createDomesticShipment = async (req, res) => {
         const user = users[0];
         const email = user.email;
         const businessName = user.businessName;
-        const { order, price, serviceId, categoryId, courierId, carrierId, courierServiceId } = req.body;
-        if (!order || !serviceId || !categoryId || !price) {
+        const { order, price, serviceId, courierId, carrierId, courierServiceId } = req.body;
+        if (!order || !serviceId || !price) {
             return res.status(400).json({ message: 'All fields are required' });
         }
         const [shipments] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ? ', [order]);
@@ -219,7 +255,7 @@ const createDomesticShipment = async (req, res) => {
             return false;
         }
 
-        if (serviceId === "1") {
+        if (serviceId === 1) {
             if (boxes.length > 1) {
                 return res.status(200).json({
                     status: 200,
@@ -227,8 +263,7 @@ const createDomesticShipment = async (req, res) => {
                     message: "More than 1 box is not allowed on this service"
                 });
             }
-            const warehouseServiceId = categoryId==1?2:1;
-            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(warehouseServiceId);
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(serviceId);
             if (warehouseNotAvailable){
                 return res.status(200).json({
                     status: 200,
@@ -241,7 +276,7 @@ const createDomesticShipment = async (req, res) => {
                 headers: {
                     "Content-Type": "application/json",
                     "Accept": "application/json",
-                    'Authorization': `Token ${categoryId === "2" ? process.env.DELHIVERY_500GM_SURFACE_KEY : categoryId === "1" ? process.env.DELHIVERY_10KG_SURFACE_KEY : categoryId === 3 ? '' : ''}`
+                    'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`
                 }
             });
 
@@ -300,7 +335,7 @@ const createDomesticShipment = async (req, res) => {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'Accept': 'application/json',
-                    'Authorization': `Token ${categoryId === "2" ? process.env.DELHIVERY_500GM_SURFACE_KEY : categoryId === "1" ? process.env.DELHIVERY_10KG_SURFACE_KEY : categoryId === 3 ? '' : ''}`
+                    'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`
                 },
                 body: formData
             });
@@ -308,7 +343,7 @@ const createDomesticShipment = async (req, res) => {
             const response = await responseDta.json();
             if (response.success) {
                 const transaction = await db.beginTransaction();
-                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.packages[0].waybill, true, false, order]);
+                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, response.packages[0].waybill, true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
                 await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                 if (shipment.pay_method != "topay") {
@@ -339,8 +374,126 @@ const createDomesticShipment = async (req, res) => {
                 success: true
             });
 
-        } 
-        // else if (serviceId == '2') {
+        } else if (serviceId == 2){
+            if (boxes.length > 1) {
+                return res.status(200).json({
+                    status: 200,
+                    success: false,
+                    message: "More than 1 box is not allowed on this service"
+                });
+            }
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(serviceId);
+            if (warehouseNotAvailable){
+                return res.status(200).json({
+                    status: 200,
+                    success: false,
+                    message: "This warehouse is not created on this service. Check your warehouse status."
+                });
+            }
+            const waybillReq = await fetch(`https://track.delhivery.com/waybill/api/bulk/json/?count=1`, {
+                method: 'GET',
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`
+                }
+            });
+
+            const waybill = await waybillReq.json();
+            const reqBody = {
+                shipments: [],
+                pickup_location: {
+                    name: warehouse.warehouseName,
+                    add: warehouse.address,
+                    pin_code: warehouse.pin,
+                    phone: warehouse.phone,
+                }
+            };
+
+            reqBody.shipments.push({
+                "name": shipment.customer_name,
+                "add": shipment.shipping_address,
+                "pin": shipment.shipping_postcode,
+                "city": shipment.shipping_city,
+                "state": shipment.shipping_state,
+                "country": shipment.shipping_country,
+                "phone": shipment.customer_mobile,
+                "order": `JUP${refId}`,
+                "payment_mode": shipment.pay_method == "topay" ? "COD" : shipment.pay_method,
+                "return_pin": "",
+                "return_city": "",
+                "return_phone": "",
+                "return_add": "",
+                "return_state": "",
+                "return_country": "",
+                "products_desc": product_description,
+                "hsn_code": shipment.hsn ? shipment.hsn : "",
+                "cod_amount": shipment.cod_amount,
+                "order_date": shipment.date.toISOString().split("T")[0],
+                "total_amount": total_amount,
+                "seller_add": warehouse.address,
+                "seller_name": warehouse.warehouseName,
+                "seller_inv": "",
+                "quantity": "1",
+                "waybill": waybill,
+                "shipment_length": shipment.length,
+                "shipment_width": shipment.breadth,
+                "shipment_height": shipment.height,
+                "weight": shipment.weight,
+                "seller_gst_tin": shipment.gst,
+                "shipping_mode": shipment.shippingType,
+                "address_type": shipment.shipping_address_type
+            });
+
+            const formData = new URLSearchParams();
+            formData.append('format', 'json');
+            formData.append('data', JSON.stringify(reqBody));
+
+            const responseDta = await fetch(`https://track.delhivery.com/api/cmu/create.json`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json',
+                    'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`
+                },
+                body: formData
+            });
+
+            const response = await responseDta.json();
+            if (response.success) {
+                const transaction = await db.beginTransaction();
+                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, response.packages[0].waybill, true, false, order]);
+                await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
+                if (shipment.pay_method != "topay") {
+                    await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
+                }
+                await db.commit(transaction);
+            } else {
+                return res.status(400).json({
+                    status: 400,
+                    success: false,
+                    message: response?.packages[0]?.rmk,
+                    response : response
+                });
+            }
+
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Shipment created successfully',
+                text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Delhivery Courier Service 
+              and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions);
+
+            return res.status(200).json({
+                status: 200,
+                response: response,
+                success: true
+            });
+        }
+        // else if (serviceId == 3) {
         //     const loginPayload = {
         //         grant_type: "client_credentials",
         //         client_id: process.env.MOVIN_CLIENT_ID,
@@ -508,8 +661,8 @@ const createDomesticShipment = async (req, res) => {
         //         success: true
         //     });
         // } 
-        else if (serviceId == 3) {
-            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(3);
+        else if (serviceId == 4) {
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(serviceId);
             if (warehouseNotAvailable){
                 return res.status(200).json({
                     status: 200,
@@ -631,7 +784,7 @@ const createDomesticShipment = async (req, res) => {
                 console.error(pickrrShipmentCreateData)
                 if (pickrrShipmentCreateData.id) {
                     const transaction = await db.beginTransaction();
-                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, categoryId, true, true, pickrrShipmentCreateData.id, order])
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, true, true, pickrrShipmentCreateData.id, order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                     await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                     if (shipment.pay_method != "topay") {
@@ -657,8 +810,8 @@ const createDomesticShipment = async (req, res) => {
                 status: 500, success: false, pickrrCreateOrderData, message: "Unexpected error encountered while creating shipment"
             })
         }
-        else if (serviceId == 4) {
-            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(4);
+        else if (serviceId == 5) {
+            const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(serviceId);
             if (warehouseNotAvailable){
                 return res.status(200).json({
                     status: 200,
@@ -734,7 +887,7 @@ const createDomesticShipment = async (req, res) => {
                     }
                 }
                 const transaction = await db.beginTransaction();
-                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ?, shipping_vendor_order_id = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id, createShipmentData.payload.order_id , order])
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ?, shipping_vendor_order_id = ? WHERE ord_id = ?', [serviceId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id, createShipmentData.payload.order_id , order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                     await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                     if (shipment.pay_method != "topay") {
@@ -758,8 +911,7 @@ const createDomesticShipment = async (req, res) => {
                     response: createShipmentData
                 })
             }
-        } else if (serviceId == 5){
-            console.log("Creating Shipment")
+        } else if (serviceId == 6){
             try{
                 // const enviaPickupServicesResponse = await fetch(`https://queries.envia.com/pickup-rules`,{
                 //     method: 'GET',
@@ -985,7 +1137,7 @@ const createDomesticShipment = async (req, res) => {
                 
                 ////SCHEDULE PICKUP END
                 const transaction = await db.beginTransaction();
-                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, in_process = ?, is_manifested = ?, awb = ?, aggregatorServiceId = ? WHERE ord_id = ?', [serviceId, categoryId, false, true, awb, courierId, order])
+                await transaction.query('UPDATE SHIPMENTS set serviceId = ?, in_process = ?, is_manifested = ?, awb = ?, aggregatorServiceId = ? WHERE ord_id = ?', [serviceId, false, true, awb, courierId, order])
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                 await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
                 if (shipment.pay_method != "topay") {
@@ -1148,7 +1300,7 @@ const createInternationalShipment = async (req, res) => {
         const response = await responseDta.json()
         if (response.success) {
             await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)', [shipmentId, iid])
-            await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?,docket_id = ?, status = ? WHERE iid = ?', [1, 1, response.data.awb_no, response.data.docket_id, "MANIFESTED", iid])
+            await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set serviceId = ?, awb = ?,docket_id = ?, status = ? WHERE iid = ?', [7,  response.data.awb_no, response.data.docket_id, "MANIFESTED", iid])
             await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [parseFloat(shipment.shipping_price), id]);
             await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPXI${iid}`, parseFloat(shipment.shipping_price)])
             await db.commit(transaction);
@@ -1291,11 +1443,10 @@ const getDomesticShipmentReport = async (req, res) => {
         const shipment = shipments[0]
         const awb = shipment.awb
         const serviceId = shipment.serviceId
-        const categoryId = shipment.categoryId
         if (serviceId == 1) {
             const response = await fetch(`https://track.delhivery.com/api/v1/packages/json/?ref_ids=JUP${ref_id}`, {
                 headers: {
-                    'Authorization': `Token ${categoryId == 2 ? process.env.DELHIVERY_500GM_SURFACE_KEY : process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                    'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                 },
@@ -1307,8 +1458,23 @@ const getDomesticShipmentReport = async (req, res) => {
             return res.status(200).json({
                 status: 200, data: statusData, success: true
             });
-        } 
-        // else if (serviceId == 2) {
+        } else if (serviceId == 2){
+            const response = await fetch(`https://track.delhivery.com/api/v1/packages/json/?ref_ids=JUP${ref_id}`, {
+                headers: {
+                    'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+            });
+            const data = await response.json();
+            const statusData = data.ShipmentData[0].Shipment;
+            const status = statusData.Status.Status
+            await db.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ref_id = ?', [status, ref_id]);
+            return res.status(200).json({
+                status: 200, data: statusData, success: true
+            });
+        }
+        // else if (serviceId == 3) {
         //     const loginPayload = {
         //         grant_type: "client_credentials",
         //         client_id: process.env.MOVIN_CLIENT_ID,
@@ -1355,7 +1521,7 @@ const getDomesticShipmentReport = async (req, res) => {
         //         });
         //     }
         // } 
-        else if (serviceId == 3) {
+        else if (serviceId == 4) {
             const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: 'POST',
                 headers: {
@@ -1375,10 +1541,10 @@ const getDomesticShipmentReport = async (req, res) => {
             if (pickrrTrackData.id) {
                 return res.status(200).json({
                     status: 200,
-                    data: pickrrTrackData.status_history, success: true, id: 4,
+                    data: pickrrTrackData.status_history, success: true
                 });
             }
-        } else if (serviceId == 4){
+        } else if (serviceId == 5){
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const shiprocketApiKey = apiKeys[0].Shiprocket;
             const trackingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`, {
@@ -1390,18 +1556,18 @@ const getDomesticShipmentReport = async (req, res) => {
             const trackingData = await trackingRequest.json();
             if (trackingData.status_code == 404) {
                 return res.status(404).json({
-                    status: 404, message: trackingData.message, id: 6
+                    status: 404, message: trackingData.message
                 });
             } else if (trackingData.tracking_data.track_status == 0){
                 return res.status(400).json({
-                    status: 400, message: trackingData.tracking_data.error, success: false, id: 6
+                    status: 400, message: trackingData.tracking_data.error, success: false
                 });
             } else if (trackingData.tracking_data.track_status == 1){
                 return res.status(200).json({
-                    status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 6
+                    status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true
                 });
             }
-        } else if (serviceId == 5){
+        } else if (serviceId == 6){
                 try {
                     const response = await fetch(`https://api.envia.com/ship/generaltrack/`, {
                         method: 'POST',
@@ -1472,7 +1638,7 @@ const getDomesticShipmentLabel = async (req, res) => {
     const email = users[0].email;
     const [shipments] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ? ', [order]);
     const shipment = shipments[0];
-    const { serviceId, categoryId } = shipment;
+    const { serviceId } = shipment;
     // const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
     if (serviceId == 1) {
 
@@ -1481,7 +1647,20 @@ const getDomesticShipmentLabel = async (req, res) => {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'Authorization': `Token ${categoryId === 2 ? process.env.DELHIVERY_500GM_SURFACE_KEY : categoryId === 1 ? process.env.DELHIVERY_10KG_SURFACE_KEY : categoryId === 3 ? '' : ''}`
+                'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`
+            },
+        }).then((response) => response.json())
+
+        return res.status(200).json({
+            status: 200, label: label.packages[0].pdf_download_link, success: true
+        });
+    } else if (serviceId == 2){
+        const label = await fetch(`https://track.delhivery.com/api/p/packing_slip?wbns=${shipment.awb}&pdf=true`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`
             },
         }).then((response) => response.json())
 
@@ -1489,7 +1668,7 @@ const getDomesticShipmentLabel = async (req, res) => {
             status: 200, label: label.packages[0].pdf_download_link, success: true
         });
     }
-    else if (serviceId == 2) {
+    else if (serviceId == 3) {
         const loginPayload = {
             grant_type: "client_credentials",
             client_id: process.env.MOVIN_CLIENT_ID,
@@ -1529,7 +1708,7 @@ const getDomesticShipmentLabel = async (req, res) => {
         return res.status(200).json({
             status: 200, label: label.response, success: true
         });
-    } else if (serviceId == 3) {
+    } else if (serviceId == 4) {
         const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
             method: "POST",
             headers: {
@@ -1555,7 +1734,7 @@ const getDomesticShipmentLabel = async (req, res) => {
             status: 200,
             label: label, success: true
         });
-    } else if (serviceId == 4){
+    } else if (serviceId == 5){
         try{
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const shiprocketApiKey = apiKeys[0].Shiprocket;
@@ -1577,7 +1756,7 @@ const getDomesticShipmentLabel = async (req, res) => {
                 status: 500, message: 'Failed to get label', error: e.message
             });
         }
-    } else if (serviceId == 5){
+    } else if (serviceId == 6){
         try{
             const label = await fetch(`https://queries.envia.com/guide/${shipment?.awb}`, {
                 method: 'GET',
@@ -1627,8 +1806,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "name": `Delhivery ${method == 'S' ? 'Surface' : 'Express'} Light`,
                     "weight": "500gm",
                     "price": Math.round(price * 1.3),
-                    "serviceId": "1",
-                    "categoryId": "2",
+                    "serviceId": 1,
                     "chargableWeight": netWeight
                 })
             }
@@ -1651,8 +1829,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "name": `Delhivery Surface`,
                         "weight": "10Kg",
                         "price": Math.round(price2 * 1.3),
-                        "serviceId": "1",
-                        "categoryId": "1",
+                        "serviceId": 2,
                         "chargableWeight": netWeight
 
                     })
@@ -1703,8 +1880,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "name": `Movin Surface`,
                     "weight": `Min. 10Kg`,
                     "price": Math.round(parseFloat(movinPrice)),
-                    "serviceId": "2",
-                    "categoryId": "2",
+                    "serviceId": 3,
                     "chargableWeight": movinNetWeight
                 })
             }
@@ -1713,8 +1889,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "name": `Movin Express`,
                     "weight": `Min. 5Kg`,
                     "price": Math.round(parseFloat(movinPrice)),
-                    "serviceId": "2",
-                    "categoryId": "1",
+                    "serviceId": 3,
                     "chargableWeight": movinNetWeight
                 })
             }
@@ -1769,8 +1944,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "name": service,
                         "weight": "20Kg",
                         "price": Math.round(parseFloat(pickrrPriceData[service].working.grand_total) * 1.3),
-                        "serviceId": "3",
-                        "categoryId": "1",
+                        "serviceId": 4,
                         "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
                     })
                 } else if (method == 'E' && service.endsWith('-air')) {
@@ -1778,8 +1952,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "name": service,
                         "weight": "20Kg",
                         "price": Math.round(parseFloat(pickrrPriceData[service].working.grand_total) * 1.3),
-                        "serviceId": "3",
-                        "categoryId": "1",
+                        "serviceId": 4,
                         "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
                     })
                 }
@@ -1790,7 +1963,7 @@ const getDomesticShipmentPricing = async (req, res) => {
             if (quantity !== 1) return;
             if (isB2B && !priceCalc) return;
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
-            const [servicesWithWarehouse] = await db.query("SELECT service_name FROM SERVICES_WITH_WAREHOUSES WHERE service_id = 4");
+            const [servicesWithWarehouse] = await db.query("SELECT service_name FROM SERVICES WHERE service_id = 5");
             const serviceName = servicesWithWarehouse[0].service_name;
             const shiprocketApiKey = apiKeys[0].Shiprocket;
             const pricingRequestQuery = `
@@ -1819,10 +1992,8 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "name": `${serviceName} - ${service.courier_name}`,
                     "weight": `${service.min_weight}Kg`,
                     "price": service.rate*1.3,
-                    "serviceId": "4",
-                    "categoryId": "1",
+                    "serviceId": 5,
                     "chargableWeight": service.charge_weight*1000,
-                    "parentServiceId": 4,
                     "courierId": service.courier_company_id
                 })
             })
@@ -2015,10 +2186,8 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "name": `Jupiter B2C - ${price?.serviceDescription}`,
                         "weight": ``,
                         "price": Math.round(shipmentPrice),
-                        "serviceId": "5",
-                        "categoryId": "1",
+                        "serviceId": 6,
                         "chargableWeight": chargableWeightInGram,
-                        "parentServiceId": 5,
                         "courierId": price?.carrier,
                         "carrierId": price?.carrierId,
                         "courierServiceId": price?.service,
@@ -2099,13 +2268,13 @@ const domesticShipmentPickupSchedule = async (req, res) => {
     const warehouse = warehouses[0]
     // const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
 
-    if (serviceId[0] == 1) {
+    if (serviceId == 1) {
         const schedule = await fetch(`https://track.delhivery.com/fm/request/new/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'Authorization': `Token ${serviceId[1] == 1 ? process.env.DELHIVERY_10KG_SURFACE_KEY : process.env.DELHIVERY_500GM_SURFACE_KEY}`
+                'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`
             },
             body: JSON.stringify({ pickup_location: warehouse.warehouseName, pickup_time: pickTime, pickup_date: pickDate, expected_package_count: packages })
         })
@@ -2133,7 +2302,38 @@ const domesticShipmentPickupSchedule = async (req, res) => {
 
 
 
-    } else if (serviceId[0] == 2) {
+    } else if (serviceId == 2){
+        const schedule = await fetch(`https://track.delhivery.com/fm/request/new/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`
+            },
+            body: JSON.stringify({ pickup_location: warehouse.warehouseName, pickup_time: pickTime, pickup_date: pickDate, expected_package_count: packages })
+        })
+        const scheduleData = await schedule.json()
+        if (scheduleData.incoming_center_name) {
+            return res.status(200).json({
+                status: 200, schedule: "Pickup request sent successfully", success: true
+            });
+        }
+        else if (scheduleData.prepaid) {
+            return res.status(200).json({
+                status: 200, schedule: "Pickup request failed due to low balance of owner", success: true
+            });
+        }
+        else if (scheduleData.pr_exist) {
+            return res.status(200).json({
+                status: 200, schedule: "This time slot is already booked", success: true
+            });
+        }
+        else {
+            return res.status(200).json({
+                status: 200, schedule: "Please enter a valid date and time in future", success: false
+            });
+        }
+    } else if (serviceId == 3) {
         const loginPayload = {
             grant_type: "client_credentials",
             client_id: process.env.MOVIN_CLIENT_ID,
@@ -2162,7 +2362,7 @@ const domesticShipmentPickupSchedule = async (req, res) => {
             "account": process.env.MOVIN_ACCOUNT_NUMBER,
             "pickup_date": pickDate,
             "pickup_time_start": pickTime,
-            "service_type": serviceId[1] == 1 ? "Standard Premium" : "Express End of Day",
+            // "service_type": serviceId[1] == 1 ? "Standard Premium" : "Express End of Day",
             "address_first_name": warehouse.warehouseName,
             "address_last_name": "Warehouse",
             "address_email": "xpressjupiter@gmail.com",
@@ -2252,7 +2452,7 @@ const trackShipment = async (req, res) => {
             },
         });
         const data2 = await response2.json();
-        if (data2.ShipmentData) return { status: 200, data: data2, success: true, id: 1 };
+        if (data2.ShipmentData) return { status: 200, data: data2, success: true, id: 2 };
     };
 
     const pickrr20kgTracking = async () => {
@@ -2318,7 +2518,7 @@ const trackShipment = async (req, res) => {
     const dillikingTracking = async () => {
         const dillikingTrackingRequest = await fetch(`https://dilliking.com/integration/tracking/v1/tracking.php?key=${process.env.DILLIKING_SECRET_KEY}&airway_bill=${awb}`);
         const dillikingTrackingData = await dillikingTrackingRequest.json();
-        if (dillikingTrackingData.status == 200) return { status: 200, data: dillikingTrackingData.data, success: true, id: 5 };
+        if (dillikingTrackingData.status == 200) return { status: 200, data: dillikingTrackingData.data, success: true, id: 8 };
     };
 
     const flightGoTracking = async () => {
@@ -2327,7 +2527,7 @@ const trackShipment = async (req, res) => {
                 headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
             });
             const data3 = await response3.json();
-            if (data3.length && !data3[0].errors) return { status: 200, data: data3?.[0]?.docket_events, success: true, id: 2 };
+            if (data3.length && !data3[0].errors) return { status: 200, data: data3?.[0]?.docket_events, success: true, id: 7 };
         } catch (err) {
             console.error(err);
             return { status: 500, message: "Error fetching tracking data", success: false };
@@ -2346,15 +2546,15 @@ const trackShipment = async (req, res) => {
         const trackingData = await trackingRequest.json();
         if (trackingData.status_code == 404) {
             return {
-                status: 404, message: trackingData.message, id: 6
+                status: 404, message: trackingData.message, id: 5
             };
         } else if (trackingData.tracking_data.track_status == 0){
             return {
-                status: 400, message: trackingData.tracking_data.error, success: false, id: 6
+                status: 400, message: trackingData.tracking_data.error, success: false, id: 5
             };
         } else if (trackingData.tracking_data.track_status == 1){
             return {
-                status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 6
+                status: 200, data: trackingData.tracking_data.shipment_track_activities, success: true, id: 5
             };
         }
     }
@@ -2400,7 +2600,7 @@ const trackShipment = async (req, res) => {
             }
         } else {
             return {
-                status: 200, data: trackingResponse[0]?.Event || [], success: true, id: 7
+                status: 200, data: trackingResponse[0]?.Event || [], success: true, id: 9
             };
         }
     }
@@ -2430,7 +2630,7 @@ const trackShipment = async (req, res) => {
             if (!trackingEvents?.length) {
                 return { status: 400, message: "No tracking events found", success: false };
             }
-            return { status: 200, data: trackingEvents, success: true, id: 8 };
+            return { status: 200, data: trackingEvents, success: true, id: 6 };
         } catch (error) {
             console.error('Error fetching tracking data:', error);
             return { status: 500, message: "Error fetching tracking data", success: false };
@@ -2492,9 +2692,8 @@ const updateDomesticProcessingShipments = async (req, res) => {
             }
             const order = orders[0];
             const serviceId = order.serviceId;
-            const categoryId = order.categoryId;
             const vendorRefId = order.shipping_vendor_reference_id;
-            if (serviceId == 3) {
+            if (serviceId == 4) {
                 const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                     method: "POST",
                     headers: {
