@@ -57,7 +57,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         return false;
     }
     const isServiceDisabled = async (serviceId) => {
-        const [checkStatus] = await db.query('SELECT * FROM SERVICES_WITH_WAREHOUSES WHERE service_id =? AND is_active = false', [serviceId]);
+        const [checkStatus] = await db.query('SELECT * FROM SERVICES WHERE service_id =? AND is_active = false', [serviceId]);
         if (checkStatus.length) {
             return true;
         }
@@ -114,7 +114,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
     }
 
     const createWarehousePickrr20kg = async () => {
-        const serviceId = 3;
+        const serviceId = 4;
         const warehouseAlreadyExists = await isWarehouseAlreadyCreatedOnCurrentService(serviceId);
         const isServiceNotActive = await isServiceDisabled(serviceId);
         if (warehouseAlreadyExists || isServiceNotActive)
@@ -167,7 +167,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
         }
     }
     const createWarehouseShiprocket = async () => {
-        const serviceId = 4;
+        const serviceId = 5;
         const warehouseAlreadyExists = await isWarehouseAlreadyCreatedOnCurrentService(serviceId);
         const isServiceNotActive = await isServiceDisabled(serviceId);
         if (warehouseAlreadyExists || isServiceNotActive)
@@ -222,7 +222,7 @@ const createWarehouseAsync = async (wid, name, phone, address, city, state, coun
 }
 const checkWarehouseServicesStatus = async (wid) => {
     const [connectedServices] = await db.query('SELECT * FROM SERVICES_WAREHOUSES_RELATION where warehouse_id = ? ORDER BY service_id', [wid]);
-    const [availableServices] = await db.query('SELECT * FROM SERVICES_WITH_WAREHOUSES where is_active = true ORDER BY service_id');
+    const [availableServices] = await db.query('SELECT * FROM SERVICES WHERE have_warehouse = true AND is_active = true ORDER BY service_id');
     const tempResult = {};
     for (let i = 0; i < availableServices.length; i++) {
         const service_id = availableServices[i].service_id;
