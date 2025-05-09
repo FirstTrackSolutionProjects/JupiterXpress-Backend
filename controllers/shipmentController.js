@@ -211,7 +211,7 @@ const createDomesticShipment = async (req, res) => {
         const warehouse = warehouses[0];
         const wid = warehouse.wid;
         const [systemCodes] = await db.query('SELECT * FROM SYSTEM_CODE_GENERATOR');
-        const refId = systemCodes[0].shipment_reference_id;
+        const refId = `JUP${systemCodes[0].shipment_reference_id}`;
         await db.query('UPDATE SYSTEM_CODE_GENERATOR SET shipment_reference_id = ? WHERE shipment_reference_id = ?', [parseInt(refId) + 1, refId]);
 
         let total_amount = 0;
@@ -1341,7 +1341,22 @@ const getAllDomesticShipmentReports = async (req, res) => {
         });
     }
     try {
-        const [rows] = await db.query('SELECT * FROM SHIPMENT_REPORTS r JOIN SHIPMENTS s ON r.ord_id=s.ord_id JOIN USERS u ON u.uid=s.uid WHERE r.status != "FAILED"');
+        const [rows] = await db.query(`SELECT 
+                                        r.*,
+                                        e.date AS date,
+                                        s.awb AS awb,
+                                        s.serviceId AS serviceId,
+                                        s.cancelled AS cancelled,
+                                        u.fullName AS fullName,
+                                        u.email AS email,
+                                        s.is_b2b AS is_b2b,
+                                        sv.service_name AS service_name
+                                        FROM SHIPMENT_REPORTS r 
+                                        JOIN SHIPMENTS s ON r.ord_id=s.ord_id 
+                                        JOIN EXPENSES e ON e.expense_order=r.ord_id 
+                                        JOIN USERS u ON u.uid = s.uid
+                                        JOIN SERVICES sv ON sv.service_id=s.serviceId
+                                        WHERE r.status != "FAILED"`);
         return res.status(200).json({
             status: 200, rows, success: true
         });
@@ -1617,7 +1632,22 @@ const getDomesticShipmentReports = async (req, res) => {
     }
 
     try {
-        const [rows] = await db.query('SELECT * FROM SHIPMENT_REPORTS r JOIN SHIPMENTS s ON r.ord_id=s.ord_id WHERE r.status != "FAILED" AND s.uid = ?', [id]);
+        const [rows] = await db.query(`SELECT 
+                                        r.*,
+                                        e.date AS date,
+                                        s.awb AS awb,
+                                        s.serviceId AS serviceId,
+                                        s.cancelled AS cancelled,
+                                        s.customer_name AS customer_name,
+                                        s.customer_email AS customer_email,
+                                        s.customer_reference_number AS customer_reference_number,
+                                        s.is_b2b AS is_b2b,
+                                        sv.service_name AS service_name
+                                        FROM SHIPMENT_REPORTS r 
+                                        JOIN SHIPMENTS s ON r.ord_id=s.ord_id 
+                                        JOIN EXPENSES e ON e.expense_order=r.ord_id 
+                                        JOIN SERVICES sv ON sv.service_id=s.serviceId
+                                        WHERE r.status != "FAILED" AND s.uid = ?`, [id]);
 
         return res.status(200).json({
             status: 200, rows, success: true
@@ -2753,58 +2783,68 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
                 message: 'Unauthorized!'
             });
         }
-        const { startDate, endDate } = req.body;
+        const { startDate, endDate, serviceId } = req.body;
         if (!startDate || !endDate) {
             return res.status(400).json({
                 status: 400,
                 message: 'Start date and end date are required'
             });
         }
-        const [reportData] = await db.query(`SELECT 
-                                            s.ord_id AS ORDER_ID,
-                                            e.date AS ORDER_SHIPMENT_DATE,
-                                            s.cancelled AS IS_ORDER_CANCELLED,
-                                            u.uid AS MERCHANT_ID,
-                                            u.businessName AS MERCHANT_BUSINESS_NAME, 
-                                            u.email AS MERCHANT_EMAIL, 
-                                            u.phone AS MERCHANT_PHONE_NUMBER, 
-                                            w.warehouseName AS SHIPPER_WAREHOUSE_NAME, 
-                                            w.address AS SHIPPER_WAREHOUSE_ADDRESS, 
-                                            w.pin AS SHIPPER_WAREHOUSE_PIN, 
-                                            w.city AS SHIPPER_WAREHOUSE_CITY, 
-                                            w.state AS SHIPPER_WAREHOUSE_STATE, 
-                                            w.country AS SHIPPER_WAREHOUSE_COUNTRY,
-                                            s.pay_method AS SHIPMENT_PAYMENT_METHOD,
-                                            s.customer_name AS CUSTOMER_NAME,
-                                            s.customer_mobile AS CUSTOMER_CONTACT, 
-                                            s.customer_email AS CUSTOMER_EMAIL, 
-                                            s.shipping_address AS SHIPPING_ADDRESS, 
-                                            s.shipping_postcode AS SHIPPING_PINCODE,
-                                            s.shipping_city AS SHIPPING_CITY,
-                                            s.shipping_state AS SHIPPING_STATE, 
-                                            s.shipping_country AS SHIPPING_COUNTRY,
-                                            s.same AS SHIPPING_IS_BILLING,
-                                            s.billing_address AS BILLING_ADDRESS,
-                                            s.billing_postcode AS BILLING_PINCODE, 
-                                            s.billing_city AS BILLING_CITY, 
-                                            s.billing_state AS BILLING_STATE, 
-                                            s.billing_country AS BILLING_COUNTRY,
-                                            sp.box_no AS BOX_NO,
-                                            sp.length AS BOX_LENGTH,
-                                            sp.breadth AS BOX_WIDTH,
-                                            sp.height AS BOX_HEIGHT,
-                                            sp.weight AS BOX_WEIGHT,
-                                            sp.hsn AS BOX_HSN,
-                                            s.awb AS AWB,
-                                            s.ewaybill AS EWAYBILL
-                                            FROM SHIPMENTS s
-                                            JOIN SHIPMENT_PACKAGES sp ON s.ord_id = sp.ord_id
-                                            JOIN EXPENSES e ON e.expense_order = s.ord_id
-                                            JOIN USERS u ON u.uid = s.uid 
-                                            JOIN WAREHOUSES w ON w.wid = s.wid 
-                                            WHERE
-                                            s.is_manifested = true AND 
-                                            e.date BETWEEN ? AND ?`, [startDate + 'T00:00:00', endDate + 'T23:59:59'])
+        const query =`SELECT 
+        s.ord_id AS ORDER_ID,
+        sr.ref_id AS REFERENCE_ID,
+        e.date AS ORDER_SHIPMENT_DATE,
+        s.cancelled AS IS_ORDER_CANCELLED,
+        u.uid AS MERCHANT_ID,
+        u.businessName AS MERCHANT_BUSINESS_NAME, 
+        u.email AS MERCHANT_EMAIL, 
+        u.phone AS MERCHANT_PHONE_NUMBER, 
+        w.warehouseName AS SHIPPER_WAREHOUSE_NAME, 
+        w.address AS SHIPPER_WAREHOUSE_ADDRESS, 
+        w.pin AS SHIPPER_WAREHOUSE_PIN, 
+        w.city AS SHIPPER_WAREHOUSE_CITY, 
+        w.state AS SHIPPER_WAREHOUSE_STATE, 
+        w.country AS SHIPPER_WAREHOUSE_COUNTRY,
+        s.pay_method AS SHIPMENT_PAYMENT_METHOD,
+        s.customer_name AS CUSTOMER_NAME,
+        s.customer_mobile AS CUSTOMER_CONTACT, 
+        s.customer_email AS CUSTOMER_EMAIL, 
+        s.shipping_address AS SHIPPING_ADDRESS, 
+        s.shipping_postcode AS SHIPPING_PINCODE,
+        s.shipping_city AS SHIPPING_CITY,
+        s.shipping_state AS SHIPPING_STATE, 
+        s.shipping_country AS SHIPPING_COUNTRY,
+        s.same AS SHIPPING_IS_BILLING,
+        s.billing_address AS BILLING_ADDRESS,
+        s.billing_postcode AS BILLING_PINCODE, 
+        s.billing_city AS BILLING_CITY, 
+        s.billing_state AS BILLING_STATE, 
+        s.billing_country AS BILLING_COUNTRY,
+        sv.service_name AS COURIER_NAME,
+        s.is_b2b AS IS_B2B,
+        sp.box_no AS BOX_NO,
+        sp.length AS BOX_LENGTH_IN_CM,
+        sp.breadth AS BOX_WIDTH_IN_CM,
+        sp.height AS BOX_HEIGHT_IN_CM,
+        sp.weight AS BOX_WEIGHT_IN_GRAM,
+        sp.hsn AS BOX_HSN,
+        s.awb AS AWB,
+        e.expense_cost AS SHIPMENT_PRICE,
+        s.ewaybill AS EWAYBILL
+      FROM SHIPMENTS s
+      JOIN SHIPMENT_PACKAGES sp ON s.ord_id = sp.ord_id
+      JOIN SHIPMENT_REPORTS sr ON s.ord_id = sr.ord_id
+      JOIN EXPENSES e ON e.expense_order = s.ord_id
+      JOIN USERS u ON u.uid = s.uid 
+      JOIN WAREHOUSES w ON w.wid = s.wid 
+      JOIN SERVICES sv ON sv.service_id = s.serviceId
+      WHERE
+        s.is_manifested = true
+        AND e.date BETWEEN ? AND ?
+        ${serviceId ? ' AND s.serviceId = ?' : ''}`
+
+        const [reportData] = await db.query(query, [startDate + 'T00:00:00', endDate + 'T23:59:59', serviceId]);    
+
         return res.status(200).json({ status: 200, data: reportData, success: true });
     }
     catch (err) {
