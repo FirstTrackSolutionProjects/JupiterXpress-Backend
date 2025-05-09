@@ -211,8 +211,9 @@ const createDomesticShipment = async (req, res) => {
         const warehouse = warehouses[0];
         const wid = warehouse.wid;
         const [systemCodes] = await db.query('SELECT * FROM SYSTEM_CODE_GENERATOR');
-        const refId = `JUP${systemCodes[0].shipment_reference_id}`;
-        await db.query('UPDATE SYSTEM_CODE_GENERATOR SET shipment_reference_id = ? WHERE shipment_reference_id = ?', [parseInt(refId) + 1, refId]);
+        const intRefId = systemCodes[0].shipment_reference_id;
+        const refId = `JUP${intRefId}`
+        await db.query('UPDATE SYSTEM_CODE_GENERATOR SET shipment_reference_id = ? WHERE shipment_reference_id = ?', [parseInt(intRefId) + 1, intRefId]);
 
         let total_amount = 0;
         for (let i = 0; i < orders.length; i++) {
@@ -1785,7 +1786,7 @@ const getDomesticShipmentLabel = async (req, res) => {
                 status: 500, message: 'Failed to get label', error: e.message
             });
         }
-    } else if (serviceId == 6){
+    } else if (serviceId == 6 && false){
         try{
             const label = await fetch(`https://queries.envia.com/guide/${shipment?.awb}`, {
                 method: 'GET',
