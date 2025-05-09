@@ -1640,7 +1640,6 @@ const getDomesticShipmentReports = async (req, res) => {
                                         s.cancelled AS cancelled,
                                         s.customer_name AS customer_name,
                                         s.customer_email AS customer_email,
-                                        s.customer_reference_number AS customer_reference_number,
                                         s.is_b2b AS is_b2b,
                                         sv.service_name AS service_name
                                         FROM SHIPMENT_REPORTS r 
