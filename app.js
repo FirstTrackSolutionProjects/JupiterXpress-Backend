@@ -20,6 +20,7 @@ const verificationRoutes = require('./routes/verificationRoutes');
 const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
 const serviceAvailabilityRoutes = require('./routes/serviceAvailabilityRoutes');
 const devRoutes = require('./routes/devRoutes');
+const serviceRoutes = require('./routes/serviceRoutes')
 connectDB();
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/verification', verificationRoutes)
 app.use('/email/verification', emailVerificationRoutes)
 app.use('/service', serviceAvailabilityRoutes)
 app.use('/dev', devRoutes)
+app.use('/services', serviceRoutes)
 
 
 module.exports.handler = serverless(app);
