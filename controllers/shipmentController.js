@@ -211,7 +211,7 @@ const createDomesticShipment = async (req, res) => {
         const warehouse = warehouses[0];
         const wid = warehouse.wid;
         const [systemCodes] = await db.query('SELECT * FROM SYSTEM_CODE_GENERATOR');
-        const refId = systemCodes[0].shipment_reference_id;
+        const refId = `JUP${systemCodes[0].shipment_reference_id}`;
         await db.query('UPDATE SYSTEM_CODE_GENERATOR SET shipment_reference_id = ? WHERE shipment_reference_id = ?', [parseInt(refId) + 1, refId]);
 
         let total_amount = 0;
@@ -1345,7 +1345,6 @@ const getAllDomesticShipmentReports = async (req, res) => {
                                         r.*,
                                         e.date AS date,
                                         s.awb AS awb,
-                                        s.lrn AS lrn,
                                         s.serviceId AS serviceId,
                                         s.cancelled AS cancelled,
                                         u.fullName AS fullName,
@@ -1637,7 +1636,6 @@ const getDomesticShipmentReports = async (req, res) => {
                                         r.*,
                                         e.date AS date,
                                         s.awb AS awb,
-                                        s.lrn AS lrn,
                                         s.serviceId AS serviceId,
                                         s.cancelled AS cancelled,
                                         s.customer_name AS customer_name,
@@ -2825,15 +2823,12 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
         sv.service_name AS COURIER_NAME,
         s.is_b2b AS IS_B2B,
         sp.box_no AS BOX_NO,
-        sp.length AS BOX_LENGTH,
-        sp.breadth AS BOX_WIDTH,
-        sp.height AS BOX_HEIGHT,
-        sp.weight AS BOX_WEIGHT,
-        sp.weight_unit AS BOX_WEIGHT_UNIT,
-        sp.quantity AS BOX_QUANTITY,
+        sp.length AS BOX_LENGTH_IN_CM,
+        sp.breadth AS BOX_WIDTH_IN_CM,
+        sp.height AS BOX_HEIGHT_IN_CM,
+        sp.weight AS BOX_WEIGHT_IN_GRAM,
         sp.hsn AS BOX_HSN,
         s.awb AS AWB,
-        s.lrn AS LRN,
         e.expense_cost AS SHIPMENT_PRICE,
         s.ewaybill AS EWAYBILL
       FROM SHIPMENTS s
