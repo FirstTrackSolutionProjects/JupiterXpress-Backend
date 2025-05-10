@@ -58,6 +58,30 @@ const getAllRechargeTransactions = async (req, res) => {
     }
 }
 
+const getAllDisputeChargesTransactions = async (req, res) => {
+    const token = req.headers.authorization;
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const admin = verified.admin;
+        if (!admin) {
+            const [rows] = await db.query('SELECT * FROM DISPUTE_CHARGES WHERE uid = ?', [id]);
+            return res.status(200).json({
+                status: 200, success: true, data: rows
+            });
+        }
+        const [rows] = await db.query('SELECT * FROM DISPUTE_CHARGES dc JOIN USERS u ON dc.uid=u.uid');
+        return res.status(200).json({
+            status: 200, success: true, data: rows
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: 500, message: 'Unexpected Error while fetching transactions', error: error.message
+        });
+    }
+}
+
 const getBalance = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
@@ -310,5 +334,6 @@ module.exports = {
     getAllManualRechargeTransactions,
     getAllRefundTransactions,
     manualRecharge,
-    verifyRazorpayRecharge
+    verifyRazorpayRecharge,
+    getAllDisputeChargesTransactions
 };
