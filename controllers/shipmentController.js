@@ -205,6 +205,10 @@ const createDomesticShipment = async (req, res) => {
         }
         const [shipments] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ? ', [order]);
         const shipment = shipments[0];
+        const is_manifested = shipment?.is_manifested;
+        if (is_manifested) {
+            return res.status(400).json({ message: 'Shipment already manifested' });
+        }
         const [boxes] = await db.query('SELECT * FROM SHIPMENT_PACKAGES WHERE ord_id = ? ', [order]);
         const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
         const [warehouses] = await db.query('SELECT * FROM WAREHOUSES WHERE uid = ? AND wid = ?', [id, shipment.wid]);
