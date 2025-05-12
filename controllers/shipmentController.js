@@ -2155,20 +2155,20 @@ const getDomesticShipmentPricing = async (req, res) => {
                     'ekart' : 0.84
                 }
 
-                // const commissionChartLessThan2000g = {
-                //     'amazon' : 0.78,
-                //     'ekart' : 0.84
-                // }
+                const commissionChartLessThan2000g = {
+                    'amazon' : 0.55,
+                    'ekart' : 0.77
+                }
 
-                // const commissionChartLessThan3000g = {
-                //     'amazon' : 0.78,
-                //     'ekart' : 0.84
-                // }
+                const commissionChartLessThan3000g = {
+                    'amazon' : 0.55,
+                    'ekart' : 0.86
+                }
 
-                // const commissionChartLessThan4000g = {
-                //     'amazon' : 0.78,
-                //     'ekart' : 0.84
-                // }
+                const commissionChartLessThan4000g = {
+                    'amazon' : 0.49,
+                    'ekart' : 0.81
+                }
 
                 // const commissionChartLessThan5000g = {
                 //     'amazon' : 0.78,
@@ -2208,7 +2208,13 @@ const getDomesticShipmentPricing = async (req, res) => {
                         shipmentPrice = shipmentPrice*commissionChartLessThan500g?.[price?.carrier];
                     } else if (chargableWeightInGram <= 1000){
                         shipmentPrice = shipmentPrice*commissionChartLessThan1000g?.[price?.carrier];
-                    } else if (chargableWeightInGram > 1000){
+                    } else if (chargableWeightInGram <= 2000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan2000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 3000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan3000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 4000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan4000g?.[price?.carrier];
+                    } else {
                         shipmentPrice = shipmentPrice*discountChart?.[price?.carrier];
                     }
 
