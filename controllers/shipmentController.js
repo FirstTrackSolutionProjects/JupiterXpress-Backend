@@ -498,7 +498,7 @@ const createDomesticShipment = async (req, res) => {
                 success: true
             });
         }
-        // else if (serviceId == 3) {
+        else if (serviceId == 3) {
         //     const loginPayload = {
         //         grant_type: "client_credentials",
         //         client_id: process.env.MOVIN_CLIENT_ID,
@@ -665,7 +665,7 @@ const createDomesticShipment = async (req, res) => {
         //         response: response,
         //         success: true
         //     });
-        // } 
+        } 
         else if (serviceId == 4) {
             const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(serviceId);
             if (warehouseNotAvailable){
@@ -1001,20 +1001,30 @@ const createDomesticShipment = async (req, res) => {
                 const packages = [];
                 boxes.map((box, index)=>{
                     packages.push({
-                        "content": "Items",
-                        "amount": 1,
-                        "type": "box",
-                        "dimensions": {
-                            "length": 70,
-                            "width": 5,
-                            "height": 6
+                        content: "Items",
+                        amount: 1,
+                        type: "box",
+                        dimensions: {
+                            length: 70,
+                            width: 5,
+                            height: 6
                         },
-                        "weight": 0.5,
-                        "insurance": 0,
-                        "declaredValue": shipment?.invoice_amount || total_amount,
-                        "weightUnit": "KG",
-                        "lengthUnit": "CM"
-                    })
+                        weight: 0.5,
+                        insurance: 0,
+                        declaredValue: shipment?.invoice_amount || total_amount,
+                        weightUnit: "KG",
+                        lengthUnit: "CM",
+                        ...(shipment?.pay_method=="COD" ? {
+                            additionalServices: [
+                                {
+                                    data: {
+                                        amount: shipment?.cod_amount,
+                                    },
+                                    service: "cash_on_delivery"
+                                }
+                            ]
+                        } : {})
+                    });
                 })
                 const shipmentPayload = {
                     "origin": {
@@ -1487,12 +1497,17 @@ const getDomesticShipmentReport = async (req, res) => {
                 },
             });
             const data = await response.json();
-            const statusData = data.ShipmentData[0].Shipment;
-            const status = statusData.Status.Status
-            await db.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ref_id = ?', [status, ref_id]);
-            return res.status(200).json({
-                status: 200, data: statusData, success: true
-            });
+            const statusData = data?.ShipmentData?.[0]?.Shipment;
+            const status = statusData?.Status?.Status
+            if (status){
+                await db.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ref_id = ?', [status, ref_id]);
+                return res.status(200).json({
+                    status: 200, data: statusData, success: true
+                });
+            }
+            return res.status(404).json({
+                status: 404, message: 'No data found for this AWB'
+            })
         }
         // else if (serviceId == 3) {
         //     const loginPayload = {
