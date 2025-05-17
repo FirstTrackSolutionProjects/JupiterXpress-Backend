@@ -304,7 +304,7 @@ const createDomesticShipment = async (req, res) => {
                 "state": shipment.shipping_state,
                 "country": shipment.shipping_country,
                 "phone": shipment.customer_mobile,
-                "order": `JUP${refId}`,
+                "order": `${refId}`,
                 "payment_mode": shipment.pay_method == "topay" ? "COD" : shipment.pay_method,
                 "return_pin": "",
                 "return_city": "",
@@ -423,7 +423,7 @@ const createDomesticShipment = async (req, res) => {
                 "state": shipment.shipping_state,
                 "country": shipment.shipping_country,
                 "phone": shipment.customer_mobile,
-                "order": `JUP${refId}`,
+                "order": `${refId}`,
                 "payment_mode": shipment.pay_method == "topay" ? "COD" : shipment.pay_method,
                 "return_pin": "",
                 "return_city": "",
@@ -827,7 +827,7 @@ const createDomesticShipment = async (req, res) => {
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const shiprocketApiKey = apiKeys[0].Shiprocket;
             const createShipmentRequestBody = {
-                "order_id": `JUP${refId}`,
+                "order_id": `${refId}`,
                 "mode": `${shipment.shipping_mode=="Surface"?"Surface":"Air"}`,
                 "order_date": getCurrentDateAndTime(),
                 "channel_id": "",
