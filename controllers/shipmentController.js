@@ -1474,7 +1474,7 @@ const getDomesticShipmentReport = async (req, res) => {
         const awb = shipment.awb
         const serviceId = shipment.serviceId
         if (serviceId == 1) {
-            const response = await fetch(`https://track.delhivery.com/api/v1/packages/json/?ref_ids=${ref_id}`, {
+            const response = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
                     'Accept': 'application/json',
@@ -1494,7 +1494,7 @@ const getDomesticShipmentReport = async (req, res) => {
                 status: 404, message: 'No data found for this AWB'
             })
         } else if (serviceId == 2){
-            const response = await fetch(`https://track.delhivery.com/api/v1/packages/json/?ref_ids=${ref_id}`, {
+            const response = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
                     'Accept': 'application/json',
