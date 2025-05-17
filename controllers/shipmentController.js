@@ -2887,6 +2887,93 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
     }
 }
 
+const getDomesticShipmentReportsData = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401,
+            message: 'Access Denied'
+        });
+    }
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        const admin = verified.admin;
+        if (admin) {
+            return res.status(401).json({
+                status: 401,
+                message: 'Only for Merchant!'
+            });
+        }
+        const id = verified.id;
+        const { startDate, endDate, serviceId } = req.body;
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Start date and end date are required'
+            });
+        }
+        const query =`SELECT 
+        s.ord_id AS ORDER_ID,
+        sr.ref_id AS REFERENCE_ID,
+        e.date AS ORDER_SHIPMENT_DATE,
+        s.cancelled AS IS_ORDER_CANCELLED,
+        w.warehouseName AS SHIPPER_WAREHOUSE_NAME, 
+        w.address AS SHIPPER_WAREHOUSE_ADDRESS, 
+        w.pin AS SHIPPER_WAREHOUSE_PIN, 
+        w.city AS SHIPPER_WAREHOUSE_CITY, 
+        w.state AS SHIPPER_WAREHOUSE_STATE, 
+        w.country AS SHIPPER_WAREHOUSE_COUNTRY,
+        s.pay_method AS SHIPMENT_PAYMENT_METHOD,
+        s.customer_name AS CUSTOMER_NAME,
+        s.customer_mobile AS CUSTOMER_CONTACT, 
+        s.customer_email AS CUSTOMER_EMAIL, 
+        s.shipping_address AS SHIPPING_ADDRESS, 
+        s.shipping_postcode AS SHIPPING_PINCODE,
+        s.shipping_city AS SHIPPING_CITY,
+        s.shipping_state AS SHIPPING_STATE, 
+        s.shipping_country AS SHIPPING_COUNTRY,
+        s.same AS SHIPPING_IS_BILLING,
+        s.billing_address AS BILLING_ADDRESS,
+        s.billing_postcode AS BILLING_PINCODE, 
+        s.billing_city AS BILLING_CITY, 
+        s.billing_state AS BILLING_STATE, 
+        s.billing_country AS BILLING_COUNTRY,
+        sv.service_name AS COURIER_NAME,
+        s.is_b2b AS IS_B2B,
+        sp.box_no AS BOX_NO,
+        sp.length AS BOX_LENGTH_IN_CM,
+        sp.breadth AS BOX_WIDTH_IN_CM,
+        sp.height AS BOX_HEIGHT_IN_CM,
+        sp.weight AS BOX_WEIGHT_IN_GRAM,
+        sp.hsn AS BOX_HSN,
+        s.awb AS AWB,
+        e.expense_cost AS SHIPMENT_PRICE,
+        s.ewaybill AS EWAYBILL
+      FROM SHIPMENTS s
+      JOIN SHIPMENT_PACKAGES sp ON s.ord_id = sp.ord_id
+      JOIN SHIPMENT_REPORTS sr ON s.ord_id = sr.ord_id
+      JOIN EXPENSES e ON e.expense_order = s.ord_id
+      JOIN WAREHOUSES w ON w.wid = s.wid 
+      JOIN SERVICES sv ON sv.service_id = s.serviceId
+      WHERE
+        s.uid = ?
+        AND s.is_manifested = true
+        AND e.date BETWEEN ? AND ?
+        ${serviceId ? ' AND s.serviceId = ?' : ''}`
+
+        const [reportData] = await db.query(query, [id, startDate + 'T00:00:00', endDate + 'T23:59:59', serviceId]);    
+
+        return res.status(200).json({ status: 200, data: reportData, success: true });
+    }
+    catch (err) {
+        console.error(err)
+        return res.status(500).json({
+            status: 500,
+            message: 'Internal Server Error'
+        });
+    }
+}
+
 module.exports = {
     cancelShipment,
     createDomesticShipment,
@@ -2902,6 +2989,7 @@ module.exports = {
     domesticShipmentPickupSchedule,
     trackShipment,
     updateDomesticProcessingShipments,
-    getAllDomesticShipmentReportsData
+    getAllDomesticShipmentReportsData,
+    getDomesticShipmentReportsData
 };
 

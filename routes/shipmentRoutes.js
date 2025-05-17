@@ -13,7 +13,8 @@ const { cancelShipment,
         domesticShipmentPickupSchedule,
         trackShipment,
         updateDomesticProcessingShipments,
-        getAllDomesticShipmentReportsData
+        getAllDomesticShipmentReportsData,
+        getDomesticShipmentReportsData
     } = require('../controllers/shipmentController');
 
 const router = express.Router();
@@ -30,6 +31,7 @@ router.post('/domestic/price', getDomesticShipmentPricing)
 router.post('/domestic/pickup/request', domesticShipmentPickupSchedule)
 router.post('/domestic/refresh', updateDomesticProcessingShipments)
 router.post('/domestic/reports/download', getAllDomesticShipmentReportsData)
+router.post('/domestic/reports/download/merchant', getDomesticShipmentReportsData)
 
 router.post('/international/create', createInternationalShipment);
 router.post('/international/report', getInternationalShipmentReport);
