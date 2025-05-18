@@ -30,8 +30,30 @@ const cancelShipment = async (req, res) => {
         const [users] = await db.query('SELECT * FROM USERS WHERE uid = ?', [uid]);
         const email = users[0].email;
         // const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
-        
+
+        if (shipment?.cancelled){
+            return res.status(400).json({ message: 'Shipment already cancelled' });
+        }
+
         if (serviceId == 1) {
+            const statusResponse = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
+                headers: {
+                    'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+            });
+            const statusData = await statusResponse.json();
+            console.error(statusData)
+            const shipmentScans = statusData?.ShipmentData?.[0]?.Shipment ||  [];
+            const lastShipmentScan = shipmentScans[shipmentScans.length - 1];
+            const shipmentStatus = statusData?.Status?.Status;
+            if (shipmentStatus == "Delivered") {
+                return res.status(400).json({ message: 'Delivered shipments cannot be cancelled!' });
+            } else if (lastShipmentScan?.ScanDetail?.Instructions == "Shipment not received from client") {
+                return res.status(400).json({ message: 'Shipment already cancelled!' });
+            }
+
             const responseDta = await fetch(`https://track.delhivery.com/api/p/edit`, {
                 method: 'POST',
                 headers: {
@@ -70,6 +92,24 @@ const cancelShipment = async (req, res) => {
                 status: 200, message: response, success: true, data: 'Shipment cancelled successfully, your refund is credited to your wallet'
             })
         } else if (serviceId == 2){
+            const statusResponse = await fetch(`https://track.delhivery.com/api/v1/packages/json/?waybill=${awb}`, {
+                headers: {
+                    'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+            });
+            const statusData = await statusResponse.json();
+            console.error(statusData)
+            const shipmentScans = statusData?.ShipmentData?.[0]?.Shipment ||  [];
+            const lastShipmentScan = shipmentScans[shipmentScans.length - 1];
+            const shipmentStatus = statusData?.Status?.Status;
+            if (shipmentStatus == "Delivered") {
+                return res.status(400).json({ message: 'Delivered shipments cannot be cancelled!' });
+            } else if (lastShipmentScan?.ScanDetail?.Instructions == "Shipment not received from client") {
+                return res.status(400).json({ message: 'Shipment already cancelled!' });
+            }
+
             const responseDta = await fetch(`https://track.delhivery.com/api/p/edit`, {
                 method: 'POST',
                 headers: {
@@ -111,6 +151,23 @@ const cancelShipment = async (req, res) => {
             const orderId = shipment.shipping_vendor_order_id;
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const shiprocketApiKey = apiKeys[0].Shiprocket;
+            const trackingRequest = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`, {
+                headers: {
+                    'Authorization': `Bearer ${shiprocketApiKey}`,
+                    'Accept': 'application/json'
+                }
+            })
+            const trackingData = await trackingRequest.json();
+            const shipmentStatus = trackingData?.tracking_data?.shipment_track?.[0]?.current_status;
+            if (shipmentStatus == "Delivered") {
+                return res.status(400).json({ message: 'Delivered shipments cannot be cancelled!' });
+            } else if (shipmentStatus == "Canceled") {
+                return res.status(400).json({ message: 'Shipment is already cancelled!' });
+            } else if (shipmentStatus?.includes("RTO")){
+                return res.status(400).json({ message: 'RTO Shipments cannot be cancelled!' });
+            }
+
+            
             const responseDta = await fetch(`https://apiv2.shiprocket.in/v1/external/orders/cancel`, {
                 method: 'POST',
                 headers: {
@@ -144,6 +201,34 @@ const cancelShipment = async (req, res) => {
             }
         } else if (serviceId == 6){
             try {
+                
+                const trackResponse = await fetch(`https://api.envia.com/ship/generaltrack/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        "trackingNumbers": [awb],
+                    })
+                });
+                const data = await trackResponse.json();
+                const trackingEventHistory = data?.data?.[0]?.eventHistory || [];
+                let latestScan;
+                for (history of trackingEventHistory) {
+                    if (history?.["sr-status-label"] !== "NA"){
+                        latestScan = history;
+                        break;
+                    }
+                }
+                if (latestScan?.["sr-status-label"] == "DELIVERED") {
+                    return res.status(400).json({ message: 'Delivered shipments cannot be cancelled!' });
+                } else if (latestScan?.["sr-status-label"] == "CANCELLED") {
+                    return res.status(400).json({ message: 'Shipment is already cancelled!' });
+                } else if (latestScan?.["sr-status-label"].includes("RTO")){
+                    return res.status(400).json({ message: 'RTO Shipments cannot be cancelled!' });
+                }
+
                 const cancelResponse = await fetch(`https://api.envia.com/ship/cancel/`,{
                     method: 'POST',
                     headers: {
