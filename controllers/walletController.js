@@ -66,12 +66,12 @@ const getAllDisputeChargesTransactions = async (req, res) => {
         const id = verified.id;
         const admin = verified.admin;
         if (!admin) {
-            const [rows] = await db.query('SELECT * FROM DISPUTE_CHARGES WHERE uid = ?', [id]);
+            const [rows] = await db.query('SELECT dc.*, sv.service_name AS service_name FROM DISPUTE_CHARGES dc JOIN SHIPMENTS s ON dc.dispute_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id WHERE dc.uid = ?', [id]);
             return res.status(200).json({
                 status: 200, success: true, data: rows
             });
         }
-        const [rows] = await db.query('SELECT * FROM DISPUTE_CHARGES dc JOIN USERS u ON dc.uid=u.uid');
+        const [rows] = await db.query('SELECT dc.*, sv.service_name AS service_name FROM DISPUTE_CHARGES dc JOIN USERS u ON dc.uid=u.uid JOIN SHIPMENTS s ON dc.dispute_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id');
         return res.status(200).json({
             status: 200, success: true, data: rows
         });
@@ -132,14 +132,13 @@ const getAllExpenseTransactions = async (req, res) => {
         const id = verified.id;
         const admin = verified.admin;
         if (admin) {
-            const [rows] = await db.query('SELECT * FROM EXPENSES e JOIN USERS u ON e.uid = u.uid');
-
+            const [rows] = await db.query('SELECT e.*, u.*, sv.service_name AS service_name FROM EXPENSES e JOIN USERS u ON e.uid = u.uid JOIN SHIPMENTS s ON e.expense_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id');
 
             return res.status(200).json({
                 status: 200, success: true, data: rows
             });
         }
-        const [rows] = await db.query('SELECT * FROM EXPENSES where uid = ?', [id]);
+        const [rows] = await db.query('SELECT e.*, sv.service_name AS service_name FROM EXPENSES e JOIN SHIPMENTS s ON e.expense_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id where e.uid = ?', [id]);
 
         return res.status(200).json({
             status: 200, success: true, data: rows
@@ -188,12 +187,12 @@ const getAllRefundTransactions = async (req, res) => {
         const id = verified.id;
         const admin = verified.admin;
         if (admin) {
-            const [rows] = await db.query('SELECT * FROM REFUND r JOIN USERS u ON r.uid = u.uid');
+            const [rows] = await db.query('SELECT r.*, sv.service_name AS service_name FROM REFUND r JOIN USERS u ON r.uid = u.uid JOIN SHIPMENTS s ON r.refund_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id');
             return res.status(200).json({
                 status: 200, success: true, data: rows
             });
         }
-        const [rows] = await db.query('SELECT * FROM REFUND where uid = ?', [id]);
+        const [rows] = await db.query('SELECT r.*, sv.service_name AS service_name FROM REFUND r JOIN SHIPMENTS s ON r.refund_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id where r.uid = ?', [id]);
 
 
         return res.status(200).json({
