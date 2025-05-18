@@ -32,7 +32,7 @@ const cancelShipment = async (req, res) => {
         // const [orders] = await db.query('SELECT * FROM ORDERS WHERE ord_id = ? ', [order]);
 
         if (shipment?.cancelled){
-            return res.status(400).json({ message: 'Shipment already cancelled' });
+            return res.status(400).json({ data: 'Shipment already cancelled' });
         }
 
         if (serviceId == 1) {
@@ -45,13 +45,13 @@ const cancelShipment = async (req, res) => {
             });
             const statusData = await statusResponse.json();
             console.error(statusData)
-            const shipmentScans = statusData?.ShipmentData?.[0]?.Shipment ||  [];
+            const shipmentScans = statusData?.ShipmentData?.[0]?.Shipment?.Scans ||  [];
             const lastShipmentScan = shipmentScans[shipmentScans.length - 1];
             const shipmentStatus = statusData?.Status?.Status;
             if (shipmentStatus == "Delivered") {
-                return res.status(400).json({ message: 'Delivered shipments cannot be cancelled!' });
+                return res.status(400).json({ data: 'Delivered shipments cannot be cancelled!' });
             } else if (lastShipmentScan?.ScanDetail?.Instructions == "Shipment not received from client") {
-                return res.status(400).json({ message: 'Shipment already cancelled!' });
+                return res.status(400).json({ data: 'Shipment already cancelled!' });
             }
 
             const responseDta = await fetch(`https://track.delhivery.com/api/p/edit`, {
@@ -101,13 +101,13 @@ const cancelShipment = async (req, res) => {
             });
             const statusData = await statusResponse.json();
             console.error(statusData)
-            const shipmentScans = statusData?.ShipmentData?.[0]?.Shipment ||  [];
+            const shipmentScans = statusData?.ShipmentData?.[0]?.Shipment?.Scans ||  [];
             const lastShipmentScan = shipmentScans[shipmentScans.length - 1];
             const shipmentStatus = statusData?.Status?.Status;
             if (shipmentStatus == "Delivered") {
-                return res.status(400).json({ message: 'Delivered shipments cannot be cancelled!' });
+                return res.status(400).json({ data: 'Delivered shipments cannot be cancelled!' });
             } else if (lastShipmentScan?.ScanDetail?.Instructions == "Shipment not received from client") {
-                return res.status(400).json({ message: 'Shipment already cancelled!' });
+                return res.status(400).json({ data: 'Shipment already cancelled!' });
             }
 
             const responseDta = await fetch(`https://track.delhivery.com/api/p/edit`, {
@@ -160,11 +160,11 @@ const cancelShipment = async (req, res) => {
             const trackingData = await trackingRequest.json();
             const shipmentStatus = trackingData?.tracking_data?.shipment_track?.[0]?.current_status;
             if (shipmentStatus == "Delivered") {
-                return res.status(400).json({ message: 'Delivered shipments cannot be cancelled!' });
+                return res.status(400).json({ data: 'Delivered shipments cannot be cancelled!' });
             } else if (shipmentStatus == "Canceled") {
-                return res.status(400).json({ message: 'Shipment is already cancelled!' });
+                return res.status(400).json({ data: 'Shipment is already cancelled!' });
             } else if (shipmentStatus?.includes("RTO")){
-                return res.status(400).json({ message: 'RTO Shipments cannot be cancelled!' });
+                return res.status(400).json({ data: 'RTO Shipments cannot be cancelled!' });
             }
 
             
@@ -214,19 +214,13 @@ const cancelShipment = async (req, res) => {
                 });
                 const data = await trackResponse.json();
                 const trackingEventHistory = data?.data?.[0]?.eventHistory || [];
-                let latestScan;
-                for (history of trackingEventHistory) {
-                    if (history?.["sr-status-label"] !== "NA"){
-                        latestScan = history;
-                        break;
-                    }
-                }
-                if (latestScan?.["sr-status-label"] == "DELIVERED") {
-                    return res.status(400).json({ message: 'Delivered shipments cannot be cancelled!' });
-                } else if (latestScan?.["sr-status-label"] == "CANCELLED") {
-                    return res.status(400).json({ message: 'Shipment is already cancelled!' });
-                } else if (latestScan?.["sr-status-label"].includes("RTO")){
-                    return res.status(400).json({ message: 'RTO Shipments cannot be cancelled!' });
+                const latestScan = trackingEventHistory[trackingEventHistory.length - 1];
+                if (latestScan?.description == "Delivered") {
+                    return res.status(400).json({ data: 'Delivered shipments cannot be cancelled!' });
+                } else if (latestScan?.description == "Cancelled") {
+                    return res.status(400).json({ data: 'Shipment is already cancelled!' });
+                } else if (latestScan?.description?.includes("RTO")){
+                    return res.status(400).json({ data: 'RTO Shipments cannot be cancelled!' });
                 }
 
                 const cancelResponse = await fetch(`https://api.envia.com/ship/cancel/`,{
