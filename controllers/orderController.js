@@ -83,6 +83,7 @@ const createDomesticOrder = async (req, res) => {
                 invoiceDate,
                 invoiceAmount,
                 invoiceUrl,
+                shipmentValue,
                 ewaybill,
                 isB2B
             } = req.body;
@@ -133,9 +134,10 @@ const createDomesticOrder = async (req, res) => {
                         invoice_date,
                         invoice_amount,
                         invoice_url,
+                        shipment_value,
                         ewaybill,
                         is_b2b
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?, ?,?)`,
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?, ?,?,?)`,
                     [
                         id,
                         order,
@@ -168,6 +170,7 @@ const createDomesticOrder = async (req, res) => {
                         invoiceDate,
                         invoiceAmount,
                         invoiceUrl,
+                        shipmentValue,
                         ewaybill,
                         isB2B
                     ]
@@ -753,6 +756,7 @@ const updateDomesticOrder = async (req, res) => {
                 invoiceDate,
                 invoiceAmount,
                 invoiceUrl,
+                shipmentValue,
                 ewaybill,
                 isB2B
             } = req.body;
@@ -805,10 +809,11 @@ const updateDomesticOrder = async (req, res) => {
             invoice_date =?,
             invoice_amount =?,
             invoice_url =?,
+            shipment_value =?,
             ewaybill =?,
             is_b2b =?
             WHERE ord_id = ? AND uid = ?`,
-                    [payMode, name, email, phone, address, addressType, country, state, city, postcode, Baddress, BaddressType, Bcountry, Bstate, Bcity, Bpostcode, same, cod, discount, gst, Cgst, wid, shippingType, pickupDate, pickupTime, invoiceNumber, invoiceDate, invoiceAmount, invoiceUrl, ewaybill, isB2B, order, id]
+                    [payMode, name, email, phone, address, addressType, country, state, city, postcode, Baddress, BaddressType, Bcountry, Bstate, Bcity, Bpostcode, same, cod, discount, gst, Cgst, wid, shippingType, pickupDate, pickupTime, invoiceNumber, invoiceDate, invoiceAmount, invoiceUrl, shipmentValue, ewaybill, isB2B, order, id]
                 );
 
                 await transaction.query("DELETE FROM ORDERS WHERE ord_id = ?", [order]);
