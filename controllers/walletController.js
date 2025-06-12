@@ -232,7 +232,6 @@ const manualRecharge = async (req, res) => {
             const [users] = await transaction.query('SELECT * FROM USERS WHERE email = ?', [email]);
             if (users.length) {
                 const uid = users[0].uid;
-                await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [amount, uid]);
                 await transaction.query('INSERT INTO MANUAL_RECHARGE (beneficiary_id, amount, reason) VALUES (?,?,?)', [uid, amount, reason]);
             }
             else {
@@ -286,7 +285,6 @@ const verifyRazorpayRecharge = async (req, res) => {
         try {
             // Update user's wallet balance in database
             const transaction = await db.beginTransaction();
-            await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [amount, uid]);
             // Insert transaction record
             const transactionDetails = {
                 uid,
@@ -325,6 +323,139 @@ const verifyRazorpayRecharge = async (req, res) => {
     }
 }
 
+const exportTransactionsJSON = async (req, res) => {
+  const { startDate, endDate, merchant_email } = req.body;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      status: 400,
+      message: 'Start date and end date are required',
+    });
+  }
+
+  if (merchant_email && typeof merchant_email !== 'string') {
+    return res.status(400).json({
+      status: 400,
+      message: 'Invalid merchant email',
+    });
+  }
+
+  try {
+    let uidFilter = '';
+    let values = [];
+
+    if (merchant_email) {
+      const [merchantRow] = await db.query('SELECT uid FROM USERS WHERE email = ?', [merchant_email]);
+      if (!merchantRow.length) {
+        return res.status(404).json({ success: false, message: 'Merchant not found' });
+      }
+      uidFilter = ' AND s.uid = ?';
+      values.push(merchantRow[0].uid);
+    }
+
+    if (startDate) {
+      uidFilter += ' AND s.date >= ?';
+      values.push(`${startDate}T00:00:00`);
+    }
+
+    if (endDate) {
+      uidFilter += ' AND s.date <= ?';
+      values.push(`${endDate}T23:59:59`);
+    }
+
+    const queries = {
+      'Dispute Charges': `
+        SELECT 
+          u.fullName AS MERCHANT_NAME, 
+          u.email AS MERCHANT_EMAIL, 
+          u.phone AS MERCHANT_PHONE,
+          s.dispute_order AS ORDER_ID, 
+          s.dispute_charge AS DISPUTE_CHARGE, 
+          s.date AS DATE,
+          s.remaining_balance AS REMAINING_BALANCE,
+          'Dispute Charge' AS TYPE
+        FROM DISPUTE_CHARGES s
+        JOIN USERS u ON s.uid = u.uid
+        WHERE 1=1 ${uidFilter}
+      `,
+      'Expenses': `
+        SELECT 
+          u.fullName AS MERCHANT_NAME, 
+          u.email AS MERCHANT_EMAIL, 
+          u.phone AS MERCHANT_PHONE,
+          s.expense_order AS ORDER_ID, 
+          s.expense_cost AS ORDER_AMOUNT, 
+          s.date AS DATE,
+          s.remaining_balance AS REMAINING_BALANCE,
+          'Expense' AS TYPE
+        FROM EXPENSES s
+        JOIN USERS u ON s.uid = u.uid
+        WHERE 1=1 ${uidFilter}
+      `,
+      'Manual Recharges': `
+        SELECT 
+          u.fullName AS MERCHANT_NAME, 
+          u.email AS MERCHANT_EMAIL, 
+          u.phone AS MERCHANT_PHONE,
+          s.amount AS RECHARGE_AMOUNT, 
+          s.date AS DATE,
+          s.reason AS REASON,
+          s.remaining_balance AS REMAINING_BALANCE,
+          'Manual Recharge' AS TYPE
+        FROM MANUAL_RECHARGE s
+        JOIN USERS u ON s.beneficiary_id = u.uid
+        WHERE 1=1 ${uidFilter.replace(/s\.uid/g, 's.beneficiary_id')}
+      `,
+      'Recharges': `
+        SELECT 
+          u.fullName AS MERCHANT_NAME, 
+          u.email AS MERCHANT_EMAIL, 
+          u.phone AS MERCHANT_PHONE,
+          s.order_id AS RECHARGE_ORDER_ID,
+          s.payment_id AS RECHARGE_PAYMENT_ID, 
+          s.amount AS RECHARGE_AMOUNT, 
+          s.date AS DATE,
+          s.remaining_balance AS REMAINING_BALANCE,
+          'Recharge' AS TYPE
+        FROM RECHARGE s
+        JOIN USERS u ON s.uid = u.uid
+        WHERE 1=1 ${uidFilter}
+      `,
+      'Refunds': `
+        SELECT 
+          u.fullName AS MERCHANT_NAME, 
+          u.email AS MERCHANT_EMAIL, 
+          u.phone AS MERCHANT_PHONE,
+          s.refund_order AS REFUND_ORDER, 
+          s.refund_amount AS REFUND_AMOUNT, 
+          s.date AS DATE,
+          s.remaining_balance AS REMAINING_BALANCE,
+          'Refund' AS TYPE
+        FROM REFUND s
+        JOIN USERS u ON s.uid = u.uid
+        WHERE 1=1 ${uidFilter}
+      `,
+    };
+
+    const result = {};
+
+    for (const [type, query] of Object.entries(queries)) {
+      const [rows] = await db.query(query, values);
+      result[type] = rows.map((r) => ({...r}));
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+
+  } catch (err) {
+    console.error('Export error:', err);
+    res.status(500).json({ success: false, message: 'Server error during export' });
+  }
+};
+
+
 module.exports = {
     createRazorpayOrderId,
     getAllRechargeTransactions,
@@ -334,5 +465,6 @@ module.exports = {
     getAllRefundTransactions,
     manualRecharge,
     verifyRazorpayRecharge,
-    getAllDisputeChargesTransactions
+    getAllDisputeChargesTransactions,
+    exportTransactionsJSON
 };
