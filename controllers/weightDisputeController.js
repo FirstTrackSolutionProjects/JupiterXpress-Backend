@@ -60,7 +60,6 @@ const createDispute = async (req, res) => {
         }
         const disputed_user = disputed_users[0];
         const disputed_user_id = disputed_user?.uid;
-        await transaction.query(`UPDATE WALLET SET balance = balance - ? WHERE uid = ?`, [dispute_deduction, disputed_user_id]);
         await transaction.query(`INSERT INTO DISPUTE_CHARGES (uid, dispute_order, dispute_charge) VALUES (?,?,?)`,[disputed_user_id, ord_id, dispute_deduction])
         await transaction.commit();
         const disputed_user_email = disputed_user?.email;
