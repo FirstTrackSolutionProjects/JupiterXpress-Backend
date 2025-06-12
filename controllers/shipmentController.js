@@ -70,10 +70,7 @@ const cancelShipment = async (req, res) => {
                 const price = expenses[0].expense_cost
                 await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
                 await transaction.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', order]);
-                if (shipment.pay_method != "topay") {
-                    await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [parseInt(price), uid]);
-                    await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
-                }
+                await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
                 await db.commit(transaction)
             }
             else {
@@ -126,10 +123,7 @@ const cancelShipment = async (req, res) => {
                 const price = expenses[0].expense_cost
                 await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
                 await transaction.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', order]);
-                if (shipment.pay_method != "topay") {
-                    await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [parseInt(price), uid]);
-                    await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
-                }
+                await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
                 await db.commit(transaction)
             }
             else {
@@ -246,10 +240,7 @@ const cancelShipment = async (req, res) => {
                 const price = expenses[0].expense_cost
                 await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
                 await transaction.query('UPDATE SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', order]);
-                if (shipment.pay_method != "topay") {
-                    await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [parseInt(price), uid]);
-                    await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
-                }
+                await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [uid, order, price])
                 await db.commit(transaction)
 
                 return res.status(200).json({
@@ -406,7 +397,7 @@ const createDomesticShipment = async (req, res) => {
                 "shipment_height": shipment.height,
                 "weight": shipment.weight,
                 "seller_gst_tin": shipment.gst,
-                "shipping_mode": shipment.shippingType,
+                "shipping_mode": shipment.shipping_mode,
                 "address_type": shipment.shipping_address_type
             });
 
@@ -430,9 +421,6 @@ const createDomesticShipment = async (req, res) => {
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, response.packages[0].waybill, true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
                 await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
-                if (shipment.pay_method != "topay") {
-                    await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                }
                 await db.commit(transaction);
             } else {
                 return res.status(400).json({
@@ -525,7 +513,7 @@ const createDomesticShipment = async (req, res) => {
                 "shipment_height": shipment.height,
                 "weight": shipment.weight,
                 "seller_gst_tin": shipment.gst,
-                "shipping_mode": shipment.shippingType,
+                "shipping_mode": shipment.shipping_mode,
                 "address_type": shipment.shipping_address_type
             });
 
@@ -549,9 +537,6 @@ const createDomesticShipment = async (req, res) => {
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, response.packages[0].waybill, true, false, order]);
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
                 await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
-                if (shipment.pay_method != "topay") {
-                    await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                }
                 await db.commit(transaction);
             } else {
                 return res.status(400).json({
@@ -578,172 +563,169 @@ const createDomesticShipment = async (req, res) => {
             });
         }
         else if (serviceId == 3) {
-        //     const loginPayload = {
-        //         grant_type: "client_credentials",
-        //         client_id: process.env.MOVIN_CLIENT_ID,
-        //         client_secret: process.env.MOVIN_CLIENT_SECRET,
-        //         Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
-        //     };
-        //     const formBody = Object.entries(loginPayload).map(
-        //         ([key, value]) =>
-        //             encodeURIComponent(key) + "=" + encodeURIComponent(value)
-        //     ).join("&");
+            // const loginPayload = {
+            //     grant_type: "client_credentials",
+            //     client_id: process.env.MOVIN_CLIENT_ID,
+            //     client_secret: process.env.MOVIN_CLIENT_SECRET,
+            //     Scope: `${process.env.MOVIN_SERVER_ID}/.default`,
+            // };
+            // const formBody = Object.entries(loginPayload).map(
+            //     ([key, value]) =>
+            //         encodeURIComponent(key) + "=" + encodeURIComponent(value)
+            // ).join("&");
 
-        //     const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
-        //         method: 'POST',
-        //         headers: {
-        //             'Content-Type': 'application/x-www-form-urlencoded',
-        //             'Accept': 'application/json',
-        //         },
-        //         body: formBody
-        //     });
+            // const login = await fetch(`https://login.microsoftonline.com/${process.env.MOVIN_TENANT_ID}/oauth2/v2.0/token`, {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/x-www-form-urlencoded',
+            //         'Accept': 'application/json',
+            //     },
+            //     body: formBody
+            // });
 
-        //     const loginRes = await login.json();
-        //     const token = loginRes.access_token;
+            // const loginRes = await login.json();
+            // const token = loginRes.access_token;
 
-        //     let fromAddressLine1 = warehouse.address.substring(0, 50);
-        //     let fromAddressLine2 = warehouse.address.substring(50, 100);
-        //     let fromAddressLine3 = warehouse.address.substring(100, 150);
-        //     if (fromAddressLine2 == "") {
-        //         fromAddressLine2 = fromAddressLine1;
-        //         fromAddressLine3 = fromAddressLine1;
-        //     } else if (fromAddressLine3 == "") {
-        //         fromAddressLine3 = fromAddressLine1;
-        //     }
-
-
-        //     let toAddressLine1 = shipment.shipping_address.substring(0, 50);
-        //     let toAddressLine2 = shipment.shipping_address.substring(50, 100);
-        //     let toAddressLine3 = shipment.shipping_address.substring(100, 150);
-        //     if (toAddressLine2 == "") {
-        //         toAddressLine2 = toAddressLine1;
-        //         toAddressLine3 = toAddressLine1;
-        //     } else if (toAddressLine3 == "") {
-        //         toAddressLine3 = toAddressLine1;
-        //     }
+            // let fromAddressLine1 = warehouse.address.substring(0, 50);
+            // let fromAddressLine2 = warehouse.address.substring(50, 100);
+            // let fromAddressLine3 = warehouse.address.substring(100, 150);
+            // if (fromAddressLine2 == "") {
+            //     fromAddressLine2 = fromAddressLine1;
+            //     fromAddressLine3 = fromAddressLine1;
+            // } else if (fromAddressLine3 == "") {
+            //     fromAddressLine3 = fromAddressLine1;
+            // }
 
 
-        //     const reqBody = {
-        //         communication_email: "jupiterxpress2024@gmail.com",
-        //         payload: [
-        //             {
-        //                 shipment: {
-        //                     shipment_unique_id: `JUP${refId}`,
-        //                     shipment_type: 'Forward',
-        //                     forward_shipment_number: `JUP${refId}`,
-        //                     ship_from_account: process.env.MOVIN_ACCOUNT_NUMBER,
-        //                     ship_from_company: users[0].businessName,
-        //                     ship_from_address_line1: fromAddressLine1,
-        //                     ship_from_address_line2: fromAddressLine2,
-        //                     ship_from_address_line3: fromAddressLine3,
-        //                     ship_from_zipcode: warehouse.pin,
-        //                     ship_from_email: "jupiterxpress2024@gmail.com",
-        //                     ship_from_phone: users[0].phone,
-        //                     shipment_date: shipment.pickup_date,
-        //                     shipment_priority: categoryId == 1 ? 'Express End of Day' : 'Standard Premium',
-        //                     ship_to_first_name: customerFirstName,
-        //                     ship_to_last_name: customerLastName,
-        //                     ship_to_company: "Customer",
-        //                     ship_to_address_line1: toAddressLine1,
-        //                     ship_to_address_line2: toAddressLine2,
-        //                     ship_to_address_line3: toAddressLine3,
-        //                     ship_to_zipcode: shipment.shipping_postcode,
-        //                     ship_to_phone: shipment.customer_mobile,
-        //                     ship_to_email: email,
-        //                     package_type: "Package",
-        //                     total_weight: shipment.weight,
-        //                     invoice_value: shipment.cod_amount,
-        //                     invoice_currency: "INR",
-        //                     payment_type: 'Prepaid',
-        //                     goods_general_description: "Shipment Items",
-        //                     goods_value: total_amount.toString(),
-        //                     bill_to: "Shipper",
-        //                     include_insurance: "No",
-        //                     email_notification: "Yes",
-        //                     mobile_notification: "Yes",
-        //                     add_adult_signature: "Yes",
-        //                     cash_on_delivery: "No"
-        //                 },
-        //                 package: []
-        //             }
-        //         ]
-        //     };
-        //     boxes.map((box, index) => {
-        //         reqBody.payload[0].package.push({
-        //             "package_unique_id": `PACK_${index + 1}`,
-        //             "length": box.length,
-        //             "width": box.breadth,
-        //             "height": box.height,
-        //             "weight_actual": parseInt(box.weight) / 1000,
-        //             "identical_package_count": 1
-        //         })
-        //     })
+            // let toAddressLine1 = shipment.shipping_address.substring(0, 50);
+            // let toAddressLine2 = shipment.shipping_address.substring(50, 100);
+            // let toAddressLine3 = shipment.shipping_address.substring(100, 150);
+            // if (toAddressLine2 == "") {
+            //     toAddressLine2 = toAddressLine1;
+            //     toAddressLine3 = toAddressLine1;
+            // } else if (toAddressLine3 == "") {
+            //     toAddressLine3 = toAddressLine1;
+            // }
 
-        //     const responseDta = await fetch(`https://apim.iristransport.co.in/rest/v2/shipment/sync/create`, {
-        //         method: 'POST',
-        //         headers: {
-        //             'Content-Type': 'application/json',
-        //             'Accept': 'application/json',
-        //             'Authorization': `Bearer ${token}`,
-        //             'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
-        //         },
-        //         body: JSON.stringify(reqBody)
-        //     });
 
-        //     const response = await responseDta.json();
-        //     console.log(response)
-        //     if (response.error) {
-        //         return res.status(400).json({
-        //             status: 400,
-        //             success: false,
-        //             message: response.packages[0].rmk,
-        //             response : response
-        //         });
-        //     }
-        //     try {
-        //         if (response.response.errors[0].shipment[`JUP${refId}`][0].error) {
-        //             return res.status(400).json({
-        //                 status: 400,
-        //                 success: false,
-        //                 message: response.response.errors[0].shipment[`JUP${refId}`][0].error
-        //             });
-        //         }
-        //     } catch (err) {
-        //         //No error found, so shipment creation can be procedded
-        //     }
-        //     const transaction = await db.beginTransaction();
-        //     try {
-        //         await transaction.query('UPDATE SHIPMENTS set serviceId = ?, categoryId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, categoryId, response.response.success[`JUP${refId}`].parent_shipment_number[0], true, false, order]);
-        //         await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
-        //         await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
-        //         if (shipment.pay_method != "topay") {
-        //             await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-        //         }
-        //         await db.commit(transaction);
-        //     } catch (err) {
-        //         await db.rollback(transaction);
-        //         console.log(err);
-        //         return res.status(500).json({
-        //             status: 500,
-        //             response: response,
-        //             error: err
-        //         });
-        //     }
+            // const reqBody = {
+            //     communication_email: "jupiterxpress2024@gmail.com",
+            //     payload: [
+            //         {
+            //             shipment: {
+            //                 shipment_unique_id: `${refId}`,
+            //                 shipment_type: 'Forward',
+            //                 forward_shipment_number: `${refId}`,
+            //                 ship_from_account: process.env.MOVIN_ACCOUNT_NUMBER,
+            //                 ship_from_company: users[0].businessName,
+            //                 ship_from_address_line1: fromAddressLine1,
+            //                 ship_from_address_line2: fromAddressLine2,
+            //                 ship_from_address_line3: fromAddressLine3,
+            //                 ship_from_zipcode: warehouse.pin,
+            //                 ship_from_email: "jupiterxpress2024@gmail.com",
+            //                 ship_from_phone: users[0].phone,
+            //                 shipment_date: shipment.pickup_date,
+            //                 shipment_priority: shipment?.shipping_mode == "Express" ? 'Express End of Day' : 'Standard Premium',
+            //                 ship_to_first_name: customerFirstName,
+            //                 ship_to_last_name: customerLastName,
+            //                 ship_to_company: "Customer",
+            //                 ship_to_address_line1: toAddressLine1,
+            //                 ship_to_address_line2: toAddressLine2,
+            //                 ship_to_address_line3: toAddressLine3,
+            //                 ship_to_zipcode: shipment.shipping_postcode,
+            //                 ship_to_phone: shipment.customer_mobile,
+            //                 ship_to_email: email,
+            //                 package_type: "Package",
+            //                 total_weight: shipment.weight,
+            //                 invoice_value: shipment.cod_amount,
+            //                 invoice_currency: "INR",
+            //                 payment_type: 'Prepaid',
+            //                 goods_general_description: "Shipment Items",
+            //                 goods_value: total_amount.toString(),
+            //                 bill_to: "Shipper",
+            //                 include_insurance: "No",
+            //                 email_notification: "No",
+            //                 mobile_notification: "No",
+            //                 add_adult_signature: "Yes",
+            //                 cash_on_delivery: shipment.pay_method == "COD"?"Yes": "No"
+            //             },
+            //             package: []
+            //         }
+            //     ]
+            // };
+            // boxes.map((box, index) => {
+            //     reqBody.payload[0].package.push({
+            //         "package_unique_id": `PACK_${index + 1}`,
+            //         "length": box.length,
+            //         "width": box.breadth,
+            //         "height": box.height,
+            //         "weight_actual": parseInt(box.weight) / 1000,
+            //         "identical_package_count": 1
+            //     })
+            // })
 
-        //     let mailOptions = {
-        //         from: process.env.EMAIL_USER,
-        //         to: email,
-        //         subject: 'Shipment created successfully',
-        //         text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Movin Courier Service 
-        //       and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
-        //     };
-        //     await transporter.sendMail(mailOptions);
+            // const responseDta = await fetch(`https://apim.iristransport.co.in/rest/v2/shipment/sync/create`, {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //         'Accept': 'application/json',
+            //         'Authorization': `Bearer ${token}`,
+            //         'Ocp-Apim-Subscription-Key': process.env.MOVIN_SUBSCRIPTION_KEY
+            //     },
+            //     body: JSON.stringify(reqBody)
+            // });
 
-        //     return res.status(200).json({
-        //         status: 200,
-        //         response: response,
-        //         success: true
-        //     });
+            // const response = await responseDta.json();
+            // console.log(response)
+            // if (response.error) {
+            //     return res.status(400).json({
+            //         status: 400,
+            //         success: false,
+            //         message: response.packages[0].rmk,
+            //         response : response
+            //     });
+            // }
+            // try {
+            //     if (response.response.errors[0].shipment[`${refId}`][0].error) {
+            //         return res.status(400).json({
+            //             status: 400,
+            //             success: false,
+            //             message: response.response.errors[0].shipment[`${refId}`][0].error
+            //         });
+            //     }
+            // } catch (err) {
+            //     //No error found, so shipment creation can be procedded
+            // }
+            // const transaction = await db.beginTransaction();
+            // try {
+            //     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, awb = ?, is_manifested = ?, in_process = ? WHERE ord_id = ?', [serviceId, response.response.success[`${refId}`].parent_shipment_number[0], true, false, order]);
+            //     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "SHIPPED"]);
+            //     await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
+            //     await db.commit(transaction);
+            // } catch (err) {
+            //     await db.rollback(transaction);
+            //     console.log(err);
+            //     return res.status(500).json({
+            //         status: 500,
+            //         response: response,
+            //         error: err
+            //     });
+            // }
+
+            // let mailOptions = {
+            //     from: process.env.EMAIL_USER,
+            //     to: email,
+            //     subject: 'Shipment created successfully',
+            //     text: `Dear Merchant, \nYour shipment request for Order id : ${order} is successfully created at Movin Courier Service 
+            //   and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            // };
+            // await transporter.sendMail(mailOptions);
+
+            // return res.status(200).json({
+            //     status: 200,
+            //     response: response,
+            //     success: true
+            // });
         } 
         else if (serviceId == 4) {
             const warehouseNotAvailable = await warehouseNotCreatedOnCurrentService(serviceId);
@@ -871,9 +853,6 @@ const createDomesticShipment = async (req, res) => {
                     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [serviceId, true, true, pickrrShipmentCreateData.id, order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                     await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
-                    if (shipment.pay_method != "topay") {
-                        await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                    }
                     await db.commit(transaction);
                     let mailOptions = {
                         from: process.env.EMAIL_USER,
@@ -974,9 +953,6 @@ const createDomesticShipment = async (req, res) => {
                     await transaction.query('UPDATE SHIPMENTS set serviceId = ?, in_process = ?, is_manifested = ?, awb = ?, shipping_vendor_reference_id = ?, shipping_vendor_order_id = ? WHERE ord_id = ?', [serviceId, false, true, createShipmentData.payload.awb_code, createShipmentData.payload.shipment_id, createShipmentData.payload.order_id , order])
                     await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                     await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
-                    if (shipment.pay_method != "topay") {
-                        await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                    }
                     await db.commit(transaction);
                     let mailOptions = {
                         from: process.env.EMAIL_USER,
@@ -1234,9 +1210,6 @@ const createDomesticShipment = async (req, res) => {
                 await transaction.query('UPDATE SHIPMENTS set serviceId = ?, in_process = ?, is_manifested = ?, awb = ?, aggregatorServiceId = ? WHERE ord_id = ?', [serviceId, false, true, awb, courierId, order])
                 await transaction.query('INSERT INTO SHIPMENT_REPORTS VALUES (?,?,?)', [refId, order, "MANIFESTED"])
                 await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, order, (shipment.pay_method == "topay") ? 0 : price]);
-                if (shipment.pay_method != "topay") {
-                    await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [price, id]);
-                }
                 await db.commit(transaction);
                 let mailOptions = {
                     from: process.env.EMAIL_USER,
@@ -1395,7 +1368,6 @@ const createInternationalShipment = async (req, res) => {
         if (response.success) {
             await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)', [shipmentId, iid])
             await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set serviceId = ?, awb = ?,docket_id = ?, status = ? WHERE iid = ?', [7,  response.data.awb_no, response.data.docket_id, "MANIFESTED", iid])
-            await transaction.query('UPDATE WALLET SET balance = balance - ? WHERE uid = ?', [parseFloat(shipment.shipping_price), id]);
             await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPXI${iid}`, parseFloat(shipment.shipping_price)])
             await db.commit(transaction);
         }
@@ -2344,7 +2316,7 @@ const getDomesticShipmentPricing = async (req, res) => {
             // movinPricing(),
             pickrr20kgPricing(),
             shiprocketPricing(),
-            enviaB2BPricing()
+            // enviaB2BPricing()
         ])
 
         responses.sort((a,b)=>(a.price - b.price))
@@ -2733,6 +2705,7 @@ const trackShipment = async (req, res) => {
             }
         }
         const trackingResponse = await trackingRequest.json()
+        console.log(trackingResponse[0].messages)
         const isSuccess = trackingResponse[0]?.Event;
         if (!isSuccess){
             return {
@@ -2857,7 +2830,7 @@ const updateDomesticProcessingShipments = async (req, res) => {
                 } else {
                     return res.status(200).json({ status: 200, success: false, message: 'Shipment is still under process' });
                 }
-            } else {
+            } else {  
                 return res.status(404).json({ status: 404, message: 'Service not found' });
             }
         } catch (e) {
@@ -2930,6 +2903,10 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
         s.billing_city AS BILLING_CITY, 
         s.billing_state AS BILLING_STATE, 
         s.billing_country AS BILLING_COUNTRY,
+        s.cod_amount AS COD_AMOUNT,
+        s.shipping_mode AS SHIPPING_MODE,
+        s.gst AS SHIPPER_GST_NUMBER,
+        s.customer_gst AS CUSTOMER_GST_NUMBER,
         sv.service_name AS COURIER_NAME,
         s.is_b2b AS IS_B2B,
         sp.box_no AS BOX_NO,
