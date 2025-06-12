@@ -534,7 +534,7 @@ const getAllDomesticOrders = async (req, res) => {
         }
 
         try {
-            const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON s.uid=u.uid',);
+            const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON s.uid=u.uid');
             return res.status(200).json({
                 status: 200, success: true, order: rows
             });
