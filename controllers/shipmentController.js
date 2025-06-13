@@ -2316,7 +2316,7 @@ const getDomesticShipmentPricing = async (req, res) => {
             // movinPricing(),
             pickrr20kgPricing(),
             shiprocketPricing(),
-            enviaB2BPricing()
+            // enviaB2BPricing()
         ])
 
         responses.sort((a,b)=>(a.price - b.price))
