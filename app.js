@@ -2,6 +2,26 @@ const express = require('express');
 const cors = require('cors');
 const serverless = require('serverless-http');
 require('dotenv').config()
+const app = express();
+app.use(express.json());
+
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    }).send();
+  }
+  next();
+});
+
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+}));
+
 const {connectDB} = require('./utils/db');
 const testRoute = require('./routes/testRoute');
 const authRoutes = require('./routes/authRoutes');
@@ -24,9 +44,7 @@ const serviceRoutes = require('./routes/serviceRoutes');
 const weightDisputeRoutes = require('./routes/weightDisputeRoutes');
 connectDB();
 
-const app = express();
-app.use(express.json());
-app.use(cors())
+
 app.use('/test', testRoute);
 app.use('/auth', authRoutes);
 app.use('/password', passwordRoutes);
