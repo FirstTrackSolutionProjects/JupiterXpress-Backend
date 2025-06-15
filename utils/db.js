@@ -10,7 +10,7 @@ const pool = mysql.createPool({
     waitForConnections: true,         // Wait for a connection if pool is full
     connectionLimit: 10,              // Adjust the connection limit
     queueLimit: 0,                     // No limit to the number of queued connection requests
-    timezone: '-05:30',             // Set timezone to IST (UTC+5:30)
+    timezone: '+00:00',             // Set timezone to IST (UTC+5:30)
 });
 
 const connectDB = async () => {

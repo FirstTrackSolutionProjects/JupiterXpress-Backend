@@ -323,9 +323,148 @@ const verifyRazorpayRecharge = async (req, res) => {
     }
 }
 
-const exportTransactionsJSON = async (req, res) => {
-  const { startDate, endDate, merchant_email } = req.body;
+// const exportTransactionsJSON = async (req, res) => {
+//   const { startDate, endDate, merchant_email } = req.body;
 
+//   if (!startDate || !endDate) {
+//     return res.status(400).json({
+//       status: 400,
+//       message: 'Start date and end date are required',
+//     });
+//   }
+
+//   if (merchant_email && typeof merchant_email !== 'string') {
+//     return res.status(400).json({
+//       status: 400,
+//       message: 'Invalid merchant email',
+//     });
+//   }
+
+//   try {
+//     let uidFilter = '';
+//     let values = [];
+
+//     if (merchant_email) {
+//       const [merchantRow] = await db.query('SELECT uid FROM USERS WHERE email = ?', [merchant_email]);
+//       if (!merchantRow.length) {
+//         return res.status(404).json({ success: false, message: 'Merchant not found' });
+//       }
+//       uidFilter = ' AND s.uid = ?';
+//       values.push(merchantRow[0].uid);
+//     }
+
+//     if (startDate) {
+//       uidFilter += ' AND s.date >= ?';
+//       values.push(`${startDate}T00:00:00`);
+//     }
+
+//     if (endDate) {
+//       uidFilter += ' AND s.date <= ?';
+//       values.push(`${endDate}T23:59:59`);
+//     }
+
+//     const queries = {
+//       'Dispute Charges': `
+//         SELECT 
+//           u.fullName AS MERCHANT_NAME, 
+//           u.email AS MERCHANT_EMAIL, 
+//           u.phone AS MERCHANT_PHONE,
+//           s.dispute_order AS ORDER_ID, 
+//           s.dispute_charge AS DISPUTE_CHARGE, 
+//           s.date AS DATE,
+//           s.remaining_balance AS REMAINING_BALANCE,
+//           'Dispute Charge' AS TYPE
+//         FROM DISPUTE_CHARGES s
+//         JOIN USERS u ON s.uid = u.uid
+//         WHERE 1=1 ${uidFilter}
+//       `,
+//       'Expenses': `
+//         SELECT 
+//           u.fullName AS MERCHANT_NAME, 
+//           u.email AS MERCHANT_EMAIL, 
+//           u.phone AS MERCHANT_PHONE,
+//           s.expense_order AS ORDER_ID, 
+//           s.expense_cost AS ORDER_AMOUNT, 
+//           s.date AS DATE,
+//           s.remaining_balance AS REMAINING_BALANCE,
+//           'Expense' AS TYPE
+//         FROM EXPENSES s
+//         JOIN USERS u ON s.uid = u.uid
+//         WHERE 1=1 ${uidFilter}
+//       `,
+//       'Manual Recharges': `
+//         SELECT 
+//           u.fullName AS MERCHANT_NAME, 
+//           u.email AS MERCHANT_EMAIL, 
+//           u.phone AS MERCHANT_PHONE,
+//           s.amount AS RECHARGE_AMOUNT, 
+//           s.date AS DATE,
+//           s.reason AS REASON,
+//           s.remaining_balance AS REMAINING_BALANCE,
+//           'Manual Recharge' AS TYPE
+//         FROM MANUAL_RECHARGE s
+//         JOIN USERS u ON s.beneficiary_id = u.uid
+//         WHERE 1=1 ${uidFilter.replace(/s\.uid/g, 's.beneficiary_id')}
+//       `,
+//       'Recharges': `
+//         SELECT 
+//           u.fullName AS MERCHANT_NAME, 
+//           u.email AS MERCHANT_EMAIL, 
+//           u.phone AS MERCHANT_PHONE,
+//           s.order_id AS RECHARGE_ORDER_ID,
+//           s.payment_id AS RECHARGE_PAYMENT_ID, 
+//           s.amount AS RECHARGE_AMOUNT, 
+//           s.date AS DATE,
+//           s.remaining_balance AS REMAINING_BALANCE,
+//           'Recharge' AS TYPE
+//         FROM RECHARGE s
+//         JOIN USERS u ON s.uid = u.uid
+//         WHERE 1=1 ${uidFilter}
+//       `,
+//       'Refunds': `
+//         SELECT 
+//           u.fullName AS MERCHANT_NAME, 
+//           u.email AS MERCHANT_EMAIL, 
+//           u.phone AS MERCHANT_PHONE,
+//           s.refund_order AS REFUND_ORDER, 
+//           s.refund_amount AS REFUND_AMOUNT, 
+//           s.date AS DATE,
+//           s.remaining_balance AS REMAINING_BALANCE,
+//           'Refund' AS TYPE
+//         FROM REFUND s
+//         JOIN USERS u ON s.uid = u.uid
+//         WHERE 1=1 ${uidFilter}
+//       `,
+//     };
+
+//     const result = {};
+
+//     for (const [type, query] of Object.entries(queries)) {
+//       const [rows] = await db.query(query, values);
+//       result[type] = rows.map((r) => ({...r}));
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       data: result,
+//     });
+
+//   } catch (err) {
+//     console.error('Export error:', err);
+//     res.status(500).json({ success: false, message: 'Server error during export' });
+//   }
+// };
+
+
+const exportAllTransactionsJSON = async (req, res) => {
+  const token = req.headers.authorization;
+  if (!token) {
+    return res.status(401).json({
+      status: 401,
+      message: 'Access Denied',
+    });
+  }
+  const { startDate, endDate, merchant_email } = req.body;
   if (!startDate || !endDate) {
     return res.status(400).json({
       status: 400,
@@ -341,119 +480,266 @@ const exportTransactionsJSON = async (req, res) => {
   }
 
   try {
-    let uidFilter = '';
-    let values = [];
-
-    if (merchant_email) {
-      const [merchantRow] = await db.query('SELECT uid FROM USERS WHERE email = ?', [merchant_email]);
-      if (!merchantRow.length) {
-        return res.status(404).json({ success: false, message: 'Merchant not found' });
-      }
-      uidFilter = ' AND s.uid = ?';
-      values.push(merchantRow[0].uid);
+    const verified = jwt.verify(token, SECRET_KEY);
+    const admin = verified.admin;
+    if (!admin) {
+      return res.status(401).json({
+        status: 401,
+        message: 'Access Denied: Admin privileges required'
+      })
     }
+    const emailFilter = merchant_email ? ` AND u.email = ?` : '';
+    const values = [
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      ...(merchant_email ? [merchant_email] : []),
 
-    if (startDate) {
-      uidFilter += ' AND s.date >= ?';
-      values.push(`${startDate}T00:00:00`);
-    }
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      ...(merchant_email ? [merchant_email] : []),
 
-    if (endDate) {
-      uidFilter += ' AND s.date <= ?';
-      values.push(`${endDate}T23:59:59`);
-    }
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      ...(merchant_email ? [merchant_email] : []),
 
-    const queries = {
-      'Dispute Charges': `
-        SELECT 
-          u.fullName AS MERCHANT_NAME, 
-          u.email AS MERCHANT_EMAIL, 
-          u.phone AS MERCHANT_PHONE,
-          s.dispute_order AS ORDER_ID, 
-          s.dispute_charge AS DISPUTE_CHARGE, 
-          s.date AS DATE,
-          s.remaining_balance AS REMAINING_BALANCE,
-          'Dispute Charge' AS TYPE
-        FROM DISPUTE_CHARGES s
-        JOIN USERS u ON s.uid = u.uid
-        WHERE 1=1 ${uidFilter}
-      `,
-      'Expenses': `
-        SELECT 
-          u.fullName AS MERCHANT_NAME, 
-          u.email AS MERCHANT_EMAIL, 
-          u.phone AS MERCHANT_PHONE,
-          s.expense_order AS ORDER_ID, 
-          s.expense_cost AS ORDER_AMOUNT, 
-          s.date AS DATE,
-          s.remaining_balance AS REMAINING_BALANCE,
-          'Expense' AS TYPE
-        FROM EXPENSES s
-        JOIN USERS u ON s.uid = u.uid
-        WHERE 1=1 ${uidFilter}
-      `,
-      'Manual Recharges': `
-        SELECT 
-          u.fullName AS MERCHANT_NAME, 
-          u.email AS MERCHANT_EMAIL, 
-          u.phone AS MERCHANT_PHONE,
-          s.amount AS RECHARGE_AMOUNT, 
-          s.date AS DATE,
-          s.reason AS REASON,
-          s.remaining_balance AS REMAINING_BALANCE,
-          'Manual Recharge' AS TYPE
-        FROM MANUAL_RECHARGE s
-        JOIN USERS u ON s.beneficiary_id = u.uid
-        WHERE 1=1 ${uidFilter.replace(/s\.uid/g, 's.beneficiary_id')}
-      `,
-      'Recharges': `
-        SELECT 
-          u.fullName AS MERCHANT_NAME, 
-          u.email AS MERCHANT_EMAIL, 
-          u.phone AS MERCHANT_PHONE,
-          s.order_id AS RECHARGE_ORDER_ID,
-          s.payment_id AS RECHARGE_PAYMENT_ID, 
-          s.amount AS RECHARGE_AMOUNT, 
-          s.date AS DATE,
-          s.remaining_balance AS REMAINING_BALANCE,
-          'Recharge' AS TYPE
-        FROM RECHARGE s
-        JOIN USERS u ON s.uid = u.uid
-        WHERE 1=1 ${uidFilter}
-      `,
-      'Refunds': `
-        SELECT 
-          u.fullName AS MERCHANT_NAME, 
-          u.email AS MERCHANT_EMAIL, 
-          u.phone AS MERCHANT_PHONE,
-          s.refund_order AS REFUND_ORDER, 
-          s.refund_amount AS REFUND_AMOUNT, 
-          s.date AS DATE,
-          s.remaining_balance AS REMAINING_BALANCE,
-          'Refund' AS TYPE
-        FROM REFUND s
-        JOIN USERS u ON s.uid = u.uid
-        WHERE 1=1 ${uidFilter}
-      `,
-    };
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      ...(merchant_email ? [merchant_email] : []),
 
-    const result = {};
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      ...(merchant_email ? [merchant_email] : []),
+    ];
 
-    for (const [type, query] of Object.entries(queries)) {
-      const [rows] = await db.query(query, values);
-      result[type] = rows.map((r) => ({...r}));
-    }
+    const unifiedQuery = `
+      SELECT 
+        u.fullName AS MERCHANT_NAME, 
+        u.email AS MERCHANT_EMAIL, 
+        u.phone AS MERCHANT_PHONE,
+        s.dispute_order AS ORDER_ID,
+        NULL AS PAYMENT_ID,
+        sv.service_name AS SERVICE_NAME,
+        s.dispute_charge AS AMOUNT,
+        s.date AS DATE,
+        NULL AS REASON,
+        s.remaining_balance AS REMAINING_BALANCE,
+        'Dispute Charge' AS TRANSACTION_TYPE,
+        'DEBIT' AS CREDIT_OR_DEBIT
+      FROM DISPUTE_CHARGES s
+      JOIN USERS u ON s.uid = u.uid
+      JOIN SHIPMENTS sh ON s.dispute_order = sh.ord_id
+      JOIN SERVICES sv ON sh.serviceId = sv.service_id
+      WHERE s.date >= ? AND s.date <= ?${emailFilter}
+
+      UNION ALL
+
+      SELECT 
+        u.fullName, u.email, u.phone,
+        s.expense_order, 
+        NULL,
+        sv.service_name,
+        s.expense_cost,
+        s.date,
+        NULL,
+        s.remaining_balance,
+        'Expense',
+        'DEBIT'
+      FROM EXPENSES s
+      JOIN USERS u ON s.uid = u.uid
+      JOIN SHIPMENTS sh ON s.expense_order = sh.ord_id
+      JOIN SERVICES sv ON sh.serviceId = sv.service_id
+      WHERE s.date >= ? AND s.date <= ?${emailFilter}
+
+      UNION ALL
+
+      SELECT 
+        u.fullName, u.email, u.phone,
+        NULL,
+        NULL,
+        NULL,
+        s.amount,
+        s.date,
+        s.reason,
+        s.remaining_balance,
+        'Manual Recharge',
+        'CREDIT'
+      FROM MANUAL_RECHARGE s
+      JOIN USERS u ON s.beneficiary_id = u.uid
+      WHERE s.date >= ? AND s.date <= ?${emailFilter}
+
+      UNION ALL
+
+      SELECT 
+        u.fullName, u.email, u.phone,
+        s.order_id,
+        s.payment_id,
+        NULL,
+        s.amount,
+        s.date,
+        NULL,
+        s.remaining_balance,
+        'Recharge',
+        'CREDIT'
+      FROM RECHARGE s
+      JOIN USERS u ON s.uid = u.uid
+      WHERE s.date >= ? AND s.date <= ?${emailFilter}
+
+      UNION ALL
+
+      SELECT 
+        u.fullName, u.email, u.phone,
+        s.refund_order,
+        NULL,
+        sv.service_name,
+        s.refund_amount,
+        s.date,
+        NULL,
+        s.remaining_balance,
+        'Refund',
+        'CREDIT'
+      FROM REFUND s
+      JOIN USERS u ON s.uid = u.uid
+      JOIN SHIPMENTS sh ON s.refund_order = sh.ord_id
+      JOIN SERVICES sv ON sh.serviceId = sv.service_id
+      WHERE s.date >= ? AND s.date <= ?${emailFilter}
+
+      ORDER BY DATE DESC
+    `;
+
+    const [rows] = await db.query(unifiedQuery, values);
 
     res.status(200).json({
       success: true,
-      data: result,
+      data: rows,
     });
-
   } catch (err) {
     console.error('Export error:', err);
     res.status(500).json({ success: false, message: 'Server error during export' });
   }
 };
+
+const exportTransactionsJSON = async (req, res) => {
+  const token = req.headers.authorization;
+  if (!token) {
+    return res.status(401).json({
+      status: 401,
+      message: 'Access Denied',
+    });
+  }
+
+  const { startDate, endDate } = req.body;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      status: 400,
+      message: 'Start date and end date are required',
+    });
+  }
+
+  try {
+    const verified = jwt.verify(token, SECRET_KEY);
+    const uid = verified.id;
+
+    const values = [
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid,
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid,
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid,
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid,
+      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid
+    ];
+
+    const query = `
+      SELECT 
+        s.dispute_order AS ORDER_ID,
+        NULL AS PAYMENT_ID,
+        sv.service_name AS SERVICE_NAME,
+        s.dispute_charge AS AMOUNT,
+        s.date AS DATE,
+        NULL AS REASON,
+        s.remaining_balance AS REMAINING_BALANCE,
+        'Dispute Charge' AS TRANSACTION_TYPE,
+        'DEBIT' AS CREDIT_OR_DEBIT
+      FROM DISPUTE_CHARGES s
+      JOIN SHIPMENTS sh ON s.dispute_order = sh.ord_id
+      JOIN SERVICES sv ON sh.serviceId = sv.service_id
+      WHERE s.date >= ? AND s.date <= ? AND s.uid = ?
+
+      UNION ALL
+
+      SELECT 
+        s.expense_order, 
+        NULL,
+        sv.service_name,
+        s.expense_cost,
+        s.date,
+        NULL,
+        s.remaining_balance,
+        'Expense',
+        'DEBIT'
+      FROM EXPENSES s
+      JOIN SHIPMENTS sh ON s.expense_order = sh.ord_id
+      JOIN SERVICES sv ON sh.serviceId = sv.service_id
+      WHERE s.date >= ? AND s.date <= ? AND s.uid = ?
+
+      UNION ALL
+
+      SELECT 
+        NULL,
+        NULL,
+        NULL,
+        s.amount,
+        s.date,
+        s.reason,
+        s.remaining_balance,
+        'Manual Recharge',
+        'CREDIT'
+      FROM MANUAL_RECHARGE s
+      WHERE s.date >= ? AND s.date <= ? AND s.beneficiary_id = ?
+
+      UNION ALL
+
+      SELECT 
+        s.order_id,
+        s.payment_id,
+        NULL,
+        s.amount,
+        s.date,
+        NULL,
+        s.remaining_balance,
+        'Recharge',
+        'CREDIT'
+      FROM RECHARGE s
+      JOIN SHIPMENTS sh ON s.order_id = sh.ord_id
+      JOIN SERVICES sv ON sh.serviceId = sv.service_id
+      WHERE s.date >= ? AND s.date <= ? AND s.uid = ?
+
+      UNION ALL
+
+      SELECT 
+        s.refund_order,
+        NULL,
+        sv.service_name,
+        s.refund_amount,
+        s.date,
+        NULL,
+        s.remaining_balance,
+        'Refund',
+        'CREDIT'
+      FROM REFUND s
+      JOIN SHIPMENTS sh ON s.refund_order = sh.ord_id
+      JOIN SERVICES sv ON sh.serviceId = sv.service_id
+      WHERE s.date >= ? AND s.date <= ? AND s.uid = ?
+
+      ORDER BY DATE DESC
+    `;
+
+    const [rows] = await db.query(query, values);
+
+    res.status(200).json({
+      success: true,
+      data: rows,
+    });
+  } catch (err) {
+    console.error('Export error:', err);
+    res.status(500).json({ success: false, message: 'Server error during export' });
+  }
+};
+
 
 
 module.exports = {
@@ -466,5 +752,6 @@ module.exports = {
     manualRecharge,
     verifyRazorpayRecharge,
     getAllDisputeChargesTransactions,
+    exportAllTransactionsJSON,
     exportTransactionsJSON
 };
