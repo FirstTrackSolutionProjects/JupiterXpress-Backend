@@ -9,7 +9,9 @@ const { createDomesticOrder,
         getDomesticOrder,
         updateDomesticOrder,
         updateInternationalOrder,
-        deleteDomesticOrder
+        deleteDomesticOrder,
+        getDomesticOrders,
+        getAllDomesticOrdersOld
     } = require('../controllers/orderController');
 
 const router = express.Router();
@@ -18,7 +20,8 @@ router.post('/domestic/create', createDomesticOrder);
 router.post('/domestic/update', updateDomesticOrder);
 router.post('/international/create', createInternationalOrder);
 router.post('/international/update', updateInternationalOrder);
-router.post('/domestic/all', getAllDomesticOrders)
+router.get('/domestic/all', getAllDomesticOrders)
+router.post('/domestic/merchant', getAllDomesticOrdersOld)
 router.post('/domestic/boxes', getDomesticOrderBoxes )
 router.post('/international/items', getInternationalOrderDocketItems )
 router.post('/international/dockets', getInternationalOrderDockets )

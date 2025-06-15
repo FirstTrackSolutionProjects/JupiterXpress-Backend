@@ -514,7 +514,250 @@ const updateInternationalOrder = async (req, res) => {
     }
 }
 
+// const getAllDomesticOrders = async (req, res) => {
+//     const token = req.headers.authorization;
+//     try {
+//         const verified = jwt.verify(token, SECRET_KEY);
+//         const admin = verified.admin;
+//         const id = verified.id;
+//         if (!admin) {
+//             try {
+//                 const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid WHERE s.uid = ?', [id]);
+//                 return res.status(200).json({
+//                     status: 200, success: true, order: rows
+//                 });
+//             } catch (error) {
+//                 return res.status(500).json({
+//                     status: 500, message: 'Error', error: error.message
+//                 });
+//             }
+//         }
+
+//         try {
+//             const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON s.uid=u.uid');
+//             return res.status(200).json({
+//                 status: 200, success: true, order: rows
+//             });
+//         } catch (error) {
+//             return res.status(500).json({
+//                 status: 500, message: 'Error logging in', error: error.message
+//             });
+//         }
+//     } catch (e) {
+//         return res.status(400).json({
+//             status: 400, message: 'Invalid Token'
+//         });
+//     }
+// }
+
 const getAllDomesticOrders = async (req, res) => {
+    const token = req.headers.authorization;
+    const {
+        orderId,
+        merchant_email,
+        merchant_name,
+        page = 1,
+        startDate,
+        endDate,
+    } = req.query;
+
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    const formatDateTimeRange = (start, end) => {
+        let from = null, to = null;
+        if (start) from = `${start}T00:00:00`;
+        if (end) to = `${end}T23:59:59`;
+        return { from, to };
+    };
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        if (!verified.admin) {
+            return res.status(403).json({ status: 403, message: 'Access denied. Admins only.' });
+        }
+
+        let whereClauses = [];
+        let values = [];
+
+        if (merchant_email) {
+            whereClauses.push('u.email = ?');
+            values.push(merchant_email);
+        }
+
+        if (merchant_name) {
+            whereClauses.push('u.fullName LIKE ?');
+            values.push(`%${merchant_name}%`);
+        }
+
+        if (orderId) {
+            whereClauses.push('s.ord_id = ?');
+            values.push(orderId);
+        }
+
+        const { from: startDateTime, to: endDateTime } = formatDateTimeRange(startDate, endDate);
+
+        if (startDateTime && endDateTime) {
+            whereClauses.push('s.date BETWEEN ? AND ?');
+            values.push(startDateTime, endDateTime);
+        } else if (startDateTime) {
+            whereClauses.push('s.date >= ?');
+            values.push(startDateTime);
+        } else if (endDateTime) {
+            whereClauses.push('s.date <= ?');
+            values.push(endDateTime);
+        }
+
+        const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        const countQuery = `
+            SELECT COUNT(*) AS total
+            FROM SHIPMENTS s
+            JOIN WAREHOUSES w ON s.wid = w.wid
+            JOIN USERS u ON s.uid = u.uid
+            ${whereSQL}
+        `;
+        const [countResult] = await db.query(countQuery, values);
+        const total = countResult[0].total;
+        const totalPages = Math.ceil(total / limit);
+
+        const dataQuery = `
+            SELECT s.*, w.*, u.fullName, u.email, u.phone
+            FROM SHIPMENTS s
+            JOIN WAREHOUSES w ON s.wid = w.wid
+            JOIN USERS u ON s.uid = u.uid
+            ${whereSQL}
+            ORDER BY s.date DESC
+            LIMIT ? OFFSET ?
+        `;
+        const dataValues = [...values, limit, offset];
+        const [rows] = await db.query(dataQuery, dataValues);
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            page: Number(page),
+            totalPages,
+            count: rows.length,
+            hasPrevious: Number(page) > 1,
+            hasNext: Number(page) < totalPages,
+            orders: rows,
+        });
+
+    } catch (error) {
+        return res.status(400).json({
+            status: 400,
+            message: 'Invalid Token or Query Error',
+            error: error.message,
+        });
+    }
+};
+
+const getDomesticOrders= async (req, res) => {
+    const token = req.headers.authorization;
+    const {
+        orderId,
+        customer_name,
+        customer_email,
+        page = 1,
+        startDate,
+        endDate,
+    } = req.query;
+
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    const formatDateTimeRange = (start, end) => {
+        let from = null, to = null;
+        if (start) from = `${start}T00:00:00`;
+        if (end) to = `${end}T23:59:59`;
+        return { from, to };
+    };
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        if (verified.admin) {
+            return res.status(403).json({ status: 403, message: 'Only regular users allowed.' });
+        }
+
+        const userId = verified.id;
+
+        let whereClauses = ['s.uid = ?'];
+        let values = [userId];
+
+        if (orderId) {
+            whereClauses.push('s.ord_id = ?');
+            values.push(orderId);
+        }
+
+        if (customer_name) {
+            whereClauses.push('s.customer_name LIKE ?');
+            values.push(`%${customer_name}%`);
+        }
+
+        if (customer_email) {
+            whereClauses.push('s.customer_email LIKE ?');
+            values.push(`%${customer_email}%`);
+        }
+
+        const { from: startDateTime, to: endDateTime } = formatDateTimeRange(startDate, endDate);
+        if (startDateTime && endDateTime) {
+            whereClauses.push('s.date BETWEEN ? AND ?');
+            values.push(startDateTime, endDateTime);
+        } else if (startDateTime) {
+            whereClauses.push('s.date >= ?');
+            values.push(startDateTime);
+        } else if (endDateTime) {
+            whereClauses.push('s.date <= ?');
+            values.push(endDateTime);
+        }
+
+        const whereSQL = `WHERE ${whereClauses.join(' AND ')}`;
+
+        // Total count
+        const countQuery = `
+            SELECT COUNT(*) AS total
+            FROM SHIPMENTS s
+            JOIN WAREHOUSES w ON s.wid = w.wid
+            ${whereSQL}
+        `;
+        const [countResult] = await db.query(countQuery, values);
+        const total = countResult[0].total;
+        const totalPages = Math.ceil(total / limit);
+
+        // Data fetch
+        const dataQuery = `
+            SELECT s.*, w.*
+            FROM SHIPMENTS s
+            JOIN WAREHOUSES w ON s.wid = w.wid
+            ${whereSQL}
+            ORDER BY s.date DESC
+            LIMIT ? OFFSET ?
+        `;
+        const dataValues = [...values, limit, offset];
+        const [rows] = await db.query(dataQuery, dataValues);
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            page: Number(page),
+            totalPages,
+            count: rows.length,
+            hasPrevious: Number(page) > 1,
+            hasNext: Number(page) < totalPages,
+            orders: rows,
+        });
+
+    } catch (error) {
+        return res.status(400).json({
+            status: 400,
+            message: 'Invalid Token or Query Error',
+            error: error.message,
+        });
+    }
+};
+
+const getAllDomesticOrdersOld = async (req, res) => {
     const token = req.headers.authorization;
     try {
         const verified = jwt.verify(token, SECRET_KEY);
@@ -549,6 +792,7 @@ const getAllDomesticOrders = async (req, res) => {
         });
     }
 }
+
 
 const getDomesticOrderBoxes = async (req, res) => {
     const token = req.headers.authorization;
@@ -873,6 +1117,7 @@ module.exports = {
     createDomesticOrder,
     createInternationalOrder,
     getAllDomesticOrders,
+    getDomesticOrders,
     getDomesticOrderBoxes,
     getInternationalOrderDocketItems,
     getInternationalOrderDockets,
@@ -880,5 +1125,6 @@ module.exports = {
     getDomesticOrder,
     updateDomesticOrder,
     updateInternationalOrder,
-    deleteDomesticOrder
+    deleteDomesticOrder,
+    getAllDomesticOrdersOld
 }
