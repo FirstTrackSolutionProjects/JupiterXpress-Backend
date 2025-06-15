@@ -740,6 +740,126 @@ const exportTransactionsJSON = async (req, res) => {
   }
 };
 
+const getTransactions = async (req, res) => {
+  const token = req.headers.authorization;
+  const { type, startDate, endDate, page = 1, id: queryId, merchant_email } = req.query;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Access Denied' });
+  }
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ success: false, message: 'Start and end dates are required' });
+  }
+
+  const limit = 50;
+  const offset = (parseInt(page) - 1) * limit;
+
+  try {
+    const verified = jwt.verify(token, SECRET_KEY);
+    const isAdmin = verified.admin || false;
+    let uid = verified.id; // fallback uid
+
+    // Override with merchant_email if present
+    if (isAdmin && merchant_email) {
+      const [merchantRows] = await db.query(`SELECT uid FROM USERS WHERE email = ? LIMIT 1`, [merchant_email]);
+      if (!merchantRows.length) {
+        return res.status(404).json({ status: 404, message: 'Merchant email not found' });
+      }
+      uid = merchantRows[0].uid;
+    } else if (isAdmin && queryId) {
+      uid = queryId;
+    }
+
+    const queries = [];
+    const dateFilter = `AND DATE(t.date) BETWEEN ? AND ?`;
+    const dateParams = [startDate, endDate];
+
+    const queryMap = {
+      recharge: {
+        sql: `SELECT t.*, u.fullName, u.email FROM RECHARGE t 
+              JOIN USERS u ON t.uid = u.uid 
+              WHERE t.uid = ? ${dateFilter}`,
+        params: [uid],
+      },
+      dispute: {
+        sql: isAdmin
+          ? `SELECT t.*, sv.service_name, u.fullName, u.email FROM DISPUTE_CHARGES t 
+              JOIN USERS u ON t.uid = u.uid 
+              JOIN SHIPMENTS s ON t.dispute_order = s.ord_id 
+              JOIN SERVICES sv ON s.serviceId = sv.service_id 
+              WHERE t.uid = ? ${dateFilter}`
+          : `SELECT t.*, sv.service_name FROM DISPUTE_CHARGES t 
+              JOIN SHIPMENTS s ON t.dispute_order = s.ord_id 
+              JOIN SERVICES sv ON s.serviceId = sv.service_id 
+              WHERE t.uid = ? ${dateFilter}`,
+        params: [uid],
+      },
+      expense: {
+        sql: isAdmin
+          ? `SELECT t.*, sv.service_name, u.fullName, u.email FROM EXPENSES t 
+              JOIN USERS u ON t.uid = u.uid 
+              JOIN SHIPMENTS s ON t.expense_order = s.ord_id 
+              JOIN SERVICES sv ON s.serviceId = sv.service_id 
+              WHERE t.uid = ? ${dateFilter}`
+          : `SELECT t.*, sv.service_name FROM EXPENSES t 
+              JOIN SHIPMENTS s ON t.expense_order = s.ord_id 
+              JOIN SERVICES sv ON s.serviceId = sv.service_id 
+              WHERE t.uid = ? ${dateFilter}`,
+        params: [uid],
+      },
+      manual: {
+        sql: isAdmin
+          ? `SELECT t.*, u.fullName, u.email FROM MANUAL_RECHARGE t 
+              JOIN USERS u ON t.beneficiary_id = u.uid 
+              WHERE t.beneficiary_id = ? ${dateFilter}`
+          : `SELECT t.* FROM MANUAL_RECHARGE t 
+              WHERE t.beneficiary_id = ? ${dateFilter}`,
+        params: [uid],
+      },
+      refund: {
+        sql: isAdmin
+          ? `SELECT t.*, sv.service_name, u.fullName, u.email FROM REFUND t 
+              JOIN USERS u ON t.uid = u.uid 
+              JOIN SHIPMENTS s ON t.refund_order = s.ord_id 
+              JOIN SERVICES sv ON s.serviceId = sv.service_id 
+              WHERE t.uid = ? ${dateFilter}`
+          : `SELECT t.*, sv.service_name FROM REFUND t 
+              JOIN SHIPMENTS s ON t.refund_order = s.ord_id 
+              JOIN SERVICES sv ON s.serviceId = sv.service_id 
+              WHERE t.uid = ? ${dateFilter}`,
+        params: [uid],
+      },
+    };
+
+    const typesToFetch = type ? [type] : Object.keys(queryMap);
+
+    for (const t of typesToFetch) {
+      if (queryMap[t]) {
+        const [rows] = await db.query(queryMap[t].sql, [...queryMap[t].params, ...dateParams]);
+        queries.push(...rows);
+      }
+    }
+
+    // Sort and paginate
+    queries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const totalEntries = queries.length;
+    const totalPages = Math.ceil(totalEntries / limit);
+    const paginated = queries.slice(offset, offset + limit);
+
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      currentPage: parseInt(page),
+      totalPages,
+      totalEntries,
+      data: paginated,
+    });
+  } catch (err) {
+    console.error('Transaction fetch error:', err);
+    return res.status(500).json({ status: 500, message: 'Server error', error: err.message });
+  }
+};
 
 
 module.exports = {
@@ -753,5 +873,6 @@ module.exports = {
     verifyRazorpayRecharge,
     getAllDisputeChargesTransactions,
     exportAllTransactionsJSON,
-    exportTransactionsJSON
+    exportTransactionsJSON,
+    getTransactions
 };

@@ -9,7 +9,8 @@ const { createRazorpayOrderId,
         verifyRazorpayRecharge,
         getAllDisputeChargesTransactions,
         exportAllTransactionsJSON,
-        exportTransactionsJSON
+        exportTransactionsJSON,
+        getTransactions
     } = require('../controllers/walletController');
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.post('/verify/recharge', verifyRazorpayRecharge)
 router.get('/dispute-charges', getAllDisputeChargesTransactions)
 router.post('/report/download/all', exportAllTransactionsJSON)
 router.post('/report/download', exportTransactionsJSON)
+router.get('/transactions', getTransactions)
 
 
 
