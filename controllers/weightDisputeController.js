@@ -156,8 +156,8 @@ const getWeightDisputeInfo = async (req, res) => {
 
             
             const [disputes] = await db.query(`SELECT wd.* FROM WEIGHT_DISPUTES wd
-                                                JOIN SHIPMENTS s WHERE wd.ord_id = s.ord_id
-                                                JOIN USERS u WHERE u.uid = s.uid
+                                                JOIN SHIPMENTS s ON wd.ord_id = s.ord_id
+                                                JOIN USERS u ON u.uid = s.uid
                                                 WHERE u.uid = ? AND wd.dispute_id = ?`,[id, dispute_id]);
             
             if (!disputes.length){
