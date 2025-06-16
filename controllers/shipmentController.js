@@ -50,8 +50,9 @@ const cancelShipment = async (req, res) => {
             const shipmentStatus = statusData?.Status?.Status;
             if (shipmentStatus == "Delivered") {
                 return res.status(400).json({ data: 'Delivered shipments cannot be cancelled!' });
-            } else if (lastShipmentScan?.ScanDetail?.Instructions == "Shipment not received from client") {
-                return res.status(400).json({ data: 'Shipment already cancelled!' });
+            }
+            else if (shipmentStatus == "In Transit") {
+                return res.status(400).json({ data: 'In Transit shipments cannot be cancelled!' });
             }
 
             const responseDta = await fetch(`https://track.delhivery.com/api/p/edit`, {

@@ -622,10 +622,11 @@ const getAllDomesticOrders = async (req, res) => {
         const totalPages = Math.ceil(total / limit);
 
         const dataQuery = `
-            SELECT s.*, w.*, u.fullName, u.email, u.phone
+            SELECT s.*, w.*, u.fullName, u.email, u.phone, sv.service_name
             FROM SHIPMENTS s
             JOIN WAREHOUSES w ON s.wid = w.wid
             JOIN USERS u ON s.uid = u.uid
+            LEFT JOIN SERVICES sv ON s.serviceId = sv.service_id
             ${whereSQL}
             ORDER BY s.date DESC
             LIMIT ? OFFSET ?
