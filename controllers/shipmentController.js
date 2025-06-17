@@ -1398,6 +1398,135 @@ const createInternationalShipment = async (req, res) => {
     }
 }
 
+const getAllDomesticShipmentReportsAdmin = async (req, res) => {
+    const token = req.headers.authorization;
+    const {
+        merchant_email,
+        merchant_name,
+        awb,
+        ord_id,
+        serviceId,
+        startDate,
+        endDate,
+        page = 1
+    } = req.query;
+
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    const formatDateTimeRange = (start, end) => {
+        let from = null, to = null;
+        if (start) from = `${start}T00:00:00`;
+        if (end) to = `${end}T23:59:59`;
+        return { from, to };
+    };
+
+    try {
+        const verified = jwt.verify(token, SECRET_KEY);
+        if (!verified.admin) {
+            return res.status(403).json({ status: 403, message: 'Access Denied. Admins only.' });
+        }
+
+        let whereClauses = ['r.status != "FAILED"'];
+        let values = [];
+
+        if (merchant_email) {
+            whereClauses.push('u.email = ?');
+            values.push(merchant_email);
+        }
+
+        if (merchant_name) {
+            whereClauses.push('u.fullName LIKE ?');
+            values.push(`%${merchant_name}%`);
+        }
+
+        if (awb) {
+            whereClauses.push('s.awb = ?');
+            values.push(awb);
+        }
+
+        if (ord_id) {
+            whereClauses.push('r.ord_id = ?');
+            values.push(ord_id);
+        }
+
+        if (serviceId) {
+            whereClauses.push('s.serviceId = ?');
+            values.push(serviceId);
+        }
+
+        const { from: startDateTime, to: endDateTime } = formatDateTimeRange(startDate, endDate);
+
+        if (startDateTime && endDateTime) {
+            whereClauses.push('e.date BETWEEN ? AND ?');
+            values.push(startDateTime, endDateTime);
+        } else if (startDateTime) {
+            whereClauses.push('e.date >= ?');
+            values.push(startDateTime);
+        } else if (endDateTime) {
+            whereClauses.push('e.date <= ?');
+            values.push(endDateTime);
+        }
+
+        const whereSQL = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        const countQuery = `
+            SELECT COUNT(*) AS total
+            FROM SHIPMENT_REPORTS r
+            JOIN SHIPMENTS s ON r.ord_id = s.ord_id
+            JOIN EXPENSES e ON e.expense_order = r.ord_id
+            JOIN USERS u ON u.uid = s.uid
+            JOIN SERVICES sv ON sv.service_id = s.serviceId
+            ${whereSQL}
+        `;
+        const [countResult] = await db.query(countQuery, values);
+        const total = countResult[0].total;
+        const totalPages = Math.ceil(total / limit);
+
+        const dataQuery = `
+            SELECT 
+                r.*,
+                e.date AS date,
+                s.awb,
+                s.serviceId,
+                s.cancelled,
+                u.fullName,
+                u.email,
+                s.is_b2b,
+                sv.service_name
+            FROM SHIPMENT_REPORTS r
+            JOIN SHIPMENTS s ON r.ord_id = s.ord_id
+            JOIN EXPENSES e ON e.expense_order = r.ord_id
+            JOIN USERS u ON u.uid = s.uid
+            JOIN SERVICES sv ON sv.service_id = s.serviceId
+            ${whereSQL}
+            ORDER BY e.date DESC
+            LIMIT ? OFFSET ?
+        `;
+        const dataValues = [...values, limit, offset];
+        const [rows] = await db.query(dataQuery, dataValues);
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            page: Number(page),
+            totalPages,
+            count: rows.length,
+            hasPrevious: Number(page) > 1,
+            hasNext: Number(page) < totalPages,
+            reports: rows,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            status: 500,
+            message: 'Server Error or Invalid Token',
+            error: error.message,
+        });
+    }
+};
+
+
 const getAllDomesticShipmentReports = async (req, res) => {
     const token = req.headers.authorization;
     const verified = jwt.verify(token, SECRET_KEY);
@@ -2850,6 +2979,100 @@ const updateDomesticProcessingShipments = async (req, res) => {
     }
 }
 
+// const getAllDomesticShipmentReportsData = async (req, res) => {
+//     const token = req.headers.authorization;
+//     if (!token) {
+//         return res.status(401).json({
+//             status: 401,
+//             message: 'Access Denied'
+//         });
+//     }
+//     try {
+//         const verified = jwt.verify(token, SECRET_KEY);
+//         const admin = verified.admin;
+//         if (!admin) {
+//             return res.status(401).json({
+//                 status: 401,
+//                 message: 'Unauthorized!'
+//             });
+//         }
+//         const { startDate, endDate, serviceId } = req.body;
+//         if (!startDate || !endDate) {
+//             return res.status(400).json({
+//                 status: 400,
+//                 message: 'Start date and end date are required'
+//             });
+//         }
+//         const query =`SELECT 
+//         s.ord_id AS ORDER_ID,
+//         sr.ref_id AS REFERENCE_ID,
+//         e.date AS ORDER_SHIPMENT_DATE,
+//         s.cancelled AS IS_ORDER_CANCELLED,
+//         u.uid AS MERCHANT_ID,
+//         u.businessName AS MERCHANT_BUSINESS_NAME, 
+//         u.email AS MERCHANT_EMAIL, 
+//         u.phone AS MERCHANT_PHONE_NUMBER, 
+//         w.warehouseName AS SHIPPER_WAREHOUSE_NAME, 
+//         w.address AS SHIPPER_WAREHOUSE_ADDRESS, 
+//         w.pin AS SHIPPER_WAREHOUSE_PIN, 
+//         w.city AS SHIPPER_WAREHOUSE_CITY, 
+//         w.state AS SHIPPER_WAREHOUSE_STATE, 
+//         w.country AS SHIPPER_WAREHOUSE_COUNTRY,
+//         s.pay_method AS SHIPMENT_PAYMENT_METHOD,
+//         s.customer_name AS CUSTOMER_NAME,
+//         s.customer_mobile AS CUSTOMER_CONTACT, 
+//         s.customer_email AS CUSTOMER_EMAIL, 
+//         s.shipping_address AS SHIPPING_ADDRESS, 
+//         s.shipping_postcode AS SHIPPING_PINCODE,
+//         s.shipping_city AS SHIPPING_CITY,
+//         s.shipping_state AS SHIPPING_STATE, 
+//         s.shipping_country AS SHIPPING_COUNTRY,
+//         s.same AS SHIPPING_IS_BILLING,
+//         s.billing_address AS BILLING_ADDRESS,
+//         s.billing_postcode AS BILLING_PINCODE, 
+//         s.billing_city AS BILLING_CITY, 
+//         s.billing_state AS BILLING_STATE, 
+//         s.billing_country AS BILLING_COUNTRY,
+//         s.cod_amount AS COD_AMOUNT,
+//         s.shipping_mode AS SHIPPING_MODE,
+//         s.gst AS SHIPPER_GST_NUMBER,
+//         s.customer_gst AS CUSTOMER_GST_NUMBER,
+//         sv.service_name AS COURIER_NAME,
+//         s.is_b2b AS IS_B2B,
+//         sp.box_no AS BOX_NO,
+//         sp.length AS BOX_LENGTH_IN_CM,
+//         sp.breadth AS BOX_WIDTH_IN_CM,
+//         sp.height AS BOX_HEIGHT_IN_CM,
+//         sp.weight AS BOX_WEIGHT_IN_GRAM,
+//         sp.hsn AS BOX_HSN,
+//         s.awb AS AWB,
+//         e.expense_cost AS SHIPMENT_PRICE,
+//         s.ewaybill AS EWAYBILL
+//       FROM SHIPMENTS s
+//       JOIN SHIPMENT_PACKAGES sp ON s.ord_id = sp.ord_id
+//       JOIN SHIPMENT_REPORTS sr ON s.ord_id = sr.ord_id
+//       JOIN EXPENSES e ON e.expense_order = s.ord_id
+//       JOIN USERS u ON u.uid = s.uid 
+//       JOIN WAREHOUSES w ON w.wid = s.wid 
+//       JOIN SERVICES sv ON sv.service_id = s.serviceId
+//       WHERE
+//         s.is_manifested = true
+//         AND e.date BETWEEN ? AND ?
+//         ${serviceId ? ' AND s.serviceId = ?' : ''}`
+
+//         const [reportData] = await db.query(query, [startDate + 'T00:00:00', endDate + 'T23:59:59', serviceId]);    
+
+//         return res.status(200).json({ status: 200, data: reportData, success: true });
+//     }
+//     catch (err) {
+//         console.error(err)
+//         return res.status(500).json({
+//             status: 500,
+//             message: 'Internal Server Error'
+//         });
+//     }
+// }
+
 const getAllDomesticShipmentReportsData = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
@@ -2858,91 +3081,128 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
             message: 'Access Denied'
         });
     }
+
     try {
         const verified = jwt.verify(token, SECRET_KEY);
-        const admin = verified.admin;
-        if (!admin) {
+        if (!verified.admin) {
             return res.status(401).json({
                 status: 401,
                 message: 'Unauthorized!'
             });
         }
-        const { startDate, endDate, serviceId } = req.body;
+
+        const {
+            startDate,
+            endDate,
+            serviceId,
+            merchant_email,
+            merchant_name,
+            awb,
+            ord_id
+        } = req.body;
+
         if (!startDate || !endDate) {
             return res.status(400).json({
                 status: 400,
                 message: 'Start date and end date are required'
             });
         }
-        const query =`SELECT 
-        s.ord_id AS ORDER_ID,
-        sr.ref_id AS REFERENCE_ID,
-        e.date AS ORDER_SHIPMENT_DATE,
-        s.cancelled AS IS_ORDER_CANCELLED,
-        u.uid AS MERCHANT_ID,
-        u.businessName AS MERCHANT_BUSINESS_NAME, 
-        u.email AS MERCHANT_EMAIL, 
-        u.phone AS MERCHANT_PHONE_NUMBER, 
-        w.warehouseName AS SHIPPER_WAREHOUSE_NAME, 
-        w.address AS SHIPPER_WAREHOUSE_ADDRESS, 
-        w.pin AS SHIPPER_WAREHOUSE_PIN, 
-        w.city AS SHIPPER_WAREHOUSE_CITY, 
-        w.state AS SHIPPER_WAREHOUSE_STATE, 
-        w.country AS SHIPPER_WAREHOUSE_COUNTRY,
-        s.pay_method AS SHIPMENT_PAYMENT_METHOD,
-        s.customer_name AS CUSTOMER_NAME,
-        s.customer_mobile AS CUSTOMER_CONTACT, 
-        s.customer_email AS CUSTOMER_EMAIL, 
-        s.shipping_address AS SHIPPING_ADDRESS, 
-        s.shipping_postcode AS SHIPPING_PINCODE,
-        s.shipping_city AS SHIPPING_CITY,
-        s.shipping_state AS SHIPPING_STATE, 
-        s.shipping_country AS SHIPPING_COUNTRY,
-        s.same AS SHIPPING_IS_BILLING,
-        s.billing_address AS BILLING_ADDRESS,
-        s.billing_postcode AS BILLING_PINCODE, 
-        s.billing_city AS BILLING_CITY, 
-        s.billing_state AS BILLING_STATE, 
-        s.billing_country AS BILLING_COUNTRY,
-        s.cod_amount AS COD_AMOUNT,
-        s.shipping_mode AS SHIPPING_MODE,
-        s.gst AS SHIPPER_GST_NUMBER,
-        s.customer_gst AS CUSTOMER_GST_NUMBER,
-        sv.service_name AS COURIER_NAME,
-        s.is_b2b AS IS_B2B,
-        sp.box_no AS BOX_NO,
-        sp.length AS BOX_LENGTH_IN_CM,
-        sp.breadth AS BOX_WIDTH_IN_CM,
-        sp.height AS BOX_HEIGHT_IN_CM,
-        sp.weight AS BOX_WEIGHT_IN_GRAM,
-        sp.hsn AS BOX_HSN,
-        s.awb AS AWB,
-        e.expense_cost AS SHIPMENT_PRICE,
-        s.ewaybill AS EWAYBILL
-      FROM SHIPMENTS s
-      JOIN SHIPMENT_PACKAGES sp ON s.ord_id = sp.ord_id
-      JOIN SHIPMENT_REPORTS sr ON s.ord_id = sr.ord_id
-      JOIN EXPENSES e ON e.expense_order = s.ord_id
-      JOIN USERS u ON u.uid = s.uid 
-      JOIN WAREHOUSES w ON w.wid = s.wid 
-      JOIN SERVICES sv ON sv.service_id = s.serviceId
-      WHERE
-        s.is_manifested = true
-        AND e.date BETWEEN ? AND ?
-        ${serviceId ? ' AND s.serviceId = ?' : ''}`
 
-        const [reportData] = await db.query(query, [startDate + 'T00:00:00', endDate + 'T23:59:59', serviceId]);    
+        let conditions = [`s.is_manifested = true`, `e.date BETWEEN ? AND ?`];
+        let values = [`${startDate}T00:00:00`, `${endDate}T23:59:59`];
+
+        if (serviceId) {
+            conditions.push('s.serviceId = ?');
+            values.push(serviceId);
+        }
+        if (merchant_email) {
+            conditions.push('u.email = ?');
+            values.push(merchant_email);
+        }
+        if (merchant_name) {
+            conditions.push('u.fullName LIKE ?');
+            values.push(`%${merchant_name}%`);
+        }
+        if (awb) {
+            conditions.push('s.awb = ?');
+            values.push(awb);
+        }
+        if (ord_id) {
+            conditions.push('s.ord_id = ?');
+            values.push(ord_id);
+        }
+
+        const whereClause = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+        const query = `
+            SELECT 
+                s.ord_id AS ORDER_ID,
+                sr.ref_id AS REFERENCE_ID,
+                e.date AS ORDER_SHIPMENT_DATE,
+                s.cancelled AS IS_ORDER_CANCELLED,
+                u.uid AS MERCHANT_ID,
+                u.businessName AS MERCHANT_BUSINESS_NAME, 
+                u.email AS MERCHANT_EMAIL, 
+                u.phone AS MERCHANT_PHONE_NUMBER, 
+                w.warehouseName AS SHIPPER_WAREHOUSE_NAME, 
+                w.address AS SHIPPER_WAREHOUSE_ADDRESS, 
+                w.pin AS SHIPPER_WAREHOUSE_PIN, 
+                w.city AS SHIPPER_WAREHOUSE_CITY, 
+                w.state AS SHIPPER_WAREHOUSE_STATE, 
+                w.country AS SHIPPER_WAREHOUSE_COUNTRY,
+                s.pay_method AS SHIPMENT_PAYMENT_METHOD,
+                s.customer_name AS CUSTOMER_NAME,
+                s.customer_mobile AS CUSTOMER_CONTACT, 
+                s.customer_email AS CUSTOMER_EMAIL, 
+                s.shipping_address AS SHIPPING_ADDRESS, 
+                s.shipping_postcode AS SHIPPING_PINCODE,
+                s.shipping_city AS SHIPPING_CITY,
+                s.shipping_state AS SHIPPING_STATE, 
+                s.shipping_country AS SHIPPING_COUNTRY,
+                s.same AS SHIPPING_IS_BILLING,
+                s.billing_address AS BILLING_ADDRESS,
+                s.billing_postcode AS BILLING_PINCODE, 
+                s.billing_city AS BILLING_CITY, 
+                s.billing_state AS BILLING_STATE, 
+                s.billing_country AS BILLING_COUNTRY,
+                s.cod_amount AS COD_AMOUNT,
+                s.shipping_mode AS SHIPPING_MODE,
+                s.gst AS SHIPPER_GST_NUMBER,
+                s.customer_gst AS CUSTOMER_GST_NUMBER,
+                sv.service_name AS COURIER_NAME,
+                s.is_b2b AS IS_B2B,
+                sp.box_no AS BOX_NO,
+                sp.length AS BOX_LENGTH_IN_CM,
+                sp.breadth AS BOX_WIDTH_IN_CM,
+                sp.height AS BOX_HEIGHT_IN_CM,
+                sp.weight AS BOX_WEIGHT_IN_GRAM,
+                sp.hsn AS BOX_HSN,
+                s.awb AS AWB,
+                e.expense_cost AS SHIPMENT_PRICE,
+                s.ewaybill AS EWAYBILL
+            FROM SHIPMENTS s
+            JOIN SHIPMENT_PACKAGES sp ON s.ord_id = sp.ord_id
+            JOIN SHIPMENT_REPORTS sr ON s.ord_id = sr.ord_id
+            JOIN EXPENSES e ON e.expense_order = s.ord_id
+            JOIN USERS u ON u.uid = s.uid 
+            JOIN WAREHOUSES w ON w.wid = s.wid 
+            JOIN SERVICES sv ON sv.service_id = s.serviceId
+            ${whereClause}
+        `;
+
+        const [reportData] = await db.query(query, values);
 
         return res.status(200).json({ status: 200, data: reportData, success: true });
-    }
-    catch (err) {
-        console.error(err)
+
+    } catch (err) {
+        console.error(err);
         return res.status(500).json({
             status: 500,
             message: 'Internal Server Error'
         });
     }
-}
+};
+
 
 const getDomesticShipmentReportsData = async (req, res) => {
     const token = req.headers.authorization;
@@ -3036,6 +3296,7 @@ module.exports = {
     createDomesticShipment,
     createInternationalShipment,
     getAllDomesticShipmentReports,
+    getAllDomesticShipmentReportsAdmin,
     getInternationalShipmentReport,
     getInternationalShipments,
     getDomesticShipmentReport,
