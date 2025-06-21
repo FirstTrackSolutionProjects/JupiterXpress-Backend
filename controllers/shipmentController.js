@@ -2347,8 +2347,8 @@ const getDomesticShipmentPricing = async (req, res) => {
                 console.log(prices)
 
                 const discountChart = {
-                    'amazon' : 0.45,
-                    'ekart': 0.76
+                    'amazon' : 0.457,
+                    'ekart': 0.814
                 }
 
                 const commissionChartLessThan500g = {
@@ -2357,49 +2357,54 @@ const getDomesticShipmentPricing = async (req, res) => {
                 }
 
                 const commissionChartLessThan1000g = {
-                    'amazon' : 0.78,
-                    'ekart' : 0.84
+                    'amazon' : 0.84,
+                    'ekart' : 0.90
                 }
 
                 const commissionChartLessThan2000g = {
-                    'amazon' : 0.55,
-                    'ekart' : 0.77
+                    'amazon' : 0.596,
+                    'ekart' : 0.815
                 }
 
                 const commissionChartLessThan3000g = {
-                    'amazon' : 0.55,
-                    'ekart' : 0.86
+                    'amazon' : 0.595,
+                    'ekart' : 0.916
                 }
 
                 const commissionChartLessThan4000g = {
-                    'amazon' : 0.49,
-                    'ekart' : 0.81
+                    'amazon' : 0.525,
+                    'ekart' : 0.861
                 }
 
-                // const commissionChartLessThan5000g = {
-                //     'amazon' : 0.78,
-                //     'ekart' : 0.84
-                // }
+                const commissionChartLessThan5000g = {
+                    'amazon' : 0.487,
+                    'ekart': 0.822
+                }
 
-                // const commissionChartLessThan6000g = {
-                //     'amazon' : 0.78,
-                //     'ekart' : 0.84
-                // }
+                const commissionChartLessThan6000g = {
+                    'amazon' : 0.52,
+                    'ekart' : 0.84
+                }
 
-                // const commissionChartLessThan7000g = {
-                //     'amazon' : 0.78,
-                //     'ekart' : 0.84
-                // }
+                const commissionChartLessThan7000g = {
+                    'amazon' : 0.485,
+                    'ekart' : 0.814
+                }
 
-                // const commissionChartLessThan8000g = {
-                //     'amazon' : 0.78,
-                //     'ekart' : 0.84
-                // }
+                const commissionChartLessThan8000g = {
+                    'amazon' : 0.461,
+                    'ekart' : 0.79
+                }
 
-                // const commissionChartMoreThan8000g = {
-                //     'amazon' : 0.50,
-                //     'ekart': 0.76
-                // }
+                const commissionChartLessThan9000g = {
+                    'amazon' : 0.459,
+                    'ekart': 0.80
+                }
+
+                const commissionChartLessThan10000g = {
+                    'amazon' : 0.457,
+                    'ekart': 0.814
+                }
 
                 prices.map((price, index) => {
                     if (price?.totalPrice <= 0) return;
@@ -2420,6 +2425,18 @@ const getDomesticShipmentPricing = async (req, res) => {
                         shipmentPrice = shipmentPrice*commissionChartLessThan3000g?.[price?.carrier];
                     } else if (chargableWeightInGram <= 4000){
                         shipmentPrice = shipmentPrice*commissionChartLessThan4000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 5000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan5000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 6000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan6000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 7000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan7000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 8000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan8000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 9000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan9000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 10000){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan10000g?.[price?.carrier];
                     } else {
                         shipmentPrice = shipmentPrice*discountChart?.[price?.carrier];
                     }
