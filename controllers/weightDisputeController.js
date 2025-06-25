@@ -17,7 +17,7 @@ const createDispute = async (req, res) => {
             return res.status(400).json({ message: 'Invalid request' });
         }
         const transaction = await db.beginTransaction();
-        const [dispute] = await transaction.query(`INSERT INTO WEIGHT_DISPUTES (ord_id, dispute_deduction, doc_1, doc_2, doc_3, doc_4) VALUES (?,?)`,[ord_id, dispute_deduction, dispute_doc1, dispute_doc2, dispute_doc3, dispute_doc_4]);
+        const [dispute] = await transaction.query(`INSERT INTO WEIGHT_DISPUTES (ord_id, dispute_deduction, doc_1, doc_2, doc_3, doc_4) VALUES (?,?,?,?,?,?)`,[ord_id, dispute_deduction, dispute_doc1, dispute_doc2, dispute_doc3, dispute_doc_4]);
         const dispute_id = dispute?.insertId;
         await Promise.all(dispute_boxes.map(async (box) => {
             await transaction.query(
