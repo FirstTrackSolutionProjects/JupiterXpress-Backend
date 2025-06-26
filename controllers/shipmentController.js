@@ -2028,7 +2028,7 @@ const getDomesticShipmentPricing = async (req, res) => {
 
         const delhivery500gmPricing = async () => {
             if (isB2B && !priceCalc) return;
-            const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
+            const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}&payment_mode=Wallet`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
                     'Content-Type': 'application/json',
@@ -2036,6 +2036,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                 }
             });
             const data = await response.json();
+            console.log(data)
             const price = data[0]['total_amount']
             if (quantity == 1) {
                 responses.push({
@@ -2050,7 +2051,7 @@ const getDomesticShipmentPricing = async (req, res) => {
 
         const delhivery10kgPricing = async () => {
             if (isB2B && !priceCalc) return;
-            const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}`, {
+            const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}&payment_mode=Wallet`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
                     'Content-Type': 'application/json',
@@ -2472,6 +2473,7 @@ const getDomesticShipmentPricing = async (req, res) => {
             status: 200, prices: responses
         });
     } catch (error) {
+        console.error(error);
         return res.status(500).json({
             status: 500, error: 'Failed to fetch data' + error
         });
