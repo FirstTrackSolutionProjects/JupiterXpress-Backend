@@ -1057,7 +1057,7 @@ const createDomesticShipment = async (req, res) => {
                 const packages = [];
                 boxes.map((box, index)=>{
                     packages.push({
-                        content: "Items",
+                        content: product_description,
                         amount: 1,
                         type: "box",
                         dimensions: {
