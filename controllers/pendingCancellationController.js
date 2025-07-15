@@ -6,7 +6,7 @@ const getPendingCancellations = async (req, res) => {
         if (!admin) {
             return res.status(403).json({ message: 'Access Denied' });
         }
-        const [cancellations] = await db.query('SELECT * FROM SHIPMENTS WHERE pending_cancellation = true');
+        const [cancellations] = await db.query('SELECT s.*, u.fullName, sv.service_name FROM SHIPMENTS s JOIN USERS u ON s.uid = u.uid JOIN SERVICES sv ON s.serviceId = sv.service_id WHERE s.pending_cancellation = true');
         return res.status(200).json({
             success: true,
             data: cancellations,
@@ -37,7 +37,10 @@ const approveCancellation = async (req, res) => {
         }
         await transaction.query('UPDATE SHIPMENTS SET cancelled = true, pending_cancellation = false, pending_refund = true WHERE ord_id = ?', [ordId]);
         await transaction.commit();
-        return res.status(200).json({ message: 'Cancellation approved successfully' });
+        return res.status(200).json({
+            success: true,
+            message: 'Cancellation approved successfully'
+        });
     } catch (error) {
         console.error(error);
         if (transaction) {
@@ -65,7 +68,10 @@ const rejectCancellation = async (req, res) => {
         }
         await transaction.query('UPDATE SHIPMENTS SET cancelled = false, pending_cancellation = false, pending_refund = false WHERE ord_id = ?', [ordId]);
         await transaction.commit();
-        return res.status(200).json({ message: 'Cancellation rejected successfully' });
+        return res.status(200).json({
+            success: true,
+            message: 'Cancellation rejected successfully'
+        });
     } catch (error) {
         console.error(error);
         if (transaction) {

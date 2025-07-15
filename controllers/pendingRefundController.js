@@ -6,7 +6,7 @@ const getPendingRefunds = async (req, res) => {
         if (!admin) {
             return res.status(403).json({ message: 'Access Denied' });
         }
-        const [refunds] = await db.query('SELECT * FROM SHIPMENTS WHERE pending_refund = true');
+        const [refunds] = await db.query('SELECT s.*, e.expense_cost, u.fullName, sv.service_name FROM SHIPMENTS s JOIN USERS u ON s.uid = u.uid JOIN EXPENSES e ON s.ord_id = e.expense_order JOIN SERVICES sv ON s.serviceId = sv.service_id WHERE s.pending_refund = true');
         return res.status(200).json({
             success: true,
             data: refunds,
@@ -46,10 +46,12 @@ const creditRefund = async (req, res) => {
             return res.status(404).json({ message: 'Expense not found for this order' });
         }
         const expenseCost = expenses[0].expense_cost;
-        await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [expenseCost, shipment[0].uid]);
-        await transaction.query('DELETE FROM EXPENSES WHERE expense_order = ?', [ordId]);
+        await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES (?, ?)', [shipment[0].uid, ordId, expenseCost]);
         await transaction.commit();
-        return res.status(200).json({ message: 'Refund credited successfully' });
+        return res.status(200).json({
+            success: true,
+            message: 'Refund credited successfully'
+        });
     } catch (error) {
         console.error(error);
         if (transaction) {

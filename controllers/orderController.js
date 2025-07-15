@@ -1114,6 +1114,62 @@ const updateDomesticOrder = async (req, res) => {
     }
 }
 
+const cloneDomesticOrder = async (req, res) => {
+    let transaction;
+    try {
+        const { id } = req.body;
+        const orderId = req.params.ord_id;
+        const [orders] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ? AND uid = ?', [orderId, id]);
+        if (!orders || orders.length === 0) {
+            return res.status(404).json({ status: 404, message: 'Order not found' });
+        }
+
+        const order = orders[0];
+        const columns = [
+            'uid', 'ord_date', 'wid', 'channel', 'pay_method',
+            'customer_name', 'customer_email', 'customer_mobile',
+            'shipping_address', 'shipping_address_type', 'shipping_address_2', 'shipping_address_type_2',
+            'shipping_country', 'shipping_state', 'shipping_city', 'shipping_postcode',
+            'billing_address', 'billing_address_type', 'billing_address_2', 'billing_address_type_2',
+            'billing_country', 'billing_state', 'billing_city', 'billing_postcode',
+            'shipping_charge', 'cod_amount', 'gift_wrap', 'total_discount',
+            'gst', 'customer_gst', 'shipping_mode', 'same',
+            'pickup_date', 'pickup_time', 'ewaybill', 'in_process',
+            'invoice_number', 'invoice_date', 'invoice_amount', 'invoice_url',
+            'is_b2b', 'shipment_value'
+        ];
+
+        const newOrder = Object.fromEntries(columns.map(col => [col, order[col]]));
+
+        transaction = await db.beginTransaction();
+
+        const [orderIds] = await transaction.query("SELECT domestic_order_ids FROM SYSTEM_CODE_GENERATOR");
+        const cloneOrderId = `JUPXD${orderIds[0].domestic_order_ids}`;
+
+        await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET domestic_order_ids = domestic_order_ids + 1");
+
+        await transaction.query(
+            `INSERT INTO SHIPMENTS (ord_id, ${columns.join(',')}) VALUES (?, ${columns.map(() => '?').join(',')})`,
+            [cloneOrderId, ...columns.map(col => newOrder[col])]
+        );
+
+        await transaction.commit();
+
+        return res.status(200).json({
+            status: 200,
+            success: true,
+            message: 'Order cloned successfully',
+            newOrderId: cloneOrderId
+        });
+    } catch (error) {
+        if (transaction) await transaction.rollback();
+        return res.status(500).json({
+            status: 500,
+            message: error.message
+        });
+    }
+};
+
 module.exports = {
     createDomesticOrder,
     createInternationalOrder,
@@ -1127,5 +1183,6 @@ module.exports = {
     updateDomesticOrder,
     updateInternationalOrder,
     deleteDomesticOrder,
-    getAllDomesticOrdersOld
+    getAllDomesticOrdersOld,
+    cloneDomesticOrder
 }
