@@ -1117,7 +1117,7 @@ const updateDomesticOrder = async (req, res) => {
 const cloneDomesticOrder = async (req, res) => {
     let transaction;
     try {
-        const { id } = req.body;
+        const { id } = req.user;
         const orderId = req.params.ord_id;
         const [orders] = await db.query('SELECT * FROM SHIPMENTS WHERE ord_id = ? AND uid = ?', [orderId, id]);
         if (!orders || orders.length === 0) {
