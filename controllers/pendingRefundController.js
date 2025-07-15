@@ -46,7 +46,7 @@ const creditRefund = async (req, res) => {
             return res.status(404).json({ message: 'Expense not found for this order' });
         }
         const expenseCost = expenses[0].expense_cost;
-        await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES (?, ?)', [shipment[0].uid, ordId, expenseCost]);
+        await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES (?, ?, ?)', [shipment[0].uid, ordId, expenseCost]);
         await transaction.commit();
         return res.status(200).json({
             success: true,
