@@ -142,6 +142,16 @@ const cancelShipment = async (req, res) => {
             return res.status(200).json({
                 status: 200, message: response, success: true, data: 'Shipment cancelled successfully, your refund is credited to your wallet'
             })
+        } else if (serviceId == 4){
+            if (shipment.cancelled) {
+                return res.status(400).json({ data: 'Shipment already cancelled' });
+            } else if (shipment.pending_cancellation){
+                return res.status(400).json({ data: 'Cancellation request already submitted, please wait for 3-4 working days' });
+            }
+            await db.query('UPDATE SHIPMENTS set pending_cancellation = true WHERE awb = ? AND uid = ?', [1, awb, uid]);
+            return res.status(200).json({
+                status: 200, message: 'Shipment cancellation request submitted successfully, your cancellation and refund will be processed in 3-4 working days',
+            })
         } else if (serviceId == 5){
             const orderId = shipment.shipping_vendor_order_id;
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
@@ -177,7 +187,7 @@ const cancelShipment = async (req, res) => {
                 const transaction = await db.beginTransaction()
                 const [expenses] = await transaction.query('SELECT * FROM EXPENSES WHERE expense_order = ? AND uid = ?', [order, uid])
                 const price = expenses[0].expense_cost
-                await transaction.query('UPDATE SHIPMENTS set cancelled = ? WHERE awb = ? AND uid = ?', [1, awb, uid])
+                await transaction.query('UPDATE SHIPMENTS set cancelled = ?, pending_refund = ? WHERE awb = ? AND uid = ?', [1,1, awb, uid])
                 await db.commit(transaction)
                 let mailOptions = {
                     from: process.env.EMAIL_USER,
@@ -2949,7 +2959,7 @@ const updateDomesticProcessingShipments = async (req, res) => {
             if (!orders.length) {
                 return res.status(400).json({
                     status: 400,
-                    message: 'Order is already processed'
+                    message: 'Order is already processed' 
                 });
             }
             const order = orders[0];
@@ -2976,6 +2986,16 @@ const updateDomesticProcessingShipments = async (req, res) => {
                 if (getShipmentStatusData.waybill_no) {
                     await db.query('UPDATE SHIPMENTS SET awb = ?, in_process = ? WHERE ord_id = ?', [getShipmentStatusData.waybill_no, false, ord_id]);
                     return res.status(200).json({ status: 200, success: true, message: 'Shipment processed successfully', awb: getShipmentStatusData.waybill_no });
+                } else if (getShipmentStatusData.status == 'Failed') {
+                    const transaction = await db.beginTransaction();
+                    await transaction.query('UPDATE SHIPMENTS set serviceId = ?, in_process = ?, is_manifested = ?, shipping_vendor_reference_id = ? WHERE ord_id = ?', [null, 0, 0, null, order]);
+                    await transaction.query('DELETE FROM SHIPMENT_REPORTS WHERE ord_id = ?', [order]);
+                    const [expenses] = await transaction.query('SELECT expense_cost FROM EXPENSES WHERE expense_order = ?', [order]);
+                    const expense = expenses[0]?.expense_cost;
+                    await transaction.query('DELETE FROM EXPENSES WHERE expense_order = ?', [order]);
+                    await transaction.query('UPDATE WALLET SET balance = balance + ? WHERE uid = ?', [expense, id]);
+                    await db.commit(transaction);
+                    return res.status(400).json({ status: 400, success: false, message: 'Shipment Failed!' });
                 } else {
                     return res.status(200).json({ status: 200, success: false, message: 'Shipment is still under process' });
                 }
@@ -3303,6 +3323,30 @@ const getDomesticShipmentReportsData = async (req, res) => {
     }
     catch (err) {
         console.error(err)
+        return res.status(500).json({
+            status: 500,
+            message: 'Internal Server Error'
+        });
+    }
+}
+
+const getAllPendingRefundShipments = async (req, res) => {
+    try {
+        
+    } catch (err) {
+        console.error(err)
+        return res.status(500).json({
+            status: 500,
+            message: 'Internal Server Error'
+        })
+    }
+}
+
+const manualShipmentRefund = async (req, res) => {
+    try{
+        // const {}
+    } catch (err) {
+        console.error(err);
         return res.status(500).json({
             status: 500,
             message: 'Internal Server Error'

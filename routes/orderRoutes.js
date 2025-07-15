@@ -11,8 +11,10 @@ const { createDomesticOrder,
         updateInternationalOrder,
         deleteDomesticOrder,
         getDomesticOrders,
-        getAllDomesticOrdersOld
+        getAllDomesticOrdersOld,
+        cloneDomesticOrder
     } = require('../controllers/orderController');
+const { authMiddleware } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -28,5 +30,6 @@ router.post('/international/dockets', getInternationalOrderDockets )
 router.post('/international/all', getInternationalOrders)
 router.post('/domestic', getDomesticOrder)
 router.post('/domestic/delete', deleteDomesticOrder)
+router.patch('/domestic/clone/:ord_id', authMiddleware, cloneDomesticOrder);
 
 module.exports = router;

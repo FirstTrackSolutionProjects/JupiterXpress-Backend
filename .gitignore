@@ -3,3 +3,4 @@ node_modules
 loginDev.js
 .serverless
 .vscode
+test.py
