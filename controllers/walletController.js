@@ -187,12 +187,12 @@ const getAllRefundTransactions = async (req, res) => {
         const id = verified.id;
         const admin = verified.admin;
         if (admin) {
-            const [rows] = await db.query('SELECT r.*, sv.service_name AS service_name FROM REFUND r JOIN USERS u ON r.uid = u.uid JOIN SHIPMENTS s ON r.refund_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id');
+            const [rows] = await db.query('SELECT r.*, sv.service_name AS service_name, u.fullName FROM REFUND r JOIN USERS u ON r.uid = u.uid JOIN SHIPMENTS s ON r.refund_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id');
             return res.status(200).json({
                 status: 200, success: true, data: rows
             });
         }
-        const [rows] = await db.query('SELECT r.*, sv.service_name AS service_name FROM REFUND r JOIN SHIPMENTS s ON r.refund_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id where r.uid = ?', [id]);
+        const [rows] = await db.query('SELECT r.*, sv.service_name AS service_name, u.fullName FROM REFUND r JOIN SHIPMENTS s ON r.refund_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id where r.uid = ?', [id]);
 
 
         return res.status(200).json({
@@ -355,12 +355,12 @@ const verifyRazorpayRecharge = async (req, res) => {
 
 //     if (startDate) {
 //       uidFilter += ' AND s.date >= ?';
-//       values.push(`${startDate}T00:00:00`);
+//       values.push(`${startDate}`);
 //     }
 
 //     if (endDate) {
 //       uidFilter += ' AND s.date <= ?';
-//       values.push(`${endDate}T23:59:59`);
+//       values.push(`${endDate}`);
 //     }
 
 //     const queries = {
@@ -490,19 +490,19 @@ const exportAllTransactionsJSON = async (req, res) => {
     }
     const emailFilter = merchant_email ? ` AND u.email = ?` : '';
     const values = [
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      `${startDate}`, `${endDate}}`,
       ...(merchant_email ? [merchant_email] : []),
 
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      `${startDate}`, `${endDate}}`,
       ...(merchant_email ? [merchant_email] : []),
 
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      `${startDate}`, `${endDate}}`,
       ...(merchant_email ? [merchant_email] : []),
 
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      `${startDate}`, `${endDate}}`,
       ...(merchant_email ? [merchant_email] : []),
 
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`,
+      `${startDate}`, `${endDate}}`,
       ...(merchant_email ? [merchant_email] : []),
     ];
 
@@ -636,11 +636,11 @@ const exportTransactionsJSON = async (req, res) => {
     const uid = verified.id;
 
     const values = [
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid,
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid,
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid,
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid,
-      `${startDate}T00:00:00`, `${endDate}T23:59:59}`, uid
+      `${startDate}`, `${endDate}}`, uid,
+      `${startDate}`, `${endDate}}`, uid,
+      `${startDate}`, `${endDate}}`, uid,
+      `${startDate}`, `${endDate}}`, uid,
+      `${startDate}`, `${endDate}}`, uid
     ];
 
     const query = `
