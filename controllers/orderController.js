@@ -566,8 +566,8 @@ const getAllDomesticOrders = async (req, res) => {
 
     const formatDateTimeRange = (start, end) => {
         let from = null, to = null;
-        if (start) from = `${start}T00:00:00`;
-        if (end) to = `${end}T23:59:59`;
+        if (start) from = `${start}`;
+        if (end) to = `${end}`;
         return { from, to };
     };
 
@@ -670,8 +670,8 @@ const getDomesticOrders= async (req, res) => {
 
     const formatDateTimeRange = (start, end) => {
         let from = null, to = null;
-        if (start) from = `${start}T00:00:00`;
-        if (end) to = `${end}T23:59:59`;
+        if (start) from = `${start}`;
+        if (end) to = `${end}`;
         return { from, to };
     };
 

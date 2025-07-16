@@ -148,9 +148,9 @@ const cancelShipment = async (req, res) => {
             } else if (shipment.pending_cancellation){
                 return res.status(400).json({ data: 'Cancellation request already submitted, please wait for 3-4 working days' });
             }
-            await db.query('UPDATE SHIPMENTS set pending_cancellation = true WHERE awb = ? AND uid = ?', [1, awb, uid]);
+            await db.query('UPDATE SHIPMENTS set pending_cancellation = true WHERE awb = ? AND uid = ?', [awb, uid]);
             return res.status(200).json({
-                status: 200, message: 'Shipment cancellation request submitted successfully, your cancellation and refund will be processed in 3-4 working days',
+                status: 200, success:true, message: 'Shipment cancellation request submitted successfully, your cancellation and refund will be processed in 3-4 working days',
             })
         } else if (serviceId == 5){
             const orderId = shipment.shipping_vendor_order_id;
@@ -219,15 +219,17 @@ const cancelShipment = async (req, res) => {
                 });
                 const data = await trackResponse.json();
                 const trackingEventHistory = data?.data?.[0]?.eventHistory || [];
-                const latestScan = trackingEventHistory[trackingEventHistory.length - 1];
-                if (latestScan?.description == "Delivered") {
-                    return res.status(400).json({ data: 'Delivered shipments cannot be cancelled!' });
-                } else if (latestScan?.description == "Cancelled") {
-                    return res.status(400).json({ data: 'Shipment is already cancelled!' });
-                } else if (latestScan?.description?.includes("RTO")){
-                    return res.status(400).json({ data: 'RTO Shipments cannot be cancelled!' });
+                if (trackingEventHistory.length === 0) {
+                    return res.status(400).json({
+                        status: 400, success: false, data: "Cannot cancel this shipment"
+                    })
                 }
-
+                const isPickedUp = trackingEventHistory.some(event => event.description === "Pickup Done");
+                if (isPickedUp) {
+                    return res.status(400).json({
+                        status: 400, success: false, data: "Shipment already picked up, cannot cancel"
+                    })
+                }
                 const cancelResponse = await fetch(`https://api.envia.com/ship/cancel/`,{
                     method: 'POST',
                     headers: {
@@ -1426,8 +1428,8 @@ const getAllDomesticShipmentReportsAdmin = async (req, res) => {
 
     const formatDateTimeRange = (start, end) => {
         let from = null, to = null;
-        if (start) from = `${start}T00:00:00`;
-        if (end) to = `${end}T23:59:59`;
+        if (start) from = `${start}`;
+        if (end) to = `${end}`;
         return { from, to };
     };
 
@@ -3148,7 +3150,7 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
         }
 
         let conditions = [`s.is_manifested = true`, `e.date BETWEEN ? AND ?`];
-        let values = [`${startDate}T00:00:00`, `${endDate}T23:59:59`];
+        let values = [`${startDate}`, `${endDate}`];
 
         if (serviceId) {
             conditions.push('s.serviceId = ?');
@@ -3317,7 +3319,7 @@ const getDomesticShipmentReportsData = async (req, res) => {
         AND e.date BETWEEN ? AND ?
         ${serviceId ? ' AND s.serviceId = ?' : ''}`
 
-        const [reportData] = await db.query(query, [id, startDate + 'T00:00:00', endDate + 'T23:59:59', serviceId]);    
+        const [reportData] = await db.query(query, [id, startDate, endDate, serviceId]);    
 
         return res.status(200).json({ status: 200, data: reportData, success: true });
     }
