@@ -192,8 +192,15 @@ const getAllRefundTransactions = async (req, res) => {
                 status: 200, success: true, data: rows
             });
         }
-        const [rows] = await db.query('SELECT r.*, sv.service_name AS service_name, u.fullName FROM REFUND r JOIN SHIPMENTS s ON r.refund_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id where r.uid = ?', [id]);
-
+        const [rows] = await db.query(`SELECT
+          r.*,
+          sv.service_name AS service_name, 
+          u.fullName 
+          FROM REFUND r 
+          JOIN USERS u ON r.uid = u.uid 
+          JOIN SHIPMENTS s ON r.refund_order = s.ord_id 
+          JOIN SERVICES sv ON s.serviceId = sv.service_id 
+          where r.uid = ?`, [id]);
 
         return res.status(200).json({
             status: 200, success: true, data: rows
