@@ -15,7 +15,9 @@ const { cancelShipment,
         updateDomesticProcessingShipments,
         getAllDomesticShipmentReportsData,
         getDomesticShipmentReportsData,
-        getAllDomesticShipmentReportsAdmin
+        getAllDomesticShipmentReportsAdmin,
+        getAllDomesticShipmentReportsMerchant,
+        getAllDomesticShipmentReportsDataMerchant
     } = require('../controllers/shipmentController');
 
 const router = express.Router();
@@ -26,14 +28,14 @@ router.post('/track', trackShipment);
 router.post('/domestic/create', createDomesticShipment);
 router.post('/domestic/reports/all', getAllDomesticShipmentReports);
 router.get('/domestic/reports/admin', getAllDomesticShipmentReportsAdmin)
-router.post('/domestic/reports', getDomesticShipmentReports)
+router.get('/domestic/reports', getAllDomesticShipmentReportsMerchant)
 router.post('/domestic/report', getDomesticShipmentReport);
 router.post('/domestic/label', getDomesticShipmentLabel)
 router.post('/domestic/price', getDomesticShipmentPricing)
 router.post('/domestic/pickup/request', domesticShipmentPickupSchedule)
 router.post('/domestic/refresh', updateDomesticProcessingShipments)
 router.post('/domestic/reports/download/admin', getAllDomesticShipmentReportsData)
-router.post('/domestic/reports/download/merchant', getDomesticShipmentReportsData)
+router.post('/domestic/reports/download/merchant', getAllDomesticShipmentReportsDataMerchant)
 
 router.post('/international/create', createInternationalShipment);
 router.post('/international/report', getInternationalShipmentReport);

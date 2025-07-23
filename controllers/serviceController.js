@@ -64,12 +64,6 @@ const getDomesticActiveShipmentServices = async (req, res) => {
     }
     try {
         const verified = jwt.verify(token, SECRET_KEY);
-        const admin = verified.admin;
-        if (!admin) {
-            return res.status(401).json({
-                status: 401, message: 'Unauthorized!'
-            });
-        }
         const [services] = await db.query("SELECT service_id, service_name FROM SERVICES WHERE is_active = true AND (is_b2c = true OR is_b2b = true) AND is_international = false");
         return res.status(200).json({
             status: 200, success: true, services: services
