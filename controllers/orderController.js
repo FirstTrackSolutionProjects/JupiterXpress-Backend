@@ -760,15 +760,99 @@ const getDomesticOrders= async (req, res) => {
 
 const getAllDomesticOrdersOld = async (req, res) => {
     const token = req.headers.authorization;
+    const {
+        orderId,
+        customer_email,
+        customer_name,
+        page = 1,
+        startDate,
+        endDate,
+    } = req.query;
+
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    const formatDateTimeRange = (start, end) => {
+        let from = null, to = null;
+        if (start) from = `${start}`;
+        if (end) to = `${end}`;
+        return { from, to };
+    };
+
     try {
         const verified = jwt.verify(token, SECRET_KEY);
         const admin = verified.admin;
         const id = verified.id;
+        
         if (!admin) {
+            // For merchants, add filtering and pagination
+            let whereClauses = ['s.uid = ?'];
+            let values = [id];
+
+            if (customer_email) {
+                whereClauses.push('s.customer_email LIKE ?');
+                values.push(`%${customer_email}%`);
+            }
+
+            if (customer_name) {
+                whereClauses.push('s.customer_name LIKE ?');
+                values.push(`%${customer_name}%`);
+            }
+
+            if (orderId) {
+                whereClauses.push('s.ord_id = ?');
+                values.push(orderId);
+            }
+
+            const { from: startDateTime, to: endDateTime } = formatDateTimeRange(startDate, endDate);
+
+            if (startDateTime && endDateTime) {
+                whereClauses.push('s.date BETWEEN ? AND ?');
+                values.push(startDateTime, endDateTime);
+            } else if (startDateTime) {
+                whereClauses.push('s.date >= ?');
+                values.push(startDateTime);
+            } else if (endDateTime) {
+                whereClauses.push('s.date <= ?');
+                values.push(endDateTime);
+            }
+
+            const whereSQL = `WHERE ${whereClauses.join(' AND ')}`;
+
             try {
-                const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid WHERE s.uid = ?', [id]);
+                // Count total records
+                const countQuery = `
+                    SELECT COUNT(*) AS total
+                    FROM SHIPMENTS s
+                    JOIN WAREHOUSES w ON s.wid = w.wid
+                    ${whereSQL}
+                `;
+                const [countResult] = await db.query(countQuery, values);
+                const total = countResult[0].total;
+                const totalPages = Math.ceil(total / limit);
+
+                // Get paginated data
+                const dataQuery = `
+                    SELECT s.*, w.*, sv.service_name
+                    FROM SHIPMENTS s
+                    JOIN WAREHOUSES w ON s.wid = w.wid
+                    LEFT JOIN SERVICES sv ON s.serviceId = sv.service_id
+                    ${whereSQL}
+                    ORDER BY s.date DESC
+                    LIMIT ? OFFSET ?
+                `;
+                const dataValues = [...values, limit, offset];
+                const [rows] = await db.query(dataQuery, dataValues);
+
                 return res.status(200).json({
-                    status: 200, success: true, order: rows
+                    status: 200,
+                    success: true,
+                    page: Number(page),
+                    totalPages,
+                    count: rows.length,
+                    hasPrevious: Number(page) > 1,
+                    hasNext: Number(page) < totalPages,
+                    order: rows
                 });
             } catch (error) {
                 return res.status(500).json({
@@ -777,6 +861,7 @@ const getAllDomesticOrdersOld = async (req, res) => {
             }
         }
 
+        // For admins, return all data (existing logic)
         try {
             const [rows] = await db.query('SELECT * FROM SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON s.uid=u.uid');
             return res.status(200).json({
@@ -1153,6 +1238,54 @@ const cloneDomesticOrder = async (req, res) => {
             [cloneOrderId, ...columns.map(col => newOrder[col])]
         );
 
+        const [originalOrderBoxes] = await transaction.query(
+          `SELECT * FROM SHIPMENT_PACKAGES WHERE ord_id = ?`, 
+          [orderId]
+        );
+
+        // Remove unwanted fields like primary key (e.g., `id`) if needed
+        const newOrderBoxes = originalOrderBoxes.map(box => {
+          const { ord_id, ...rest } = box; // Assuming `id` is auto-increment
+          return { ...rest, ord_id: cloneOrderId };
+        });
+
+        // Extract column names and rows
+        const boxColumns = Object.keys(newOrderBoxes[0]);
+        const values = newOrderBoxes.map(obj => boxColumns.map(col => obj[col]));
+
+        const placeholders = values.map(() => `(${boxColumns.map(() => '?').join(',')})`).join(',');
+
+        await transaction.query(
+          `INSERT INTO SHIPMENT_PACKAGES (${boxColumns.join(',')}) VALUES ${placeholders}`,
+          values.flat()
+        );
+
+
+
+
+        const [originalOrderItems] = await transaction.query(
+          `SELECT * FROM ORDERS WHERE ord_id = ?`, 
+          [orderId]
+        );
+
+
+        const newOrderItems = originalOrderItems.map(item => {
+          const { ord_id, ...rest } = item;
+          return { ...rest, ord_id: cloneOrderId };
+        });
+
+        //Extract items columns and rows
+        
+        const itemsColumns = Object.keys(originalOrderItems[0]);
+        const itemsValues = newOrderItems.map(obj => itemsColumns.map(col => obj[col]));
+        const itemsPlaceholders = itemsValues.map(() => `(${itemsColumns.map(() => '?').join(',')})`).join(',');
+        
+        await transaction.query(
+          `INSERT INTO ORDERS (${itemsColumns.join(',')}) VALUES ${itemsPlaceholders}`,
+          itemsValues.flat()
+        );
+
+
         await transaction.commit();
 
         return res.status(200).json({
@@ -1162,6 +1295,7 @@ const cloneDomesticOrder = async (req, res) => {
             newOrderId: cloneOrderId
         });
     } catch (error) {
+        console.error(error)
         if (transaction) await transaction.rollback();
         return res.status(500).json({
             status: 500,
