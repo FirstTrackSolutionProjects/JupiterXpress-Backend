@@ -28,10 +28,12 @@ const createDispute = async (req, res) => {
                 breadth,
                 height,
                 weight,
+                weight_unit,
                 actual_length,
                 actual_breadth,
                 actual_height,
-                actual_weight
+                actual_weight,
+                actual_weight_unit
               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 dispute_id,
@@ -40,10 +42,12 @@ const createDispute = async (req, res) => {
                 box?.breadth,
                 box?.height,
                 box?.weight,
+                box?.weight_unit,
                 box?.actual_length,
                 box?.actual_breadth,
                 box?.actual_height,
-                box?.actual_weight
+                box?.actual_weight,
+                box?.actual_weight_unit
               ]
             );
         }));

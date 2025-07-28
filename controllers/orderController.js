@@ -85,7 +85,8 @@ const createDomesticOrder = async (req, res) => {
                 invoiceUrl,
                 shipmentValue,
                 ewaybill,
-                isB2B
+                isB2B,
+                customer_reference_number
             } = req.body;
             if (same) {
                 Baddress = address;
@@ -99,7 +100,7 @@ const createDomesticOrder = async (req, res) => {
             try {
                 const transaction = await db.beginTransaction();
                 const [orderIds] = await transaction.query("SELECT domestic_order_ids FROM SYSTEM_CODE_GENERATOR");
-                const order = `JUPXD${orderIds[0].domestic_order_ids}`;
+                const order = `7DLXD${orderIds[0].domestic_order_ids}`;
                 await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET domestic_order_ids = domestic_order_ids + 1")
                 await transaction.query(
                     `INSERT INTO SHIPMENTS (
@@ -136,8 +137,9 @@ const createDomesticOrder = async (req, res) => {
                         invoice_url,
                         shipment_value,
                         ewaybill,
-                        is_b2b
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?, ?,?,?)`,
+                        is_b2b,
+                        customer_reference_number
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?,?, ?,?,?, ?,?,?,?)`,
                     [
                         id,
                         order,
@@ -172,19 +174,22 @@ const createDomesticOrder = async (req, res) => {
                         invoiceUrl,
                         shipmentValue,
                         ewaybill,
-                        isB2B
+                        isB2B,
+                        customer_reference_number
                     ]
                 );
                 for (let i = 0; i < boxes.length; i++) {
                     await transaction.query(
-                        `INSERT INTO SHIPMENT_PACKAGES (ord_id, box_no, length, breadth, height, weight) VALUES (?, ?, ?, ?, ?, ?)`,
+                        `INSERT INTO SHIPMENT_PACKAGES (ord_id, box_no, length, breadth, height, weight, weight_unit, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                         [
                             order,
                             boxes[i].box_no,
                             boxes[i].length,
                             boxes[i].breadth,
                             boxes[i].height,
-                            boxes[i].weight
+                            boxes[i].weight,
+                            boxes[i].weight_unit,
+                            boxes[i].quantity
                         ]
                     );
                 }
@@ -1088,7 +1093,8 @@ const updateDomesticOrder = async (req, res) => {
                 invoiceUrl,
                 shipmentValue,
                 ewaybill,
-                isB2B
+                isB2B,
+                customer_reference_number
             } = req.body;
 
             if (admin) {
@@ -1141,9 +1147,10 @@ const updateDomesticOrder = async (req, res) => {
             invoice_url =?,
             shipment_value =?,
             ewaybill =?,
-            is_b2b =?
+            is_b2b =?,
+            customer_reference_number =?
             WHERE ord_id = ? AND uid = ?`,
-                    [payMode, name, email, phone, address, addressType, country, state, city, postcode, Baddress, BaddressType, Bcountry, Bstate, Bcity, Bpostcode, same, cod, discount, gst, Cgst, wid, shippingType, pickupDate, pickupTime, invoiceNumber, invoiceDate, invoiceAmount, invoiceUrl, shipmentValue, ewaybill, isB2B, order, id]
+                    [payMode, name, email, phone, address, addressType, country, state, city, postcode, Baddress, BaddressType, Bcountry, Bstate, Bcity, Bpostcode, same, cod, discount, gst, Cgst, wid, shippingType, pickupDate, pickupTime, invoiceNumber, invoiceDate, invoiceAmount, invoiceUrl, shipmentValue, ewaybill, isB2B, customer_reference_number, order, id]
                 );
 
                 await transaction.query("DELETE FROM ORDERS WHERE ord_id = ?", [order]);
@@ -1151,7 +1158,7 @@ const updateDomesticOrder = async (req, res) => {
 
                 for (let i = 0; i < boxes.length; i++) {
                     await transaction.query(
-                        `INSERT INTO SHIPMENT_PACKAGES (ord_id, box_no, length, breadth, height, weight ) VALUES (?, ?, ?, ?, ?, ?)`,
+                        `INSERT INTO SHIPMENT_PACKAGES (ord_id, box_no, length, breadth, height, weight, weight_unit, quantity ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                         [
                             order,
                             boxes[i].box_no,
@@ -1159,6 +1166,8 @@ const updateDomesticOrder = async (req, res) => {
                             boxes[i].breadth,
                             boxes[i].height,
                             boxes[i].weight,
+                            boxes[i].weight_unit,
+                            boxes[i].quantity
                         ]
                     );
 

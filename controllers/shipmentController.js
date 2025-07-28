@@ -314,8 +314,20 @@ const createDomesticShipment = async (req, res) => {
 
         let total_weight = 0;
         for (let i = 0; i < boxes.length; i++) {
-            total_weight += parseInt(boxes[i].weight)
+            let boxWeight = boxes[i].weight;
+            if (boxes[i].weight_unit == 'kg'){
+                boxWeight = parseFloat(boxWeight)*1000;
+            } else if (boxes[i].weight_unit == 'g'){
+                boxWeight = parseInt(boxWeight);
+            }
+            total_weight += boxWeight*parseInt(boxes[i].quantity)
         }
+
+        let total_boxes = 0;
+        for (let i = 0; i < boxes.length; i++) {
+            total_boxes += parseInt(boxes[i].quantity);
+        }
+
         const firstNameEndsAt = shipment.customer_name.indexOf(' ');
         const splitNames = firstNameEndsAt !== -1 ? [shipment.customer_name.slice(0, firstNameEndsAt), shipment.customer_name.slice(firstNameEndsAt + 1)] : [shipment.customer_name];
         const customerFirstName = splitNames[0];
@@ -344,7 +356,7 @@ const createDomesticShipment = async (req, res) => {
         }
 
         if (serviceId === 1) {
-            if (boxes.length > 1) {
+            if (total_boxes > 1) {
                 return res.status(200).json({
                     status: 200,
                     success: false,
@@ -405,10 +417,10 @@ const createDomesticShipment = async (req, res) => {
                 "seller_inv": "",
                 "quantity": "1",
                 "waybill": waybill,
-                "shipment_length": shipment.length,
-                "shipment_width": shipment.breadth,
-                "shipment_height": shipment.height,
-                "weight": shipment.weight,
+                "shipment_length": boxes[0].length,
+                "shipment_width": boxes[0].breadth,
+                "shipment_height": boxes[0].height,
+                "weight": (boxes[0].weight) * (boxes[0].weight_unit == 'kg' ? 1000 : 1),
                 "seller_gst_tin": shipment.gst,
                 "shipping_mode": shipment.shipping_mode,
                 "address_type": shipment.shipping_address_type
@@ -460,7 +472,7 @@ const createDomesticShipment = async (req, res) => {
             });
 
         } else if (serviceId == 2){
-            if (boxes.length > 1) {
+            if (total_boxes > 1) {
                 return res.status(200).json({
                     status: 200,
                     success: false,
@@ -521,10 +533,10 @@ const createDomesticShipment = async (req, res) => {
                 "seller_inv": "",
                 "quantity": "1",
                 "waybill": waybill,
-                "shipment_length": shipment.length,
-                "shipment_width": shipment.breadth,
-                "shipment_height": shipment.height,
-                "weight": shipment.weight,
+                "shipment_length": boxes[0].length,
+                "shipment_width": boxes[0].breadth,
+                "shipment_height": boxes[0].height,
+                "weight": (boxes[0].weight) * (boxes[0].weight_unit == 'kg' ? 1000 : 1),
                 "seller_gst_tin": shipment.gst,
                 "shipping_mode": shipment.shipping_mode,
                 "address_type": shipment.shipping_address_type
@@ -809,8 +821,8 @@ const createDomesticShipment = async (req, res) => {
 
             boxes.map((box, index) => {
                 pickrrCreateOrderPayload.packaging_unit_details.push({
-                    "units": 1,
-                    "weight": parseInt(box.weight) / 1000,
+                    "units": box.quantity,
+                    "weight": parseFloat(box.weight) / (box.weight_unit == "kg" ? 1 : 1000),
                     "length": box.length,
                     "height": box.height,
                     "width": box.breadth,
@@ -920,7 +932,7 @@ const createDomesticShipment = async (req, res) => {
                 "length": boxes[0].length,
                 "breadth": boxes[0].breadth,
                 "height": boxes[0].height,
-                "weight": parseInt(boxes[0].weight)/1000,
+                "weight": parseFloat(boxes[0].weight)/ (boxes[0].weight_unit == "kg" ? 1 : 1000),
                 "pickup_location": warehouse.warehouseName.substring(0,36)
             }
             orders.map((item,index)=>{
@@ -2142,20 +2154,57 @@ const getDomesticShipmentLabel = async (req, res) => {
 }
 
 const getDomesticShipmentPricing = async (req, res) => {
-    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes, isB2B, invoiceAmount, priceCalc } = req.body
-    if (!method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status) {
+    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes, isB2B, invoiceAmount, priceCalc } = req.body;
+    let { pickupDate } = req.body;
+    if (!method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status || !boxes?.length) {
         return res.status(400).json({
             status: 400, message: 'Missing required fields'
         });
     }
-
+    let total_weight = 0;
+    let total_volume = 0;
+    let total_quantity = 0;
+    boxes.map((box)=>{
+        //////CALCULATING TOTAL WEIGHT STARTS//////
+        let boxWeight = box.weight;
+        if (box.weight_unit == 'kg'){
+            boxWeight = parseFloat(boxWeight)*1000;
+        } else if (box.weight_unit == 'g'){
+            boxWeight = parseInt(boxWeight);
+        }
+        total_weight += boxWeight*parseInt(box.quantity);
+        //////CALCULATING TOTAL WEIGHT ENDS//////
+        //////CALCULATING TOTAL VOLUME STARTS//////
+        let boxVolume = box.length * box.breadth * box.height;
+        total_volume += boxVolume*parseInt(box.quantity);
+        //////CALCULATING TOTAL VOLUME ENDS//////
+        //////CALCULATING TOTAL QUANTITY STARTS//////
+        total_quantity += parseInt(box.quantity);
+        //////CALCULATING TOTAL QUANTITY ENDS//////
+    })
+    if (!pickupDate){
+        const currentDateAndTime = getCurrentDateAndTime();
+        const currentDate = currentDateAndTime.split(' ')[0];
+        pickupDate = currentDate;
+    }
+    const token = req.headers.authorization;
+    let uid = null;
     try {
+        try{
+            if (token){
+                const verified = jwt.verify(token, SECRET_KEY);
+                uid = verified.id;
+            }
+        } catch (error) {
+
+        }
         const deliveryVolumetric = parseFloat(volume) / 5;
         const netWeight = (Math.max(deliveryVolumetric, weight)).toString()
         let responses = []
 
         const delhivery500gmPricing = async () => {
-            if (isB2B && !priceCalc) return;
+            if (isB2B) return;
+            if (total_quantity > 1) return;
             const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}&payment_mode=Wallet`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
@@ -2166,19 +2215,20 @@ const getDomesticShipmentPricing = async (req, res) => {
             const data = await response.json();
             console.log(data)
             const price = data[0]['total_amount']
-            if (quantity == 1) {
-                responses.push({
-                    "name": `Delhivery ${method == 'S' ? 'Surface' : 'Express'} Light`,
-                    "weight": "500gm",
-                    "price": Math.round(price * 1.3),
-                    "serviceId": 1,
-                    "chargableWeight": netWeight
-                })
-            }
+            const grossPrice = Math.round(((price + (payMode=='COD'?(Math.max(25, (codAmount*1.25)/100))*1.18:0)) * 1.3) + (payMode=='COD'?50:0));
+            // const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
+            responses.push({
+                "name": `Delhivery ${method == 'S' ? 'Surface' : 'Express'} Light`,
+                "weight": "500gm",
+                "price": Math.round(price * 1.3),
+                "serviceId": 1,
+                "chargableWeight": netWeight
+            })
         }
 
         const delhivery10kgPricing = async () => {
-            if (isB2B && !priceCalc) return;
+            if (isB2B) return;
+            if (total_quantity > 1 && method != "S") return;
             const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}&payment_mode=Wallet`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
@@ -2188,18 +2238,13 @@ const getDomesticShipmentPricing = async (req, res) => {
             })
             const data2 = await response2.json();
             const price2 = data2[0]['total_amount']
-            if (quantity == 1) {
-                if (method == 'S') {
-                    responses.push({
-                        "name": `Delhivery Surface`,
-                        "weight": "10Kg",
-                        "price": Math.round(price2 * 1.3),
-                        "serviceId": 2,
-                        "chargableWeight": netWeight
-
-                    })
-                }
-            }
+            responses.push({
+                "name": `Delhivery Surface`,
+                "weight": "10Kg",
+                "price": Math.round(price2 * 1.3),
+                "serviceId": 2,
+                "chargableWeight": netWeight
+            })
         }
 
         const movinPricing = async () => {
@@ -2261,7 +2306,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         }
 
         const pickrr20kgPricing = async () => {
-            if (!isB2B && !priceCalc) return;
+            if (!isB2B) return;
             const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
                 headers: {
@@ -2285,10 +2330,10 @@ const getDomesticShipmentPricing = async (req, res) => {
             }
             boxes.map((box, index) => {
                 pickrrPriceBody.packaging_unit_details.push({
-                    "units": 1,
+                    "units": box.quantity,
                     "length": box.length,
                     "height": box.height,
-                    "weight": parseInt(box.weight) / 1000,
+                    "weight": parseFloat(total_weight)/(box.weight_unit == 'kg' ? 1 : 1000),
                     "width": box.breadth,
                     "unit": "cm"
                 })
@@ -2325,8 +2370,8 @@ const getDomesticShipmentPricing = async (req, res) => {
         }
 
         const shiprocketPricing = async () => {
-            if (quantity !== 1) return;
-            if (isB2B && !priceCalc) return;
+            if (total_quantity !== 1) return;
+            if (isB2B) return;
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const [servicesWithWarehouse] = await db.query("SELECT service_name FROM SERVICES WHERE service_id = 5");
             const serviceName = servicesWithWarehouse[0].service_name;
@@ -2334,7 +2379,7 @@ const getDomesticShipmentPricing = async (req, res) => {
             const pricingRequestQuery = `
             pickup_postcode=${origin}&
             delivery_postcode=${dest}&
-            weight=${boxes[0].weight/1000}&
+            weight=${boxes[0].weight/(boxes[0].weight_unit == 'kg' ? 1 : 1000)}&
             length=${boxes[0].length}&
             breadth=${boxes[0].breadth}&
             height=${boxes[0].height}&
@@ -2365,8 +2410,8 @@ const getDomesticShipmentPricing = async (req, res) => {
         }
 
         const enviaB2BPricing = async () => {
-            if (quantity !== 1) return;
-            if (isB2B && !priceCalc) return;
+            if (total_quantity !== 1) return;
+            if (isB2B) return;
             const enviaServicesResponse = await fetch(`https://queries.envia.com/available-carrier/IN/0`, {
                 method: 'GET',
                 headers: {
@@ -2392,7 +2437,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "content": "items",
                     "amount": 1,
                     "type": "box",
-                    "weight": parseInt(box?.weight)/1000,
+                    "weight": parseFloat(total_weight)/(box.weight_unit == 'kg' ? 1 : 1000),
                     "insurance": 0,
                     "declaredValue": invoiceAmount,
                     "weightUnit": "KG",
@@ -3308,6 +3353,7 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
                 w.state AS SHIPPER_WAREHOUSE_STATE, 
                 w.country AS SHIPPER_WAREHOUSE_COUNTRY,
                 s.pay_method AS SHIPMENT_PAYMENT_METHOD,
+                s.customer_reference_number AS CUSTOMER_REFERENCE_NUMBER,
                 s.customer_name AS CUSTOMER_NAME,
                 s.customer_mobile AS CUSTOMER_CONTACT, 
                 s.customer_email AS CUSTOMER_EMAIL, 
@@ -3332,7 +3378,9 @@ const getAllDomesticShipmentReportsData = async (req, res) => {
                 sp.length AS BOX_LENGTH_IN_CM,
                 sp.breadth AS BOX_WIDTH_IN_CM,
                 sp.height AS BOX_HEIGHT_IN_CM,
-                sp.weight AS BOX_WEIGHT_IN_GRAM,
+                sp.weight AS BOX_WEIGHT,
+                sp.weight_unit AS BOX_WEIGHT_UNIT,
+                sp.quantity AS BOX_QUANTITY,
                 sp.hsn AS BOX_HSN,
                 s.awb AS AWB,
                 e.expense_cost AS SHIPMENT_PRICE,
@@ -3427,6 +3475,7 @@ const getAllDomesticShipmentReportsDataMerchant = async (req, res) => {
                 w.state AS SHIPPER_WAREHOUSE_STATE, 
                 w.country AS SHIPPER_WAREHOUSE_COUNTRY,
                 s.pay_method AS SHIPMENT_PAYMENT_METHOD,
+                s.customer_reference_number AS CUSTOMER_REFERENCE_NUMBER,
                 s.customer_name AS CUSTOMER_NAME,
                 s.customer_mobile AS CUSTOMER_CONTACT, 
                 s.customer_email AS CUSTOMER_EMAIL, 
@@ -3452,6 +3501,8 @@ const getAllDomesticShipmentReportsDataMerchant = async (req, res) => {
                 sp.breadth AS BOX_WIDTH_IN_CM,
                 sp.height AS BOX_HEIGHT_IN_CM,
                 sp.weight AS BOX_WEIGHT_IN_GRAM,
+                sp.weight_unit AS BOX_WEIGHT_UNIT,
+                sp.quantity AS BOX_QUANTITY,
                 sp.hsn AS BOX_HSN,
                 s.awb AS AWB,
                 e.expense_cost AS SHIPMENT_PRICE,
@@ -3516,6 +3567,7 @@ const getDomesticShipmentReportsData = async (req, res) => {
         w.state AS SHIPPER_WAREHOUSE_STATE, 
         w.country AS SHIPPER_WAREHOUSE_COUNTRY,
         s.pay_method AS SHIPMENT_PAYMENT_METHOD,
+        s.customer_reference_number AS CUSTOMER_REFERENCE_NUMBER,
         s.customer_name AS CUSTOMER_NAME,
         s.customer_mobile AS CUSTOMER_CONTACT, 
         s.customer_email AS CUSTOMER_EMAIL, 
@@ -3537,6 +3589,8 @@ const getDomesticShipmentReportsData = async (req, res) => {
         sp.breadth AS BOX_WIDTH_IN_CM,
         sp.height AS BOX_HEIGHT_IN_CM,
         sp.weight AS BOX_WEIGHT_IN_GRAM,
+        sp.weight_unit AS BOX_WEIGHT_UNIT,
+        sp.quantity AS BOX_QUANTITY,
         sp.hsn AS BOX_HSN,
         s.awb AS AWB,
         e.expense_cost AS SHIPMENT_PRICE,
@@ -3559,30 +3613,6 @@ const getDomesticShipmentReportsData = async (req, res) => {
     }
     catch (err) {
         console.error(err)
-        return res.status(500).json({
-            status: 500,
-            message: 'Internal Server Error'
-        });
-    }
-}
-
-const getAllPendingRefundShipments = async (req, res) => {
-    try {
-        
-    } catch (err) {
-        console.error(err)
-        return res.status(500).json({
-            status: 500,
-            message: 'Internal Server Error'
-        })
-    }
-}
-
-const manualShipmentRefund = async (req, res) => {
-    try{
-        // const {}
-    } catch (err) {
-        console.error(err);
         return res.status(500).json({
             status: 500,
             message: 'Internal Server Error'
