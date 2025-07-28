@@ -44,6 +44,7 @@ const serviceRoutes = require('./routes/serviceRoutes');
 const weightDisputeRoutes = require('./routes/weightDisputeRoutes');
 const pendingCancellationRoutes = require('./routes/pendingCancellationRoutes');
 const pendingRefundRoutes = require('./routes/pendingRefundRoutes');
+const discountRoutes = require('./routes/discountRoutes');
 connectDB();
 
 
@@ -68,5 +69,6 @@ app.use('/services', serviceRoutes)
 app.use('/weight-disputes', weightDisputeRoutes)
 app.use('/pending-cancellations', pendingCancellationRoutes);
 app.use('/pending-refunds', pendingRefundRoutes);
+app.use('/discounts', discountRoutes);
 
 module.exports.handler = serverless(app);

@@ -15,6 +15,26 @@ const getCurrentDateAndTime = () => {
     return formattedDateIST;
 }
 
+const getDiscountedPrice = async (uid, serviceId, grossPrice) => {
+    if (!uid){
+        console.error('uid is null')
+        return grossPrice;
+    }
+    try {
+        const [discounts] = await db.query("SELECT discount AS discount_percentage FROM USER_DISCOUNTS WHERE uid = ? AND service_id = ?",[uid, serviceId])
+        if (discounts.length){
+            const discount = discounts[0];
+            const discountPercentage = discount.discount_percentage;
+            const discountedPrice = grossPrice*(1 - (discountPercentage / 100));
+            return discountedPrice;
+        }
+        return grossPrice;
+    } catch (err) {
+        console.error(err)
+        return NaN;
+    }
+}
+
 const cancelShipment = async (req, res) => {
     try {
         const token = req.headers.authorization;
@@ -2205,6 +2225,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         const delhivery500gmPricing = async () => {
             if (isB2B) return;
             if (total_quantity > 1) return;
+            const serviceId = 1;
             const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}&payment_mode=Wallet`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_500GM_SURFACE_KEY}`,
@@ -2216,11 +2237,11 @@ const getDomesticShipmentPricing = async (req, res) => {
             console.log(data)
             const price = data[0]['total_amount']
             const grossPrice = Math.round(((price + (payMode=='COD'?(Math.max(25, (codAmount*1.25)/100))*1.18:0)) * 1.3) + (payMode=='COD'?50:0));
-            // const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
+            const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
             responses.push({
                 "name": `Delhivery ${method == 'S' ? 'Surface' : 'Express'} Light`,
                 "weight": "500gm",
-                "price": Math.round(price * 1.3),
+                "price": discountedPrice,
                 "serviceId": 1,
                 "chargableWeight": netWeight
             })
@@ -2229,6 +2250,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         const delhivery10kgPricing = async () => {
             if (isB2B) return;
             if (total_quantity > 1 && method != "S") return;
+            const serviceId = 2;
             const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}&payment_mode=Wallet`, {
                 headers: {
                     'Authorization': `Token ${process.env.DELHIVERY_10KG_SURFACE_KEY}`,
@@ -2237,17 +2259,20 @@ const getDomesticShipmentPricing = async (req, res) => {
                 }
             })
             const data2 = await response2.json();
-            const price2 = data2[0]['total_amount']
+            const price2 = data2[0]['total_amount'];
+            const grossPrice = Math.round(((price + (payMode=='COD'?(Math.max(25, (codAmount*1.25)/100))*1.18:0)) * 1.3) + (payMode=='COD'?50:0));
+            const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
             responses.push({
                 "name": `Delhivery Surface`,
                 "weight": "10Kg",
-                "price": Math.round(price2 * 1.3),
+                "price": discountedPrice,
                 "serviceId": 2,
                 "chargableWeight": netWeight
             })
         }
 
         const movinPricing = async () => {
+            const serviceId = 3;
             let movinSurfaceActive = false;
             let movinExpressActive = false;
             if (movinPincodes[origin] && movinPincodes[dest]) {
@@ -2307,6 +2332,7 @@ const getDomesticShipmentPricing = async (req, res) => {
 
         const pickrr20kgPricing = async () => {
             if (!isB2B) return;
+            const serviceId = 4;
             const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
                 headers: {
@@ -2349,11 +2375,13 @@ const getDomesticShipmentPricing = async (req, res) => {
             })
             const pickrrPriceData = await pickrrPrice.json()
             for (const service in pickrrPriceData) {
+                const grossPrice = Math.round(parseFloat(pickrrPriceData[service].working.grand_total) * 1.3);
+                const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
                 if (method == 'S' && service.endsWith('-surface')) {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round(parseFloat(pickrrPriceData[service].working.grand_total) * 1.3),
+                        "price": discountedPrice,
                         "serviceId": 4,
                         "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
                     })
@@ -2361,7 +2389,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     responses.push({
                         "name": service,
                         "weight": "20Kg",
-                        "price": Math.round(parseFloat(pickrrPriceData[service].working.grand_total) * 1.3),
+                        "price": discountedPrice,
                         "serviceId": 4,
                         "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
                     })
@@ -2372,6 +2400,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         const shiprocketPricing = async () => {
             if (total_quantity !== 1) return;
             if (isB2B) return;
+            const serviceId = 5;
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const [servicesWithWarehouse] = await db.query("SELECT service_name FROM SERVICES WHERE service_id = 5");
             const serviceName = servicesWithWarehouse[0].service_name;
@@ -2397,21 +2426,26 @@ const getDomesticShipmentPricing = async (req, res) => {
             console.error(pricingResponseData)
             const services = pricingResponseData?.data?.available_courier_companies || [];
 
-            services.map((service,index)=>{
-                responses.push({
-                    "name": `${serviceName} - ${service.courier_name}`,
-                    "weight": `${service.min_weight}Kg`,
-                    "price": service.rate*1.3,
-                    "serviceId": 5,
-                    "chargableWeight": service.charge_weight*1000,
-                    "courierId": service.courier_company_id
+            await Promise.all(
+                services.map(async (service,index)=>{
+                    const grossPrice = Math.round((service.rate * 1.3));
+                    const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
+                    responses.push({
+                        "name": `${serviceName} - ${service.courier_name}`,
+                        "weight": `${service.min_weight}Kg`,
+                        "price": discountedPrice,
+                        "serviceId": 5,
+                        "chargableWeight": service.charge_weight*1000,
+                        "courierId": service.courier_company_id
+                    })
                 })
-            })
+            )
         }
 
         const enviaB2BPricing = async () => {
             if (total_quantity !== 1) return;
             if (isB2B) return;
+            const serviceId = 6;
             const enviaServicesResponse = await fetch(`https://queries.envia.com/available-carrier/IN/0`, {
                 method: 'GET',
                 headers: {
@@ -2580,7 +2614,8 @@ const getDomesticShipmentPricing = async (req, res) => {
                     'ekart': 0.814
                 }
 
-                prices.map((price, index) => {
+                await Promise.all(
+                    prices.map(async (price, index) => {
                     if (price?.totalPrice <= 0) return;
                     const servDesc = price?.serviceDescription?.toLowerCase();
                     if ((method == "S") && (servDesc.toLowerCase().includes("express") || servDesc.toLowerCase().includes("air"))) return;
@@ -2614,11 +2649,11 @@ const getDomesticShipmentPricing = async (req, res) => {
                     } else {
                         shipmentPrice = shipmentPrice*discountChart?.[price?.carrier];
                     }
-
+                    const discountedPrice = await getDiscountedPrice(uid, serviceId, Math.round(shipmentPrice));
                     responses.push({
                         "name": `Jupiter B2C - ${price?.serviceDescription}`,
                         "weight": ``,
-                        "price": Math.round(shipmentPrice),
+                        "price": discountedPrice,
                         "serviceId": 6,
                         "chargableWeight": chargableWeightInGram,
                         "courierId": price?.carrier,
@@ -2626,6 +2661,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "courierServiceId": price?.service,
                     })
                 })
+                )
             }))
 
             
