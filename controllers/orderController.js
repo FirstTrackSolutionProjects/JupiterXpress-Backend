@@ -100,7 +100,7 @@ const createDomesticOrder = async (req, res) => {
             try {
                 const transaction = await db.beginTransaction();
                 const [orderIds] = await transaction.query("SELECT domestic_order_ids FROM SYSTEM_CODE_GENERATOR");
-                const order = `7DLXD${orderIds[0].domestic_order_ids}`;
+                const order = `JUPXD${orderIds[0].domestic_order_ids}`;
                 await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET domestic_order_ids = domestic_order_ids + 1")
                 await transaction.query(
                     `INSERT INTO SHIPMENTS (
