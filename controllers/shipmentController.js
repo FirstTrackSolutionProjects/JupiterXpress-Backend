@@ -2174,9 +2174,9 @@ const getDomesticShipmentLabel = async (req, res) => {
 }
 
 const getDomesticShipmentPricing = async (req, res) => {
-    const { method, status, origin, dest, weight, payMode, codAmount, volume, quantity, boxes, isB2B, invoiceAmount, priceCalc } = req.body;
+    const { method, status, origin, dest, payMode, codAmount, boxes, isB2B, invoiceAmount, priceCalc } = req.body;
     let { pickupDate } = req.body;
-    if (!method || !origin || !dest || !weight || !payMode || !codAmount || !volume || !quantity || !status || !boxes?.length) {
+    if (!method || !origin || !dest || !payMode || !codAmount || !status || !boxes?.length) {
         return res.status(400).json({
             status: 400, message: 'Missing required fields'
         });
@@ -2218,8 +2218,8 @@ const getDomesticShipmentPricing = async (req, res) => {
         } catch (error) {
 
         }
-        const deliveryVolumetric = parseFloat(volume) / 5;
-        const netWeight = (Math.max(deliveryVolumetric, weight)).toString()
+        const deliveryVolumetric = parseFloat(total_volume) / 5;
+        const netWeight = (Math.max(deliveryVolumetric, total_weight)).toString()
         let responses = []
 
         const delhivery500gmPricing = async () => {
@@ -2260,7 +2260,7 @@ const getDomesticShipmentPricing = async (req, res) => {
             })
             const data2 = await response2.json();
             const price2 = data2[0]['total_amount'];
-            const grossPrice = Math.round(((price + (payMode=='COD'?(Math.max(25, (codAmount*1.25)/100))*1.18:0)) * 1.3) + (payMode=='COD'?50:0));
+            const grossPrice = Math.round(((price2 + (payMode=='COD'?(Math.max(25, (codAmount*1.25)/100))*1.18:0)) * 1.3) + (payMode=='COD'?50:0));
             const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
             responses.push({
                 "name": `Delhivery Surface`,
@@ -2283,8 +2283,8 @@ const getDomesticShipmentPricing = async (req, res) => {
                     movinExpressActive = true;
                 }
             }
-            const movinVolumetric = parseFloat(volume) / (method == "S" ? 4.5 : 5)
-            const movinNetWeight = (Math.max(method == "S" ? 10000 : 5000, Math.max(movinVolumetric, weight))).toString()
+            const movinVolumetric = parseFloat(total_volume) / (method == "S" ? 4.5 : 5)
+            const movinNetWeight = (Math.max(method == "S" ? 10000 : 5000, Math.max(movinVolumetric, total_weight))).toString()
             const originData = await fetch(`http://www.postalpincode.in/api/pincode/${origin}`)
             const destData = await fetch(`http://www.postalpincode.in/api/pincode/${dest}`)
             const originPSData = await originData.json()
@@ -2349,7 +2349,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                 "to_pincode": dest,
                 "to_city": "New Delhi",
                 "to_state": "Delhi",
-                "quantity": quantity,
+                "quantity": boxes.length,
                 "invoice_value": invoiceAmount,
                 "calculator_page": "true",
                 "packaging_unit_details": []
