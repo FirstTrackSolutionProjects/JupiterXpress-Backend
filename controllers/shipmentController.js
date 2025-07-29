@@ -2354,16 +2354,18 @@ const getDomesticShipmentPricing = async (req, res) => {
                 "calculator_page": "true",
                 "packaging_unit_details": []
             }
+            console.log(boxes)
             boxes.map((box, index) => {
                 pickrrPriceBody.packaging_unit_details.push({
                     "units": box.quantity,
                     "length": box.length,
                     "height": box.height,
-                    "weight": parseFloat(total_weight)/(box.weight_unit == 'kg' ? 1 : 1000),
+                    "weight": parseFloat(box.weight)/(box.weight_unit == 'kg' ? 1 : 1000),
                     "width": box.breadth,
                     "unit": "cm"
                 })
             })
+            console.log(pickrrPriceBody)
             const pickrrPrice = await fetch(`https://api-cargo.shiprocket.in/api/shipment/charges/`, {
                 method: 'POST',
                 headers: {
@@ -2471,7 +2473,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "content": "items",
                     "amount": 1,
                     "type": "box",
-                    "weight": parseFloat(total_weight)/(box.weight_unit == 'kg' ? 1 : 1000),
+                    "weight": parseFloat(box.weight)/(box.weight_unit == 'kg' ? 1 : 1000),
                     "insurance": 0,
                     "declaredValue": invoiceAmount,
                     "weightUnit": "KG",
