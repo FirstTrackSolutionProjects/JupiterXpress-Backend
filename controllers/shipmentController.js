@@ -2473,7 +2473,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "content": "items",
                     "amount": 1,
                     "type": "box",
-                    "weight": parseFloat(box.weight)/(box.weight_unit == 'kg' ? 1 : 1000),
+                    "weight": Math.min(parseFloat(box.weight)/(box.weight_unit == 'kg' ? 1 : 1000), 0.5),
                     "insurance": 0,
                     "declaredValue": invoiceAmount,
                     "weightUnit": "KG",
@@ -2563,12 +2563,17 @@ const getDomesticShipmentPricing = async (req, res) => {
 
                 const commissionChartLessThan500g = {
                     'amazon' : 1.11,
-                    'ekart' : 1.12
+                    'ekart' : 1.21
                 }
 
                 const commissionChartLessThan1000g = {
                     'amazon' : 0.84,
                     'ekart' : 0.90
+                }
+
+                const commissionChartLessThan1500g = {
+                    'amazon' : 0.745,
+                    'ekart' : 0.815
                 }
 
                 const commissionChartLessThan2000g = {
@@ -2630,6 +2635,8 @@ const getDomesticShipmentPricing = async (req, res) => {
                         shipmentPrice = shipmentPrice*commissionChartLessThan500g?.[price?.carrier];
                     } else if (chargableWeightInGram <= 1000){
                         shipmentPrice = shipmentPrice*commissionChartLessThan1000g?.[price?.carrier];
+                    } else if (chargableWeightInGram <= 1500){
+                        shipmentPrice = shipmentPrice*commissionChartLessThan1500g?.[price?.carrier];
                     } else if (chargableWeightInGram <= 2000){
                         shipmentPrice = shipmentPrice*commissionChartLessThan2000g?.[price?.carrier];
                     } else if (chargableWeightInGram <= 3000){
