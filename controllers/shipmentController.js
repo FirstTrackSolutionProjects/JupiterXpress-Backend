@@ -807,7 +807,7 @@ const createDomesticShipment = async (req, res) => {
             }
 
             const pickrrCreateOrderPayload = {
-                "no_of_packages": boxes.length,
+                "no_of_packages": total_boxes,
                 "approx_weight": parseFloat(total_weight) / 1000,
                 "is_insured": false,
                 "is_to_pay": false,
@@ -2349,7 +2349,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                 "to_pincode": dest,
                 "to_city": "New Delhi",
                 "to_state": "Delhi",
-                "quantity": boxes.length,
+                "quantity": total_quantity,
                 "invoice_value": invoiceAmount,
                 "calculator_page": "true",
                 "packaging_unit_details": []
@@ -2375,7 +2375,7 @@ const getDomesticShipmentPricing = async (req, res) => {
             })
             const pickrrPriceData = await pickrrPrice.json()
             for (const service in pickrrPriceData) {
-                const grossPrice = Math.round(parseFloat(pickrrPriceData[service].working.grand_total) * 1.3);
+                const grossPrice = Math.round(parseFloat(pickrrPriceData[service]?.working?.grand_total) * 1.3);
                 const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
                 if (method == 'S' && service.endsWith('-surface')) {
                     responses.push({
@@ -2383,7 +2383,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                         "weight": "20Kg",
                         "price": discountedPrice,
                         "serviceId": 4,
-                        "chargableWeight": pickrrPriceData[service].working.chargeable_weight * 1000
+                        "chargableWeight": pickrrPriceData[service]?.working?.chargeable_weight * 1000
                     })
                 } else if (method == 'E' && service.endsWith('-air')) {
                     responses.push({
