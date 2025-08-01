@@ -2473,7 +2473,7 @@ const getDomesticShipmentPricing = async (req, res) => {
                     "content": "items",
                     "amount": 1,
                     "type": "box",
-                    "weight": Math.min(parseFloat(box.weight)/(box.weight_unit == 'kg' ? 1 : 1000), 0.5),
+                    "weight": Math.max(parseFloat(box.weight)/(box.weight_unit == 'kg' ? 1 : 1000), 0.5),
                     "insurance": 0,
                     "declaredValue": invoiceAmount,
                     "weightUnit": "KG",
