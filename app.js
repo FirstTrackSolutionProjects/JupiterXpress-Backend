@@ -35,7 +35,7 @@ const warehouseRoutes = require('./routes/warehouseRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const s3Routes = require('./routes/s3Routes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
-const kycRoutes = require('./routes/kycRoutes');
+// const kycRoutes = require('./routes/kycRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
 const serviceAvailabilityRoutes = require('./routes/serviceAvailabilityRoutes');
@@ -45,6 +45,7 @@ const weightDisputeRoutes = require('./routes/weightDisputeRoutes');
 const pendingCancellationRoutes = require('./routes/pendingCancellationRoutes');
 const pendingRefundRoutes = require('./routes/pendingRefundRoutes');
 const discountRoutes = require('./routes/discountRoutes');
+const updateProfileRoutes = require('./routes/updateProfileRoutes');
 connectDB();
 
 
@@ -60,7 +61,7 @@ app.use('/warehouse', warehouseRoutes)
 app.use('/contact', contactRoutes)
 app.use('/s3', s3Routes)
 app.use('/dashboard', dashboardRoutes)
-app.use('/kyc', kycRoutes)
+// app.use('/kyc', kycRoutes)
 app.use('/verification', verificationRoutes)
 app.use('/email/verification', emailVerificationRoutes)
 app.use('/service', serviceAvailabilityRoutes)
@@ -70,5 +71,6 @@ app.use('/weight-disputes', weightDisputeRoutes)
 app.use('/pending-cancellations', pendingCancellationRoutes);
 app.use('/pending-refunds', pendingRefundRoutes);
 app.use('/discounts', discountRoutes);
+app.use('/update-profile-requests', updateProfileRoutes);
 
 module.exports.handler = serverless(app);
