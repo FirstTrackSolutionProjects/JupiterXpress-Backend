@@ -35,7 +35,7 @@ const warehouseRoutes = require('./routes/warehouseRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const s3Routes = require('./routes/s3Routes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
-const kycRoutes = require('./routes/kycRoutes');
+// const kycRoutes = require('./routes/kycRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
 const serviceAvailabilityRoutes = require('./routes/serviceAvailabilityRoutes');
@@ -61,7 +61,7 @@ app.use('/warehouse', warehouseRoutes)
 app.use('/contact', contactRoutes)
 app.use('/s3', s3Routes)
 app.use('/dashboard', dashboardRoutes)
-app.use('/kyc', kycRoutes)
+// app.use('/kyc', kycRoutes)
 app.use('/verification', verificationRoutes)
 app.use('/email/verification', emailVerificationRoutes)
 app.use('/service', serviceAvailabilityRoutes)
