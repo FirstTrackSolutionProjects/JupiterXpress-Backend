@@ -34,7 +34,7 @@ const createDispute = async (req, res) => {
                 actual_height,
                 actual_weight,
                 actual_weight_unit
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 dispute_id,
                 box?.box_no,

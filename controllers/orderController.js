@@ -238,9 +238,9 @@ const createDomesticOrder = async (req, res) => {
 const createInternationalOrder = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
-        return {
+        return res.status(401).json({
             status: 401, message: "Access Denied"
-        };
+        });
     }
 
     try {

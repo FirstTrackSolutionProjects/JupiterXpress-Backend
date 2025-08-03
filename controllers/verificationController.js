@@ -363,6 +363,32 @@ const acceptVerificationRequest = async (req, res) => {
     }
 }
 
+const getPendingVerificationRequest = async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) {
+        return res.status(401).json({
+            status: 401, message: 'Access Denied'
+        });
+    }
+    try{
+        const verified = jwt.verify(token, SECRET_KEY);
+        const id = verified.id;
+        const [requests] = await db.query("SELECT * FROM MERCHANT_VERIFICATION WHERE status = 'pending' AND uid = ?",[id]);
+        if (requests.length){
+            return res.status(200).json({
+                status: 200, success: true, request: requests[0]
+            });
+        } else
+        return res.status(200).json({
+            status: 200, success: false, message: 'No pending verification request found'
+        });
+    } catch (error) {
+        return res.status(400).json({
+            status: 400, message: 'Invalid Token'
+        });
+    }
+} 
+
 module.exports = {
     createIncompleteVerifyRequest,
     submitVerifyRequest,
@@ -371,5 +397,6 @@ module.exports = {
     getIncompleteVerification,
     rejectVerificationRequest,
     updateVerificationDocumentStatus,
-    acceptVerificationRequest
+    acceptVerificationRequest,
+    getPendingVerificationRequest
 }

@@ -30,9 +30,9 @@ const getMerchantProfile = async (req, res) => {
 const activateMerchant = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
-        return {
+        return res.status(401).json({
             status: 401, message: "Access Denied"
-        };
+        });
     }
     try {
         const verified = jwt.verify(token, SECRET_KEY);
@@ -79,9 +79,9 @@ const activateMerchant = async (req, res) => {
 const deactivateMerchant = async (req, res) => {
     const token = req.headers.authorization;
     if (!token) {
-        return {
+        return res.status(401).json({
             status: 401, message: "Access Denied"
-        };
+        });
     }
     try {
         const verified = jwt.verify(token, SECRET_KEY);
@@ -98,6 +98,7 @@ const deactivateMerchant = async (req, res) => {
             });
         }
         try {
+            await db.query('UPDATE USERS set isActive=0 where uid = ?', [uid]);
             const [users] = await db.query("SELECT * FROM USERS WHERE uid = ?", [uid]);
             const { email, fullName } = users[0];
             let mailOptions = {
@@ -108,18 +109,18 @@ const deactivateMerchant = async (req, res) => {
             };
             await transporter.sendMail(mailOptions);
 
-            return {
+            return res.status(200).json({
                 status: 200, success: true, message: 'Account has been deactivated successfully'
-            };
+            });
         } catch (error) {
-            return {
+            return res.status(500).json({
                 status: 500, error: error.message
-            };
+            });
         }
     } catch (e) {
-        return {
+        return res.status(400).json({
             status: 400, message: 'Invalid Token'
-        };
+        });
     }
 }
 
