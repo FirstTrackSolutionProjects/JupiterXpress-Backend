@@ -3132,11 +3132,12 @@ const trackShipment = async (req, res) => {
                 })
             });
             const data = await response.json();
-            if (data.ErrorCode === "1") {
-                console.error('Error fetching tracking data:', response.statusText);
+            const responseData = data?.Response || {};
+            if (responseData.ErrorCode === "1") {
+                console.error('Error fetching tracking data:', responseData.ErrorDisc);
                 return { status: 400, message: "Unable to fetch shipment", success: false };
             }
-            return { status: 200, data: data.Events || [], success: true, id: 10 };
+            return { status: 200, data: responseData.Events || [], success: true, id: 10 };
         } catch (error) {
             console.error('Error fetching tracking data:', error);
             return { status: 500, message: "Error fetching tracking data", success: false };
