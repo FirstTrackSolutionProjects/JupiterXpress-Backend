@@ -2572,27 +2572,27 @@ const getDomesticShipmentPricing = async (req, res) => {
                 }
 
                 const commissionChartLessThan1500g = {
-                    'amazon' : 0.745,
+                    'amazon' : 0.894,
                     'ekart' : 0.815
                 }
 
                 const commissionChartLessThan2000g = {
-                    'amazon' : 0.596,
+                    'amazon' : 0.715,
                     'ekart' : 0.815
                 }
 
                 const commissionChartLessThan3000g = {
-                    'amazon' : 0.595,
+                    'amazon' : 0.743,
                     'ekart' : 0.916
                 }
 
                 const commissionChartLessThan4000g = {
-                    'amazon' : 0.525,
+                    'amazon' : 0.667,
                     'ekart' : 0.861
                 }
 
                 const commissionChartLessThan5000g = {
-                    'amazon' : 0.487,
+                    'amazon' : 0.820,
                     'ekart': 0.822
                 }
 
@@ -2602,22 +2602,22 @@ const getDomesticShipmentPricing = async (req, res) => {
                 }
 
                 const commissionChartLessThan7000g = {
-                    'amazon' : 0.485,
+                    'amazon' : 0.526,
                     'ekart' : 0.814
                 }
 
                 const commissionChartLessThan8000g = {
-                    'amazon' : 0.461,
+                    'amazon' : 0.525,
                     'ekart' : 0.79
                 }
 
                 const commissionChartLessThan9000g = {
-                    'amazon' : 0.459,
+                    'amazon' : 0.552,
                     'ekart': 0.80
                 }
 
                 const commissionChartLessThan10000g = {
-                    'amazon' : 0.457,
+                    'amazon' : 0.570,
                     'ekart': 0.814
                 }
 
