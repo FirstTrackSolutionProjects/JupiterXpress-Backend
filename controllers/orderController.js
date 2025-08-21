@@ -250,7 +250,8 @@ const createInternationalOrder = async (req, res) => {
             const {
                 wid,
                 contents,
-                serviceCode,
+                service,
+                vendor,
                 consigneeName,
                 consigneeCompany,
                 countryCode,
@@ -267,9 +268,18 @@ const createInternationalOrder = async (req, res) => {
                 items,
                 gst,
                 shippingType,
-                actual_weight,
+                actualWeight,
+                aadhaarNumber,
+                aadhaarDoc,
+                invoiceNumber,
+                invoiceDoc,
+                invoiceDate,
                 price
             } = req.body;
+
+            console.log(req.body)
+
+            console.log(service)
 
             try {
                 const transaction = await db.beginTransaction();
@@ -282,7 +292,8 @@ const createInternationalOrder = async (req, res) => {
                         iid,
                         wid,
                         contents,
-                        service_code,
+                        service,
+                        vendor,
                         consignee_name,
                         consignee_company_name,
                         consignee_country_code,
@@ -298,14 +309,20 @@ const createInternationalOrder = async (req, res) => {
                         shippingType,
                         gst,
                         shipping_price,
-                        actual_weight
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        actual_weight,
+                        aadhaar_number,
+                        aadhaar_doc,
+                        invoice_number,
+                        invoice_doc,
+                        invoice_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         id,
                         orderId,
                         wid,
                         contents,
-                        serviceCode,
+                        parseInt(service),
+                        vendor,
                         consigneeName,
                         consigneeCompany,
                         countryCode,
@@ -321,12 +338,17 @@ const createInternationalOrder = async (req, res) => {
                         shippingType,
                         gst,
                         price,
-                        actual_weight
+                        actualWeight,
+                        aadhaarNumber,
+                        aadhaarDoc,
+                        invoiceNumber,
+                        invoiceDoc,
+                        invoiceDate
                     ]
                 );
                 for (let i = 0; i < dockets.length; i++) {
                     const [docket] = await transaction.query(
-                        `INSERT INTO DOCKETS (box_no, iid, docket_weight, length, breadth, height ) VALUES (?, ?, ?, ?, ?, ?)`,
+                        `INSERT INTO DOCKETS (box_no, iid, docket_weight, length, breadth, height, docket_weight_unit, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                         [
                             dockets[i].box_no,
                             orderId,
@@ -334,6 +356,8 @@ const createInternationalOrder = async (req, res) => {
                             dockets[i].length,
                             dockets[i].breadth,
                             dockets[i].height,
+                            dockets[i].docket_weight_unit,
+                            dockets[i].quantity
                         ]
                     );
                     const did = docket.insertId;
@@ -361,6 +385,7 @@ const createInternationalOrder = async (req, res) => {
                     status: 200, success: true, message: "Order Created"
                 });
             } catch (error) {
+                console.error(error)
                 return res.status(500).json({
                     status: 500,
                     message: error.message,
@@ -368,11 +393,13 @@ const createInternationalOrder = async (req, res) => {
                 });
             }
         } catch (err) {
+            console.error(err)
             return res.status(500).json({
                 status: 500, message: "Something went wrong"
             });
         }
     } catch (err) {
+        console.error(err)
         return res.status(400).json({
             status: 400, message: "Invalid Token"
         });
@@ -395,7 +422,7 @@ const updateInternationalOrder = async (req, res) => {
                 iid,
                 wid,
                 contents,
-                serviceCode,
+                vendor,
                 consigneeName,
                 consigneeCompany,
                 countryCode,
@@ -412,7 +439,7 @@ const updateInternationalOrder = async (req, res) => {
                 items,
                 gst,
                 shippingType,
-                actual_weight,
+                actualWeight,
                 price
             } = req.body;
 
@@ -422,7 +449,7 @@ const updateInternationalOrder = async (req, res) => {
                     `UPDATE INTERNATIONAL_SHIPMENTS SET
   wid = ?,
   contents = ?,
-  service_code = ?,
+  vendor = ?,
   consignee_name = ?,
   consignee_company_name = ?,
   consignee_country_code = ?,
@@ -442,7 +469,7 @@ const updateInternationalOrder = async (req, res) => {
                     [
                         wid,
                         contents,
-                        serviceCode,
+                        vendor,
                         consigneeName,
                         consigneeCompany,
                         countryCode,
@@ -458,7 +485,7 @@ const updateInternationalOrder = async (req, res) => {
                         shippingType,
                         gst,
                         price,
-                        actual_weight,
+                        actualWeight,
                         iid
                     ]
                 );

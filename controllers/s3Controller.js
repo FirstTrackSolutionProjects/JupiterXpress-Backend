@@ -33,7 +33,7 @@ const getPutSignedUrl = async (req, res) => {
     try {
         const uploadURL = await s3.getSignedUrlPromise('putObject', params);
         return res.status(200).json({
-            status: 200, uploadURL
+            status: 200, uploadURL, success: true
         });
     } catch (error) {
         console.error(error);
