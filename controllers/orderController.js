@@ -440,6 +440,11 @@ const updateInternationalOrder = async (req, res) => {
                 gst,
                 shippingType,
                 actualWeight,
+                aadhaarDoc,
+                aadhaarNumber,
+                invoiceDoc,
+                invoiceNumber,
+                invoiceDate,
                 price
             } = req.body;
 
@@ -465,7 +470,13 @@ const updateInternationalOrder = async (req, res) => {
   shippingType = ?,
   gst = ?,
   shipping_price = ?,
-  actual_weight = ? WHERE iid = ?`,
+  actual_weight = ?,
+  aadhaar_doc = ?,
+  aadhaar_number = ?,
+  invoice_doc = ?,
+  invoice_number = ?,
+  invoice_date = ?  
+  WHERE iid = ?`,
                     [
                         wid,
                         contents,
@@ -486,6 +497,11 @@ const updateInternationalOrder = async (req, res) => {
                         gst,
                         price,
                         actualWeight,
+                        aadhaarDoc,
+                        aadhaarNumber,
+                        invoiceDoc,
+                        invoiceNumber,
+                        invoiceDate,
                         iid
                     ]
                 );
