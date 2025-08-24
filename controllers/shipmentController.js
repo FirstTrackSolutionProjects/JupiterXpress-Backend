@@ -2235,7 +2235,8 @@ const getDomesticShipmentPricing = async (req, res) => {
             });
             const data = await response.json();
             console.log(data)
-            const price = data[0]['total_amount']
+            const price = data?.[0]?.['total_amount']
+            if (!price || price <= 0) return;
             const grossPrice = Math.round(((price + (payMode=='COD'?(Math.max(25, (codAmount*1.25)/100))*1.18:0)) * 1.3) + (payMode=='COD'?50:0));
             const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
             responses.push({
@@ -2259,7 +2260,8 @@ const getDomesticShipmentPricing = async (req, res) => {
                 }
             })
             const data2 = await response2.json();
-            const price2 = data2[0]['total_amount'];
+            const price2 = data2?.[0]?.['total_amount']
+            if (!price2 || price2 <= 0) return;
             const grossPrice = Math.round(((price2 + (payMode=='COD'?(Math.max(25, (codAmount*1.25)/100))*1.18:0)) * 1.3) + (payMode=='COD'?50:0));
             const discountedPrice = await getDiscountedPrice(uid, serviceId, grossPrice);
             responses.push({
