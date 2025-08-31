@@ -132,13 +132,47 @@ const getAllExpenseTransactions = async (req, res) => {
         const id = verified.id;
         const admin = verified.admin;
         if (admin) {
-            const [rows] = await db.query('SELECT e.*, u.*, sv.service_name AS service_name FROM EXPENSES e JOIN USERS u ON e.uid = u.uid JOIN SHIPMENTS s ON e.expense_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id');
+            const [rows] = await db.query(`
+            SELECT e.*, u.fullName, u.businessName, sv.service_name AS service_name, NULL AS vendor_name, s.is_b2b AS is_b2b
+            FROM EXPENSES e
+            JOIN USERS u ON e.uid = u.uid
+            JOIN SHIPMENTS s ON e.expense_order = s.ord_id
+            JOIN SERVICES sv ON s.serviceId = sv.service_id
 
+            UNION ALL
+
+            SELECT e.*, u.fullName, u.businessName,  sv.service_name AS service_name, svv.vendor_name AS vendor_name, NULL AS is_b2b
+            FROM EXPENSES e
+            JOIN USERS u ON e.uid = u.uid
+            JOIN INTERNATIONAL_SHIPMENTS s ON e.expense_order = s.iid
+            JOIN SERVICES sv ON s.service = sv.service_id
+            JOIN SERVICE_VENDORS svv ON s.vendor = svv.id
+
+            ORDER BY date DESC
+          `);
             return res.status(200).json({
                 status: 200, success: true, data: rows
             });
         }
-        const [rows] = await db.query('SELECT e.*, sv.service_name AS service_name FROM EXPENSES e JOIN SHIPMENTS s ON e.expense_order = s.ord_id JOIN SERVICES sv ON s.serviceId = sv.service_id where e.uid = ?', [id]);
+        const [rows] = await db.query(`
+          SELECT e.*, sv.service_name AS service_name, NULL AS vendor_name, s.is_b2b AS is_b2b
+          FROM EXPENSES e
+          JOIN SHIPMENTS s ON e.expense_order = s.ord_id
+          JOIN SERVICES sv ON s.serviceId = sv.service_id
+          WHERE e.uid = ?
+
+          UNION ALL
+
+          SELECT e.*, sv.service_name AS service_name, svv.vendor_name AS vendor_name, NULL AS is_b2b
+          FROM EXPENSES e
+          JOIN INTERNATIONAL_SHIPMENTS s ON e.expense_order = s.iid
+          JOIN SERVICES sv ON s.service = sv.service_id
+          JOIN SERVICE_VENDORS svv ON s.vendor = svv.id
+          WHERE e.uid = ?
+
+          ORDER BY date DESC
+        `, [id, id]);
+
 
         return res.status(200).json({
             status: 200, success: true, data: rows
@@ -192,15 +226,25 @@ const getAllRefundTransactions = async (req, res) => {
                 status: 200, success: true, data: rows
             });
         }
-        const [rows] = await db.query(`SELECT
-          r.*,
-          sv.service_name AS service_name, 
-          u.fullName 
-          FROM REFUND r 
-          JOIN USERS u ON r.uid = u.uid 
-          JOIN SHIPMENTS s ON r.refund_order = s.ord_id 
-          JOIN SERVICES sv ON s.serviceId = sv.service_id 
-          where r.uid = ?`, [id]);
+
+        const [rows] = await db.query(`
+          SELECT r.*, sv.service_name AS service_name, NULL AS vendor_name, s.is_b2b AS is_b2b
+          FROM REFUND r
+          JOIN SHIPMENTS s ON r.refund_order = s.ord_id
+          JOIN SERVICES sv ON s.serviceId = sv.service_id
+          WHERE r.uid = ?
+
+          UNION ALL
+
+          SELECT r.*, sv.service_name AS service_name, svv.vendor_name AS vendor_name, NULL AS is_b2b
+          FROM REFUND r
+          JOIN INTERNATIONAL_SHIPMENTS s ON r.refund_order = s.iid
+          JOIN SERVICES sv ON s.service = sv.service_id
+          JOIN SERVICE_VENDORS svv ON s.vendor = svv.id
+          WHERE r.uid = ?
+
+          ORDER BY date DESC
+        `, [id, id]);
 
         return res.status(200).json({
             status: 200, success: true, data: rows
@@ -212,6 +256,276 @@ const getAllRefundTransactions = async (req, res) => {
         });
     }
 }
+
+// ADMIN aggregated wallet transactions with filtering & pagination
+const getAllWalletTransactionsAdmin = async (req, res) => {
+  const {admin} = req.user;
+  if (!admin) return res.status(401).json({ success: false, message: 'Access Denied' });
+
+  const {
+    page = 1,
+    startDate,
+    endDate,
+    order_id,
+    merchant_email,
+    merchant_name,
+    merchant_business_name,
+    type = 'all'
+  } = req.query;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
+  }
+
+  try {
+    const PAGE_SIZE = 50;
+    const currentPage = parseInt(page) || 1;
+    const offset = (currentPage - 1) * PAGE_SIZE;
+
+    // Build dynamic WHERE fragments for each table alias appropriately
+    const filters = [];
+    const params = [];
+    const dateParams = [startDate, endDate];
+
+    // Merchant filters (apply to USERS table alias u)
+    if (merchant_email) {
+      filters.push('u.email = ?');
+      params.push(merchant_email);
+    }
+    if (merchant_name) {
+      filters.push('u.fullName LIKE ?');
+      params.push(`%${merchant_name}%`);
+    }
+    if (merchant_business_name) {
+      filters.push('u.businessName LIKE ?');
+      params.push(`%${merchant_business_name}%`);
+    }
+
+    // Type filter helper
+    const includeType = (t) => type === 'all' || type === t;
+
+    // Build unified selects (each must project identical column list)
+    // Column order: id, order_id, payment_id, type, amount, remaining_balance, date, uid, fullName, email, businessName, service_name, reason
+    const selects = [];
+
+    if (includeType('dispute_charge')) {
+      selects.push(`SELECT CONCAT('DIS', dc.id) AS id, dc.dispute_order AS order_id, NULL AS payment_id, 'dispute_charge' AS type,
+        dc.dispute_charge AS amount, dc.remaining_balance, dc.date, u.uid, u.fullName, u.email, u.businessName, sv.service_name, NULL AS reason
+        FROM DISPUTE_CHARGES dc
+        JOIN USERS u ON dc.uid = u.uid
+        JOIN SHIPMENTS sh ON dc.dispute_order = sh.ord_id
+        JOIN SERVICES sv ON sh.serviceId = sv.service_id
+        WHERE dc.date BETWEEN ? AND ? ${filters.length ? 'AND ' + filters.join(' AND ') : ''}`);
+    }
+    if (includeType('expense')) {
+      // Domestic expenses
+      selects.push(`SELECT CONCAT('EXP', e.xid) AS id, e.expense_order AS order_id, NULL AS payment_id, 'expense' AS type,
+        e.expense_cost AS amount, e.remaining_balance, e.date, u.uid, u.fullName, u.email, u.businessName, sv.service_name, NULL AS reason
+        FROM EXPENSES e
+        JOIN USERS u ON e.uid = u.uid
+        JOIN SHIPMENTS sh ON e.expense_order = sh.ord_id
+        JOIN SERVICES sv ON sh.serviceId = sv.service_id
+        WHERE e.date BETWEEN ? AND ? ${filters.length ? 'AND ' + filters.join(' AND ') : ''}`);
+      // International expenses
+      selects.push(`SELECT CONCAT('EXP', e.xid) AS id, e.expense_order AS order_id, NULL AS payment_id, 'expense' AS type,
+        e.expense_cost AS amount, e.remaining_balance, e.date, u.uid, u.fullName, u.email, u.businessName, sv2.service_name, NULL AS reason
+        FROM EXPENSES e
+        JOIN USERS u ON e.uid = u.uid
+        JOIN INTERNATIONAL_SHIPMENTS ish ON e.expense_order = ish.iid
+        JOIN SERVICES sv2 ON ish.service = sv2.service_id
+        WHERE e.date BETWEEN ? AND ? ${filters.length ? 'AND ' + filters.join(' AND ') : ''}`);
+    }
+    if (includeType('refund')) {
+      // Domestic refunds
+      selects.push(`SELECT CONCAT('REF', r.rid) AS id, r.refund_order AS order_id, NULL AS payment_id, 'refund' AS type,
+        r.refund_amount AS amount, r.remaining_balance, r.date, u.uid, u.fullName, u.email, u.businessName, sv.service_name, NULL AS reason
+        FROM REFUND r
+        JOIN USERS u ON r.uid = u.uid
+        JOIN SHIPMENTS sh ON r.refund_order = sh.ord_id
+        JOIN SERVICES sv ON sh.serviceId = sv.service_id
+        WHERE r.date BETWEEN ? AND ? ${filters.length ? 'AND ' + filters.join(' AND ') : ''}`);
+      // International refunds
+      selects.push(`SELECT CONCAT('REF', r.rid) AS id, r.refund_order AS order_id, NULL AS payment_id, 'refund' AS type,
+        r.refund_amount AS amount, r.remaining_balance, r.date, u.uid, u.fullName, u.email, u.businessName, sv2.service_name, NULL AS reason
+        FROM REFUND r
+        JOIN USERS u ON r.uid = u.uid
+        JOIN INTERNATIONAL_SHIPMENTS ish ON r.refund_order = ish.iid
+        JOIN SERVICES sv2 ON ish.service = sv2.service_id
+        WHERE r.date BETWEEN ? AND ? ${filters.length ? 'AND ' + filters.join(' AND ') : ''}`);
+    }
+    if (includeType('recharge')) {
+      selects.push(`SELECT CONCAT('REC', rc.payment_id) AS id, rc.order_id AS order_id, rc.payment_id AS payment_id, 'recharge' AS type,
+        rc.amount AS amount, rc.remaining_balance, rc.date, u.uid, u.fullName, u.email, u.businessName, NULL AS service_name, NULL AS reason
+        FROM RECHARGE rc
+        JOIN USERS u ON rc.uid = u.uid
+        WHERE rc.date BETWEEN ? AND ? ${filters.length ? 'AND ' + filters.join(' AND ') : ''}`);
+    }
+    if (includeType('manual')) {
+      selects.push(`SELECT CONCAT('MAN', mr.recharge_id) AS id, mr.recharge_id AS order_id, NULL AS payment_id, 'manual' AS type,
+        mr.amount AS amount, mr.remaining_balance, mr.date, u.uid, u.fullName, u.email, u.businessName, NULL AS service_name, mr.reason AS reason
+        FROM MANUAL_RECHARGE mr
+        JOIN USERS u ON mr.beneficiary_id = u.uid
+        WHERE mr.date BETWEEN ? AND ? ${filters.length ? 'AND ' + filters.join(' AND ') : ''}`);
+    }
+
+    if (!selects.length) {
+      return res.status(200).json({ success: true, data: { rows: [], totalPages: 0, currentPage: 1, totalRecords: 0, hasPrevious: false, hasNext: false, count: 0 } });
+    }
+
+  const unionQuery = selects.join(' UNION ALL ');
+  const finalQueryBase = `SELECT * FROM ( ${unionQuery} ) AS all_tx ${order_id ? 'WHERE order_id = ?' : ''} ORDER BY date DESC`;
+
+    // Build parameters: for each SELECT we have date range + filters params (duplicated per SELECT)
+    const perSelectParams = [];
+  const baseParamSet = [...dateParams, ...params]; // date range + merchant filters per SELECT
+    for (let i = 0; i < selects.length; i++) {
+      perSelectParams.push(...baseParamSet);
+    }
+    if (order_id) perSelectParams.push(order_id);
+
+    // Count total
+  const countQuery = `SELECT COUNT(*) AS total FROM ( ${unionQuery} ) AS c ${order_id ? 'WHERE order_id = ?' : ''}`;
+  const [countRows] = await db.query(countQuery, perSelectParams.slice(0, perSelectParams.length));
+    const totalRecords = countRows[0]?.total || 0;
+    const totalPages = Math.ceil(totalRecords / PAGE_SIZE) || 1;
+  const paginatedQuery = `${finalQueryBase} LIMIT ? OFFSET ?`;
+  const paginatedParams = [...perSelectParams, PAGE_SIZE, offset];
+    const [rows] = await db.query(paginatedQuery, paginatedParams);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        rows,
+        totalPages,
+        currentPage,
+        totalRecords,
+        hasPrevious: currentPage > 1,
+        hasNext: currentPage < totalPages,
+        count: rows.length
+      }
+    });
+  } catch (err) {
+    console.error('Admin wallet tx error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
+// MERCHANT aggregated wallet transactions with filtering & pagination (scoped to their uid)
+const getAllWalletTransactionsUser = async (req, res) => {
+  const { admin, id: uid } = req.user;
+  if (admin) return res.status(401).json({ success: false, message: 'Access Denied' });
+  const {
+    page = 1,
+    startDate,
+    endDate,
+    order_id,
+    type = 'all'
+  } = req.query;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
+  }
+
+  try {
+  const PAGE_SIZE = 50000;
+  const currentPage = parseInt(page) || 1;
+  const offset = (currentPage - 1) * PAGE_SIZE;
+
+    const includeType = (t) => type === 'all' || type === t;
+    const selects = [];
+    const dateParams = [startDate, endDate];
+
+    // We'll add uid as param for each select
+    if (includeType('dispute_charge')) {
+      selects.push(`SELECT CONCAT('DIS', dc.id) AS id, dc.dispute_order AS order_id, NULL AS payment_id, 'dispute_charge' AS type,
+        dc.dispute_charge AS amount, dc.remaining_balance, dc.date, dc.uid AS uid, sv.service_name, NULL AS reason
+        FROM DISPUTE_CHARGES dc
+        JOIN SHIPMENTS sh ON dc.dispute_order = sh.ord_id
+        JOIN SERVICES sv ON sh.serviceId = sv.service_id
+        WHERE dc.date BETWEEN ? AND ? AND dc.uid = ?`);
+    }
+    if (includeType('expense')) {
+      selects.push(`SELECT CONCAT('EXP', e.xid) AS id, e.expense_order AS order_id, NULL AS payment_id, 'expense' AS type,
+          e.expense_cost AS amount, e.remaining_balance, e.date, e.uid AS uid, sv.service_name, NULL AS reason
+        FROM EXPENSES e
+        JOIN SHIPMENTS sh ON e.expense_order = sh.ord_id
+        JOIN SERVICES sv ON sh.serviceId = sv.service_id
+        WHERE e.date BETWEEN ? AND ? AND e.uid = ?`);
+      
+      selects.push(`SELECT CONCAT('EXP', e.xid) AS id, e.expense_order AS order_id, NULL AS payment_id, 'expense' AS type,
+          e.expense_cost AS amount, e.remaining_balance, e.date, e.uid AS uid, sv.service_name, NULL AS reason
+        FROM EXPENSES e
+        JOIN INTERNATIONAL_SHIPMENTS ish ON e.expense_order = ish.iid
+        JOIN SERVICES sv ON ish.service = sv.service_id
+        WHERE e.date BETWEEN ? AND ? AND e.uid = ?`);
+    }
+    if (includeType('refund')) {
+      selects.push(`SELECT CONCAT('REF', r.rid) AS id, r.refund_order AS order_id, NULL AS payment_id, 'refund' AS type,
+        r.refund_amount AS amount, r.remaining_balance, r.date, r.uid AS uid, sv.service_name, NULL AS reason
+        FROM REFUND r
+        JOIN SHIPMENTS sh ON r.refund_order = sh.ord_id
+        JOIN SERVICES sv ON sh.serviceId = sv.service_id
+        WHERE r.date BETWEEN ? AND ? AND r.uid = ?`);
+
+      selects.push(`SELECT CONCAT('REF', r.rid) AS id, r.refund_order AS order_id, NULL AS payment_id, 'refund' AS type,
+        r.refund_amount AS amount, r.remaining_balance, r.date, r.uid AS uid, sv.service_name, NULL AS reason
+        FROM REFUND r
+        JOIN INTERNATIONAL_SHIPMENTS ish ON r.refund_order = ish.iid
+        JOIN SERVICES sv ON ish.service = sv.service_id
+        WHERE r.date BETWEEN ? AND ? AND r.uid = ?`);
+    }
+    if (includeType('recharge')) {
+      selects.push(`SELECT CONCAT('REC', rc.id) AS id, rc.order_id AS order_id, rc.payment_id AS payment_id, 'recharge' AS type,
+        rc.amount AS amount, rc.remaining_balance, rc.date, rc.uid AS uid, NULL AS service_name, NULL AS reason
+        FROM RECHARGE rc
+        WHERE rc.date BETWEEN ? AND ? AND rc.uid = ?`);
+    }
+    if (includeType('manual')) {
+      selects.push(`SELECT CONCAT('MAN', mr.recharge_id) AS id, mr.recharge_id AS order_id, NULL AS payment_id, 'manual' AS type,
+        mr.amount AS amount, mr.remaining_balance, mr.date, mr.beneficiary_id AS uid, NULL AS service_name, mr.reason AS reason
+        FROM MANUAL_RECHARGE mr
+        WHERE mr.date BETWEEN ? AND ? AND mr.beneficiary_id = ?`);
+    }
+
+    if (!selects.length) {
+      return res.status(200).json({ success: true, data: { rows: [], totalPages: 0, currentPage: 1, totalRecords: 0, hasPrevious: false, hasNext: false, count: 0 } });
+    }
+
+  const unionQuery = selects.join(' UNION ALL ');
+  const finalQueryBase = `SELECT * FROM ( ${unionQuery} ) AS all_tx ${order_id ? 'WHERE order_id = ?' : ''} ORDER BY date DESC`;
+
+    // parameters duplication
+    const perSelectParams = [];
+    const baseParams = [...dateParams, uid];
+    for (let i = 0; i < selects.length; i++) perSelectParams.push(...baseParams);
+    if (order_id) perSelectParams.push(order_id);
+
+  const countQuery = `SELECT COUNT(*) AS total FROM ( ${unionQuery} ) AS c ${order_id ? 'WHERE order_id = ?' : ''}`;
+  const [countRows] = await db.query(countQuery, perSelectParams);
+  const totalRecords = countRows[0]?.total || 0;
+  const totalPages = Math.ceil(totalRecords / PAGE_SIZE) || 1;
+
+  const paginatedQuery = `${finalQueryBase} LIMIT ? OFFSET ?`;
+    const paginatedParams = [...perSelectParams, PAGE_SIZE, offset];
+    const [rows] = await db.query(paginatedQuery, paginatedParams);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        rows,
+        totalPages,
+        currentPage,
+        totalRecords,
+        hasPrevious: currentPage > 1,
+        hasNext: currentPage < totalPages,
+        count: rows.length
+      }
+    });
+  } catch (err) {
+    console.error('User wallet tx error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
 
 const manualRecharge = async (req, res) => {
     const token = req.headers.authorization;
@@ -779,7 +1093,7 @@ const getTransactions = async (req, res) => {
     }
 
     const queries = [];
-    const dateFilter = `AND DATE(t.date) BETWEEN ? AND ?`;
+    const dateFilter = `AND t.date BETWEEN ? AND ?`;
     const dateParams = [startDate, endDate];
 
     const queryMap = {
@@ -881,5 +1195,7 @@ module.exports = {
     getAllDisputeChargesTransactions,
     exportAllTransactionsJSON,
     exportTransactionsJSON,
-    getTransactions
+    getTransactions,
+    getAllWalletTransactionsAdmin,
+    getAllWalletTransactionsUser
 };
