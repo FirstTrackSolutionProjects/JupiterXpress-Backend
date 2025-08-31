@@ -12,12 +12,12 @@ const createDispute = async (req, res) => {
         if (!admin){
             return res.status(401).json({ message: 'Unauthorized' });
         }
-        const { ord_id, dispute_deduction, dispute_boxes, dispute_doc1, dispute_doc2, dispute_doc3, dispute_doc_4 } = req.body;
+        const { ord_id, dispute_deduction, dispute_boxes, doc_1, doc_2, doc_3, doc_4 } = req.body;
         if (!ord_id || !dispute_deduction || !((dispute_boxes instanceof Array) && dispute_boxes?.length )) {
             return res.status(400).json({ message: 'Invalid request' });
         }
         const transaction = await db.beginTransaction();
-        const [dispute] = await transaction.query(`INSERT INTO WEIGHT_DISPUTES (ord_id, dispute_deduction, doc_1, doc_2, doc_3, doc_4) VALUES (?,?,?,?,?,?)`,[ord_id, dispute_deduction, dispute_doc1, dispute_doc2, dispute_doc3, dispute_doc_4]);
+        const [dispute] = await transaction.query(`INSERT INTO WEIGHT_DISPUTES (ord_id, dispute_deduction, doc_1, doc_2, doc_3, doc_4) VALUES (?,?,?,?,?,?)`,[ord_id, dispute_deduction, doc_1, doc_2, doc_3, doc_4]);
         const dispute_id = dispute?.insertId;
         await Promise.all(dispute_boxes.map(async (box) => {
             await transaction.query(
