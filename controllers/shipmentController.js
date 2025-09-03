@@ -2223,7 +2223,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         let responses = []
 
         const delhivery500gmPricing = async () => {
-            if (isB2B) return;
+            if (isB2B && !priceCalc) return;
             if (total_quantity > 1) return;
             const serviceId = 1;
             const response = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}&payment_mode=Wallet`, {
@@ -2249,7 +2249,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         }
 
         const delhivery10kgPricing = async () => {
-            if (isB2B) return;
+            if (isB2B && !priceCalc) return;
             if (total_quantity > 1 || method != "S") return;
             const serviceId = 2;
             const response2 = await fetch(`https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=${method}&ss=${status}&d_pin=${dest}&o_pin=${origin}&cgm=${netWeight}&pt=${payMode}&cod=${codAmount}&payment_mode=Wallet`, {
@@ -2333,7 +2333,7 @@ const getDomesticShipmentPricing = async (req, res) => {
         }
 
         const pickrr20kgPricing = async () => {
-            if (!isB2B) return;
+            if (!isB2B && !priceCalc) return;
             const serviceId = 4;
             const pickrrLogin = await fetch('https://api-cargo.shiprocket.in/api/token/refresh/', {
                 method: "POST",
@@ -2403,7 +2403,7 @@ const getDomesticShipmentPricing = async (req, res) => {
 
         const shiprocketPricing = async () => {
             if (total_quantity !== 1) return;
-            if (isB2B) return;
+            if (isB2B && !priceCalc) return;
             const serviceId = 5;
             const [apiKeys] = await db.query("SELECT Shiprocket FROM DYNAMIC_APIS");
             const [servicesWithWarehouse] = await db.query("SELECT service_name FROM SERVICES WHERE service_id = 5");
@@ -2448,7 +2448,7 @@ const getDomesticShipmentPricing = async (req, res) => {
 
         const enviaB2BPricing = async () => {
             if (total_quantity !== 1) return;
-            if (isB2B) return;
+            if (isB2B && !priceCalc) return;
             const serviceId = 6;
             const enviaServicesResponse = await fetch(`https://queries.envia.com/available-carrier/IN/0`, {
                 method: 'GET',
