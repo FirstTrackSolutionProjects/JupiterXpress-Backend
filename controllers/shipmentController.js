@@ -4,6 +4,8 @@ const { s3 } = require('../utils/aws_s3');
 const { transporter } = require('../utils/email');
 const { movinPincodes, movinPrices, movinRegion, IndianStateInfo } = require('../data/movin');
 const findClosestMatch = require('../helpers/findClosestMatch');
+const { COUNTRIES } = require('../constants');
+const dateFormatterWorldFirstService = require('../helpers/dateFormatterWorldFirstService');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
@@ -1282,160 +1284,373 @@ const createDomesticShipment = async (req, res) => {
     }
 }
 
-const createInternationalShipment = async (req, res) => {
+const requestInternationalShipment = async (req, res) => {
     try {
-        const token = req.headers.authorization;
-        const verified = jwt.verify(token, SECRET_KEY);
-        const id = verified.id;
-        const [users] = await db.query('SELECT * FROM USERS u JOIN USER_DATA ud ON u.uid = ud.uid WHERE u.uid =?', [id]);
-        const user = users[0]
-        const email = user.email;
-        const { iid } = req.body;
-        if (!iid) {
-            return res.status(400).json({
-                status: 400,
-                success: false,
-                message: "Missing international shipment ID"
-            });
-        }
-        const [shipments] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS WHERE iid = ? ', [iid]);
+        const {id : userId, admin} = req.user;
+        if (admin) return res.status(400).json({ status: 400, message: "Only merchant can request international shipment" });
+        // Continue with the request handling
+        const orderId = req.params.orderId;
+        if (!orderId) return res.status(400).json({ status: 400, message: "Missing order ID" });
+        const [shipments] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS WHERE uid = ? AND iid = ?', [userId, orderId]);
+        if (shipments.length === 0) return res.status(404).json({ status: 404, message: "No shipments found" });
         const shipment = shipments[0];
-        const [dockets] = await db.query('SELECT * FROM DOCKETS WHERE iid = ? ', [iid]);
-        const [items] = await db.query('SELECT * FROM DOCKET_ITEMS WHERE iid = ? ', [iid]);
-        const [warehouses] = await db.query('SELECT * FROM WAREHOUSES WHERE uid = ? AND wid = ?', [id, shipment.wid]);
-        const [key] = await db.query('SELECT FlightGo FROM DYNAMIC_APIS');
-        const api_key = key[0].FlightGo
-        const warehouse = warehouses[0]
-        const params = {
-            Bucket: process.env.S3_BUCKET_NAME_,
-            Key: user.aadhar_doc,
-            Expires: 60 * 60 * 24 * 7,
-        };
+        if (shipment.is_requested) return res.status(400).json({ status: 400, message: "International shipment request already exists" });
+        await db.query('UPDATE INTERNATIONAL_SHIPMENTS SET is_requested = ? WHERE iid = ? AND uid = ?', [true, orderId, userId]);
+        return res.status(200).json({
+            status: 200,
+            success: true
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+}
 
+const rejectInternationalShipment = async (req, res) => {
+    try {
+        const { admin } = req.user;
+        if (!admin) return res.status(400).json({ status: 400, message: "Only admin can reject international shipment" });
+        const orderId = req.params.orderId;
+        if (!orderId) return res.status(400).json({ status: 400, message: "Missing order ID" });
+        const [shipments] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS WHERE iid = ?', [orderId]);
+        if (shipments.length === 0) return res.status(404).json({ status: 404, message: "No shipments found" });
+        const shipment = shipments[0];
+        if (!shipment.is_requested) return res.status(400).json({ status: 400, message: "International shipment request does not exist" });
+        await db.query('UPDATE INTERNATIONAL_SHIPMENTS SET is_requested = ? WHERE iid = ?', [false, orderId]);
+        return res.status(200).json({
+            status: 200,
+            success: true
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+}
+
+const cancelInternationalShipmentRequest = async (req, res) => {
+    try {
+        const { id: userId, admin } = req.user;
+        if (admin) return res.status(400).json({ status: 400, message: "Only merchant can cancel international shipment" });
+        const orderId = req.params.orderId;
+        if (!orderId) return res.status(400).json({ status: 400, message: "Missing order ID" });
+        const [shipments] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS WHERE uid = ? AND iid = ?', [userId, orderId]);
+        if (shipments.length === 0) return res.status(404).json({ status: 404, message: "No shipments found" });
+        const shipment = shipments[0];
+        if (!shipment.is_requested) return res.status(400).json({ status: 400, message: "International shipment request does not exist" });
+        await db.query('UPDATE INTERNATIONAL_SHIPMENTS SET is_requested = ? WHERE iid = ? AND uid = ?', [false, orderId, userId]);
+        return res.status(200).json({
+            status: 200,
+            success: true
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            status: 500,
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+}
+
+
+const approveInternationalShipment = async (req, res) => {
+    try {
+        const { id, admin } = req.user;
+        if (!admin) return res.status(400).json({ status: 400, message: "Only admin can approve international shipment" });
+        const orderId = req.params.orderId;
+        if (!orderId) return res.status(400).json({ status: 400, message: "Missing order ID" });
+        const [shipments] = await db.query('SELECT ish.*, sv.vendor_name, sv.vendor_code FROM INTERNATIONAL_SHIPMENTS ish JOIN SERVICE_VENDORS sv ON ish.vendor = sv.id WHERE ish.iid = ? AND ish.is_requested = true', [orderId]);
+        if (shipments.length === 0) return res.status(404).json({ status: 404, message: "No shipments found" });
+        const shipment = shipments[0];
+        const merchantId = shipment.uid;
+        const [users] = await db.query('SELECT * FROM USERS u JOIN USER_DATA ud ON u.uid = ud.uid WHERE u.uid =?', [merchantId]);
+        const merchant = users[0]
+        const merchantEmail = merchant.email;
+        const [dockets] = await db.query('SELECT * FROM DOCKETS WHERE iid = ? ', [orderId]);
+        const [items] = await db.query('SELECT * FROM DOCKET_ITEMS WHERE iid = ? ', [orderId]);
+        const [warehouses] = await db.query('SELECT * FROM WAREHOUSES WHERE uid = ? AND wid = ?', [merchantId, shipment.wid]);
+        const warehouse = warehouses[0];
+        const transaction = await db.beginTransaction();
+        const [shipmentIds] = await transaction.query('SELECT international_shipment_reference_id FROM SYSTEM_CODE_GENERATOR');
+        await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET international_shipment_reference_id = international_shipment_reference_id + 1");
+        await db.commit(transaction);
+        const shipmentId = `JUPINT${shipmentIds[0].international_shipment_reference_id}`
         let total_amount = 0;
         for (let i = 0; i < items.length; i++) {
             total_amount += (parseFloat(items[i].rate) * parseFloat(items[i].quantity))
         }
-        const downloadURL = await s3.getSignedUrlPromise('getObject', params);
-        const transaction = await db.beginTransaction();
-        const [shipmentIds] = await transaction.query('SELECT international_shipment_reference_id FROM SYSTEM_CODE_GENERATOR');
-        await transaction.query("UPDATE SYSTEM_CODE_GENERATOR SET international_shipment_reference_id = international_shipment_reference_id + 1")
-        const shipmentId = `JUPINT${shipmentIds[0].international_shipment_reference_id}`
+        const serviceId = shipment.service;
+        const total_quantity = dockets.reduce((acc, docket) => acc + parseInt(docket.quantity), 0);
 
-        const reqBody = {
-            "tracking_no": shipmentId,
-            "origin_code": "IN",
-            // "customer_id"  : "181",
-            "product_code": "NONDOX",
-            "destination_code": shipment.consignee_country,
-            "booking_date": shipment.invoice_date,
-            "booking_time": shipment.invoice_time,
-            "pcs": dockets.length,
-            "shipment_value": total_amount,
-            "shipment_value_currency": "INR",
-            "actual_weight": shipment.actual_weight,
-            "shipment_invoice_no": shipmentId,
-            "shipment_invoice_date": shipment.invoice_date,
-            "shipment_content": shipment.contents,
-            "free_form_note_master_code": shipment.shippingType,
-            "new_docket_free_form_invoice": "1",
-            "free_form_currency": "INR",
-            "terms_of_trade": "FOB",
-            "api_service_code": shipment.service_code,
-            "free_form_invoice_type_id": "INVOICE",
-            "shipper_name": warehouse.warehouseName,
-            "shipper_company_name": user.businessName,
-            "shipper_contact_no": user.phone,
-            "shipper_email": "xpressjupiter@gmail.com",
-            "shipper_address_line_1": warehouse.address,
+        //CALCULATE TOTAL WEIGHT USING docket_weight and docket_weight_unit and quantity
+        const total_weight = dockets.reduce((acc, docket) => {
+            const weight = parseFloat(docket.docket_weight);
+            const quantity = parseInt(docket.quantity);
+            const unit = docket.docket_weight_unit;
+            if (unit === "kg") {
+                return acc + parseInt(weight * 1000) * quantity;
+            } else if (unit === "g") {
+                return acc + parseInt(weight) * quantity;
+            }
+            return acc;
+        }, 0);
 
-            "shipper_city": user.city,
-            "shipper_state": user.state,
-            "shipper_country": "IN",
-            "shipper_zip_code": warehouse.pin,
-            "shipper_gstin_type": "Aadhaar Number",
-            "shipper_gstin_no": user.aadhar_number,
-            "consignee_name": shipment.consignee_name,
-            "consignee_company_name": shipment.consignee_company_name,
-            "consignee_contact_no": shipment.consignee_contact_no,
-            "consignee_email": "xpressjupiter@gmail.com",
-            "consignee_address_line_1": shipment.consignee_address_1,
-            "consignee_address_line_2": shipment.consignee_address_2,
-            "consignee_address_line_3": shipment.consignee_address_3,
-            "consignee_city": shipment.consignee_city,
-            "consignee_state": shipment.consignee_state,
-            "consignee_country": shipment.consignee_country,
-            "consignee_zip_code": shipment.consignee_zip_code,
-            "docket_items": [],
-            "free_form_line_items": [],
-            "kyc_details": [
-                {
-                    "document_type": "Aadhaar Number",
-                    "document_no": user.aadhar_number,
-                    "document_name": "aadhaarDoc",
-                    "file_path": downloadURL
-                }
-            ]
-        }
-        dockets.map((docket, index) => {
-            reqBody.docket_items.push({
-                "actual_weight": docket.docket_weight,
-                "length": docket.length,
-                "width": docket.breadth,
-                "height": docket.height,
-                "number_of_boxes": "1"
+        if (serviceId == 7){
+            const [key] = await db.query('SELECT FlightGo FROM DYNAMIC_APIS');
+            const api_key = key[0].FlightGo
+            const params = {
+                Bucket: process.env.S3_BUCKET_NAME_,
+                // Key: user.aadhar_doc,
+                Expires: 60 * 60 * 24 * 7,
+            };
+            const downloadURL = await s3.getSignedUrlPromise('getObject', params);
+            const transaction = await db.beginTransaction();
+
+            const reqBody = {
+                "tracking_no": shipmentId,
+                "origin_code": "IN",
+                // "customer_id"  : "181",
+                "product_code": "NONDOX",
+                "destination_code": shipment.consignee_country,
+                "booking_date": shipment.invoice_date,
+                "booking_time": shipment.invoice_time,
+                "pcs": dockets.length,
+                "shipment_value": total_amount,
+                "shipment_value_currency": "INR",
+                "actual_weight": shipment.actual_weight,
+                "shipment_invoice_no": shipmentId,
+                "shipment_invoice_date": shipment.invoice_date,
+                "shipment_content": shipment.contents,
+                "free_form_note_master_code": shipment.shippingType,
+                "new_docket_free_form_invoice": "1",
+                "free_form_currency": "INR",
+                "terms_of_trade": "FOB",
+                "api_service_code": shipment.vendor_code,
+                "free_form_invoice_type_id": "INVOICE",
+                "shipper_name": warehouse.warehouseName,
+                "shipper_company_name": warehouse.warehouseName,
+                "shipper_contact_no": warehouse.phone,
+                "shipper_email": "xpressjupiter@gmail.com",
+                "shipper_address_line_1": warehouse.address,
+
+                "shipper_city": warehouse.city,
+                "shipper_state": warehouse.state,
+                "shipper_country": "IN",
+                "shipper_zip_code": warehouse.pin,
+                "shipper_gstin_type": "Aadhaar Number",
+                "shipper_gstin_no": shipment.aadhar_number,
+                "consignee_name": shipment.consignee_name,
+                "consignee_company_name": shipment.consignee_company_name,
+                "consignee_contact_no": shipment.consignee_contact_no,
+                "consignee_email": "xpressjupiter@gmail.com",
+                "consignee_address_line_1": shipment.consignee_address_1,
+                "consignee_address_line_2": shipment.consignee_address_2,
+                "consignee_address_line_3": shipment.consignee_address_3,
+                "consignee_city": shipment.consignee_city,
+                "consignee_state": shipment.consignee_state,
+                "consignee_country": shipment.consignee_country,
+                "consignee_zip_code": shipment.consignee_zip_code,
+                "docket_items": [],
+                "free_form_line_items": [],
+                "kyc_details": [
+                    {
+                        "document_type": "Aadhaar Number",
+                        "document_no": shipment.aadhar_number,
+                        "document_name": "aadhaarDoc",
+                        "file_path": downloadURL
+                    }
+                ]
+            }
+            dockets.map((docket, index) => {
+                reqBody.docket_items.push({
+                    "actual_weight": docket.docket_weight,
+                    "length": docket.length,
+                    "width": docket.breadth,
+                    "height": docket.height,
+                    "number_of_boxes": "1"
+                })
             })
-        })
-        items.map((item, index) => {
-            reqBody.free_form_line_items.push({
-                "total": (parseFloat(item.quantity) * parseFloat(item.rate)),
-                "no_of_packages": item.quantity,
-                "box_no": item.box_no,
-                "rate": item.rate,
-                "hscode": item.hscode,
-                "description": item.description,
-                "unit_of_measurement": item.unit,
-                "unit_weight": item.unit_weight,
-                "igst_amount": item.igst_amount
+            items.map((item, index) => {
+                reqBody.free_form_line_items.push({
+                    "total": (parseFloat(item.quantity) * parseFloat(item.rate)),
+                    "no_of_packages": item.quantity,
+                    "box_no": item.box_no,
+                    "rate": item.rate,
+                    "hscode": item.hscode,
+                    "description": item.description,
+                    "unit_of_measurement": item.unit,
+                    "unit_weight": item.unit_weight,
+                    "igst_amount": item.igst_amount
+                })
             })
-        })
 
-        const responseDta = await fetch(`https://online.flightgo.in/docket_api/create_docket`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': `Bearer ${api_key}`
-            },
-            body: JSON.stringify(reqBody)
-        })
-        const response = await responseDta.json()
-        if (response.success) {
-            await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)', [shipmentId, iid])
-            await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set serviceId = ?, awb = ?,docket_id = ?, status = ? WHERE iid = ?', [7,  response.data.awb_no, response.data.docket_id, "MANIFESTED", iid])
-            await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, `JUPXI${iid}`, parseFloat(shipment.shipping_price)])
-            await db.commit(transaction);
-        }
-        else {
-            await db.rollback(transaction);
-            return res.status(400).json({
-                status: 400, success: false, response: response, request: reqBody
+            const responseDta = await fetch(`https://online.flightgo.in/docket_api/create_docket`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${api_key}`
+                },
+                body: JSON.stringify(reqBody)
+            })
+            const response = await responseDta.json()
+            if (response.success) {
+                await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid) VALUES (?,?)', [shipmentId, shipment.iid])
+                await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS set awb = ?,docket_id = ?, status = ? WHERE iid = ?', [7,  response.data.awb_no, response.data.docket_id, "MANIFESTED", shipment.iid])
+                await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [id, shipment.iid, parseFloat(shipment.shipping_price)])
+                await db.commit(transaction);
+            }
+            else {
+                await db.rollback(transaction);
+                return res.status(400).json({
+                    status: 400, success: false, response: response, request: reqBody
+                });
+            }
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: merchantEmail,
+                subject: 'Shipment created successfully',
+                text: `Dear Merchant, \nYour shipment request for Order id : ${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions)
+            return res.status(200).json({
+                status: 200, req: reqBody, response: response, success: true
             });
+        } else if (serviceId == 11){
+            const payload = {
+                "UserID": process.env.WORLD_FIRST_USER_ID,
+                "Password": process.env.WORLD_FIRST_PASSWORD,
+                "CustomerCode": process.env.WORLD_FIRST_CUSTOMER_CODE,
+                "CustomerRefNo": shipmentId,
+                "OriginName": "DEL",
+                "DestinationName": COUNTRIES[shipment.consignee_country]?.iso_code2,
+                "ShipperName": warehouse.warehouseName,
+                "ShipperContact": warehouse.phone,
+                "ShipperAdd1": warehouse.address,
+                // "ShipperAdd2": "SHIVAJI ROAD,",
+                "ShipperCity": warehouse.city,
+                "ShipperState": warehouse.state,
+                "ShipperPin": warehouse.pin,
+                "ShipperTelno": warehouse.phone,
+                "ShipperMobile": warehouse.phone,
+                // "ShipperEmail": "jitesh_s@xpresion.in",
+                "DocumentType": "Aadhaar Number",
+                "DocumentNumber": shipment.aadhaar_number,
+                "ConsigneeName": shipment.consignee_name,
+                "ConsigneeContact": shipment.consignee_contact_no,
+                "ConsigneeAdd1": shipment.consignee_address_1,
+                // "ConsigneeAdd2": "39 STREET",
+                "ConsigneeCity": shipment.consignee_city,
+                "ConsigneeState": shipment.consignee_state,
+                "ConsigneePin": shipment.consignee_zip_code,
+                "ConsigneeTelno": shipment.consignee_contact_no,
+                "ConsigneeMobile": shipment.consignee_contact_no,
+                "ConsigneeEmail": shipment.consignee_email,
+                "Instruction": "",
+                "VendorName": shipment.vendor_code,
+                "ServiceName": shipment.vendor_name,
+                "ProductCode": "SPX",
+                "Dox_Spx": "SPX",
+                "Pieces": total_quantity,
+                "Weight": total_weight/1000,
+                "Content": shipment.contents,
+                "Currency": "INR",
+                "ShipmentValue": shipment.shipment_value,
+                "CODAmount": "0.00",
+                "CSBType": "CSB5",
+                "TermofInvoice": "DDP",
+                "InvoiceNo": shipment.invoice_number,
+                "InvoiceDate": dateFormatterWorldFirstService(shipment.invoice_date),
+                "CompanyCode": "",
+                "IsCommercial": "1",
+                "Dimensions": [],
+                "Performa": []
+            }
+
+            dockets.map((docket, index)=>{
+                payload.Dimensions.push({
+                    "ActualWeight": (((docket?.docket_weight)/(docket?.docket_weight_unit === "kg" ? 1 : 1000))).toFixed(3),
+                    "Vol_WeightL": docket.length,
+                    "Vol_WeightW": docket.breadth,
+                    "Vol_WeightH": docket.height
+                })
+            });
+
+            items.map((item, index)=>{
+                payload.Performa.push({
+                    "BoxNo": `Box-${item.box_no}`,
+                    "Description": item.description,
+                    "HSNCode": item.hscode || undefined,
+                    "Quantity": item.quantity,
+                    "Unit": "PCS",
+                    "Rate": item.rate,
+                    "Amount": (item.rate * item.quantity).toFixed(2),
+                    "Weight": item.unit_weight
+                })
+            });
+
+            console.log("PAYLOAD")
+            console.log(JSON.stringify(payload, null, 2))
+
+            const response = await fetch(`https://xpresion.worldfirst.in/api/v1/Awbentry/Awbentry`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const responseData = (await response.json())?.Response;
+            console.log("RESPONSE")
+            console.log(JSON.stringify(responseData, null, 2))
+
+            const errorCode = responseData?.ErrorCode;
+
+            if (errorCode === "1"){
+                return res.status(400).json({ status: 400, message: 'Failed to create shipment' });
+            }
+
+            const awb = responseData?.AWBNo;
+            const shippingVendorReferenceId = responseData?.RefNo;
+
+
+            const transaction = await db.beginTransaction();
+            await transaction.query(`
+                UPDATE INTERNATIONAL_SHIPMENTS
+                SET shipping_vendor_reference_id = ?,
+                awb = ?
+                WHERE iid = ?
+            `, [shippingVendorReferenceId, awb, shipment?.iid]);
+
+            await transaction.query('INSERT INTO INTERNATIONAL_SHIPMENT_REPORTS (ref_id, iid, status) VALUES (?, ?, ?)', [shipmentId, shipment?.iid, 'MANIFESTED']);
+            await transaction.query('INSERT INTO EXPENSES (uid, expense_order, expense_cost) VALUES  (?,?,?)', [merchantId, shipment?.iid, shipment.shipping_price]);
+            await db.commit(transaction);
+
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: merchantEmail,
+                subject: 'Shipment created successfully',
+                text: `Dear Merchant, \nYour shipment request for Order id : ${shipment.iid} and AWB : ${awb} is successfully created at World First Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions)
+            return res.status(200).json({
+                status: 200, req: payload, response: responseData, success: true
+            });
+        } else {
+            return res.status(400).json({ status: 400, message: 'Invalid service' });
         }
-        let mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Shipment created successfully',
-            text: `Dear Merchant, \nYour shipment request for Order id : JUPXI${iid} and AWB : ${response.data.awb_no} is successfully created at FlightGo Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
-        };
-        await transporter.sendMail(mailOptions)
-        return res.status(200).json({
-            status: 200, req: reqBody, response: response, success: true, user: user
-        });
-
-
     }
     catch (error) {
+        console.error(error);
         return res.status(500).json({
             status: 500, response: error, success: false
         });
@@ -1776,7 +1991,7 @@ const getInternationalShipments = async (req, res) => {
                     status: 200, success: true, order: rows
                 });
             } else {
-                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN INTERNATIONAL_SHIPMENT_REPORTS isr ON s.iid=isr.iid JOIN EXPENSES e ON e.expense_order=s.iid WHERE s.uid = ?', [id]);
+                const [rows] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS s JOIN WAREHOUSES w ON s.wid=w.wid JOIN USERS u ON u.uid=s.uid JOIN INTERNATIONAL_SHIPMENT_REPORTS isr ON s.iid=isr.iid JOIN EXPENSES e ON e.expense_order=s.iid WHERE s.uid = ?', [id]);
                 return res.status(200).json({
                     status: 200, success: true, order: rows
                 });
@@ -3698,7 +3913,9 @@ const getDomesticShipmentReportsData = async (req, res) => {
 module.exports = {
     cancelShipment,
     createDomesticShipment,
-    createInternationalShipment,
+    approveInternationalShipment,
+    rejectInternationalShipment,
+    requestInternationalShipment,
     getAllDomesticShipmentReports,
     getAllDomesticShipmentReportsAdmin,
     getInternationalShipmentReport,
@@ -3714,6 +3931,7 @@ module.exports = {
     getAllDomesticShipmentReportsData,
     getDomesticShipmentReportsData,
     getAllDomesticShipmentReportsMerchant,
-    getAllDomesticShipmentReportsDataMerchant
+    getAllDomesticShipmentReportsDataMerchant,
+    cancelInternationalShipmentRequest
 };
 
