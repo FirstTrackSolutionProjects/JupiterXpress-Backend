@@ -6,6 +6,8 @@ const { movinPincodes, movinPrices, movinRegion, IndianStateInfo } = require('..
 const findClosestMatch = require('../helpers/findClosestMatch');
 const { COUNTRIES } = require('../constants');
 const dateFormatterWorldFirstService = require('../helpers/dateFormatterWorldFirstService');
+const trackShipmentWorldFirstInternationalCourierService = require('../services/couriers/international/world_first/track_shipment.world_first.international.courier.service');
+const cancelShipmentWorldFirstInternationalCourierService = require('../services/couriers/international/world_first/cancel_shipment.world_first.international.courier.service');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
@@ -292,6 +294,80 @@ const cancelShipment = async (req, res) => {
         return res.status(500).json({
             status: 500, response: error, success: false
         });
+    }
+}
+
+const cancelInternationalShipment = async (req, res) => {
+    try{
+        const ord_id = req?.params?.ord_id;
+        if (!ord_id){
+            return res.status(400).json({ status: 400, message: 'Order ID is required', success: false });
+        }
+        const [internationalShipments] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS WHERE iid = ?', [ord_id]);
+        if (internationalShipments.length === 0){
+            return res.status(404).json({ status: 404, message: 'Shipment not found', success: false });
+        }
+        const internationalShipment = internationalShipments[0];
+        const serviceId = internationalShipment.service;
+        if (!internationalShipment.is_manifested){
+            return res.status(400).json({ status: 400, message: 'Shipment not yet manifested', success: false });
+        }
+        if (internationalShipment.cancelled){
+            return res.status(400).json({ status: 400, message: 'Shipment already cancelled', success: false });
+        }
+        if (serviceId == 11){
+            const shipmentTrackingResponse = await trackShipmentWorldFirstInternationalCourierService(internationalShipment.awb);
+            const shipmentTrackingResponseSuccess = shipmentTrackingResponse?.Response?.ErrorCode === "0";
+            if (!shipmentTrackingResponseSuccess){
+                throw new Error('Error fetching shipment status from UPS');
+            }
+            const shipmentTrackingEvents = shipmentTrackingResponse?.Response?.Events || [];
+
+            const latestEvent = shipmentTrackingEvents[0];
+
+            if (latestEvent?.Status !== "Shipper created a label, UPS has not received the package yet."){
+                return res.status(400).json({ status: 400, message: 'Shipment already picked up, cannot cancel', success: false });
+            }
+
+            const cancelShipmentResponse = await cancelShipmentWorldFirstInternationalCourierService(internationalShipment.awb);
+            const cancelShipmentResponseSuccess = cancelShipmentResponse?.Response?.Message === "Success";
+            if (!cancelShipmentResponseSuccess){
+                throw new Error('Error cancelling shipment with World First');
+            }
+
+            const transaction = await db.beginTransaction()
+            await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS SET cancelled = ? WHERE iid = ?', [true, ord_id]);
+            await transaction.query('UPDATE INTERNATIONAL_SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', ord_id]);
+            const [expenses] = await transaction.query('SELECT * FROM EXPENSES WHERE expense_order = ? AND uid = ?', [ord_id, internationalShipment.uid]);
+            if (expenses.length === 0){
+                throw new Error('No expense record found for this order');
+            }
+            const price = expenses[0].expense_cost; 
+            await transaction.query('INSERT INTO REFUND (uid, refund_order, refund_amount) VALUES  (?,?,?)', [internationalShipment.uid, ord_id, price]);
+            await db.commit(transaction)
+
+            const [merchants] = await db.query('SELECT email FROM USERS WHERE uid = ?', [internationalShipment.uid]);
+            const email = merchants[0].email;
+            let mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'International Shipment cancelled successfully',
+                text: `Dear Merchant, \nYour international shipment request for Order id : ${ord_id} is successfully cancelled and the corresponding refund is credited to your wallet.\nRegards,\nJupiter Xpress`
+            };
+            await transporter.sendMail(mailOptions)
+
+            return res.status(200).json({
+                status: 200, message: 'Shipment cancelled successfully, your refund is credited to your wallet', success: true
+            })
+
+        } else {
+            return res.status(400).json({ status: 400, message: 'Cancellation not available for this courier', success: false });
+        }
+    } catch (error){
+        console.error(error);
+        return res.status(500).json({
+            status: 500, message: error?.message || "Internal Server Error", success: false, error: error || error?.message
+        })
     }
 }
 
@@ -3932,6 +4008,7 @@ module.exports = {
     getDomesticShipmentReportsData,
     getAllDomesticShipmentReportsMerchant,
     getAllDomesticShipmentReportsDataMerchant,
-    cancelInternationalShipmentRequest
+    cancelInternationalShipmentRequest,
+    cancelInternationalShipment
 };
 

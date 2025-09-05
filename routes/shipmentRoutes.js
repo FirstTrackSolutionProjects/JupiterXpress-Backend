@@ -20,7 +20,8 @@ const { cancelShipment,
         approveInternationalShipment,
         rejectInternationalShipment,
         requestInternationalShipment,
-        cancelInternationalShipmentRequest
+        cancelInternationalShipmentRequest,
+        cancelInternationalShipment
     } = require('../controllers/shipmentController');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 
@@ -41,13 +42,14 @@ router.post('/domestic/refresh', updateDomesticProcessingShipments)
 router.post('/domestic/reports/download/admin', getAllDomesticShipmentReportsData)
 router.post('/domestic/reports/download/merchant', getAllDomesticShipmentReportsDataMerchant)
 
-router.patch('/international/approve/:orderId', authMiddleware, approveInternationalShipment);
-router.patch('/international/reject/:orderId', authMiddleware, rejectInternationalShipment);
-router.patch('/international/request/:orderId', authMiddleware, requestInternationalShipment);
-router.patch('/international/cancel/:orderId', authMiddleware, cancelInternationalShipmentRequest);
+router.patch('/international/request/approve/:orderId', authMiddleware, approveInternationalShipment);
+router.patch('/international/request/reject/:orderId', authMiddleware, rejectInternationalShipment);
+router.patch('/international/request/create/:orderId', authMiddleware, requestInternationalShipment);
+router.patch('/international/request/cancel/:orderId', authMiddleware, cancelInternationalShipmentRequest);
 router.post('/international/report', getInternationalShipmentReport);
 router.post('/international/all', getInternationalShipments)
 router.post('/international/price/inquiry', internationalShipmentPricingInquiry)
+router.patch('/international/cancel/:ord_id', cancelInternationalShipment)
 
 
 module.exports = router;
