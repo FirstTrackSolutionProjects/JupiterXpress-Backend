@@ -509,7 +509,7 @@ const updateInternationalOrder = async (req, res) => {
                 await transaction.query('DELETE FROM DOCKETS WHERE iid = ?', [iid])
                 for (let i = 0; i < dockets.length; i++) {
                     const [docket] = await transaction.query(
-                        `INSERT INTO DOCKETS (box_no, iid, docket_weight, length, breadth, height ) VALUES (?, ?, ?, ?, ?, ?)`,
+                        `INSERT INTO DOCKETS (box_no, iid, docket_weight, length, breadth, height, docket_weight_unit, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                         [
                             dockets[i].box_no,
                             iid,
@@ -517,6 +517,8 @@ const updateInternationalOrder = async (req, res) => {
                             dockets[i].length,
                             dockets[i].breadth,
                             dockets[i].height,
+                            dockets[i].docket_weight_unit,
+                            dockets[i].quantity
                         ]
                     );
                     const did = docket.insertId;

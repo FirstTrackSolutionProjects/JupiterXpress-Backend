@@ -1,7 +1,6 @@
 const express = require('express');
 const { cancelShipment, 
         createDomesticShipment, 
-        createInternationalShipment, 
         getAllDomesticShipmentReports, 
         getInternationalShipmentReport,
         getInternationalShipments,
@@ -17,8 +16,13 @@ const { cancelShipment,
         getDomesticShipmentReportsData,
         getAllDomesticShipmentReportsAdmin,
         getAllDomesticShipmentReportsMerchant,
-        getAllDomesticShipmentReportsDataMerchant
+        getAllDomesticShipmentReportsDataMerchant,
+        approveInternationalShipment,
+        rejectInternationalShipment,
+        requestInternationalShipment,
+        cancelInternationalShipmentRequest
     } = require('../controllers/shipmentController');
+const { authMiddleware } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -37,7 +41,10 @@ router.post('/domestic/refresh', updateDomesticProcessingShipments)
 router.post('/domestic/reports/download/admin', getAllDomesticShipmentReportsData)
 router.post('/domestic/reports/download/merchant', getAllDomesticShipmentReportsDataMerchant)
 
-router.post('/international/create', createInternationalShipment);
+router.patch('/international/approve/:orderId', authMiddleware, approveInternationalShipment);
+router.patch('/international/reject/:orderId', authMiddleware, rejectInternationalShipment);
+router.patch('/international/request/:orderId', authMiddleware, requestInternationalShipment);
+router.patch('/international/cancel/:orderId', authMiddleware, cancelInternationalShipmentRequest);
 router.post('/international/report', getInternationalShipmentReport);
 router.post('/international/all', getInternationalShipments)
 router.post('/international/price/inquiry', internationalShipmentPricingInquiry)

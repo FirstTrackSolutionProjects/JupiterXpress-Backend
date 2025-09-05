@@ -27,7 +27,7 @@ router.get('/domestic/merchant', getAllDomesticOrdersOld)
 router.post('/domestic/boxes', getDomesticOrderBoxes )
 router.post('/international/items', getInternationalOrderDocketItems )
 router.post('/international/dockets', getInternationalOrderDockets )
-router.post('/international/all', getInternationalOrders)
+router.get('/international/all', getInternationalOrders)
 router.post('/domestic', getDomesticOrder)
 router.post('/domestic/delete', deleteDomesticOrder)
 router.patch('/domestic/clone/:ord_id', authMiddleware, cloneDomesticOrder);

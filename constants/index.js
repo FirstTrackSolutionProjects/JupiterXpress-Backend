@@ -1,4 +1,4 @@
-const COUNTRIES = {
+const COUNTRIES = Object.freeze({
     "Afghanistan": { name: "Afghanistan", iso_code2: "AF", iso_code3: "AFG", country_code: "+93" },
     "Albania": { name: "Albania", iso_code2: "AL", iso_code3: "ALB", country_code: "+355" },
     "Algeria": { name: "Algeria", iso_code2: "DZ", iso_code3: "DZA", country_code: "+213" },
@@ -194,7 +194,7 @@ const COUNTRIES = {
     "Zambia": { name: "Zambia", iso_code2: "ZM", iso_code3: "ZMB", country_code: "+260" },
     "Zimbabwe": { name: "Zimbabwe", iso_code2: "ZW", iso_code3: "ZWE", country_code: "+263" },
     "Holy See": { name: "Holy See", iso_code2: "VA", iso_code3: "VAT", country_code: "+379" }
-};
+});
 
 const WORLD_FIRST_DOMESTIC_BRANCH_CODE_BY_CITY = {
     "A S PETA": "A01",
