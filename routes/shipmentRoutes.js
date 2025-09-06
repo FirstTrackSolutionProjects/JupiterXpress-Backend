@@ -49,7 +49,7 @@ router.patch('/international/request/cancel/:orderId', authMiddleware, cancelInt
 router.post('/international/report', getInternationalShipmentReport);
 router.post('/international/all', getInternationalShipments)
 router.post('/international/price/inquiry', internationalShipmentPricingInquiry)
-router.patch('/international/cancel/:ord_id', cancelInternationalShipment)
+router.patch('/international/cancel/:ord_id', authMiddleware ,cancelInternationalShipment)
 
 
 module.exports = router;
