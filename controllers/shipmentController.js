@@ -3491,6 +3491,22 @@ const trackShipment = async (req, res) => {
         }
     }
 
+    const worldFirstCourierTracking = async () => {
+        try {
+            const trackingResponse = await trackShipmentWorldFirstInternationalCourierService(awb);
+            const isSuccess = trackingResponse?.Response?.ErrorDisc === "Success";
+            if (!isSuccess){
+                return {
+                    status: 400, message: trackingResponse?.Response?.ErrorDisc || 'Failed to fetch tracking data', success: false
+                }
+            }
+            return { status: 200, data: trackingResponse?.Response?.Events || [], success: true, id: 11 };
+        } catch (error) {
+            console.error('Error fetching tracking data:', error);
+            return { status: 500, message: "Error fetching tracking data", success: false };
+        }
+    }
+
     const results = await Promise.all([
         delhivery500gmTracking(),
         delhivery10kgTracking(),
@@ -3502,6 +3518,7 @@ const trackShipment = async (req, res) => {
         m5cTracking(),
         enviaTracking(),
         atlanticCourierTracking(),
+        worldFirstCourierTracking()
     ]);
 
     const successfulResult = results.find(result => result && result.success);
