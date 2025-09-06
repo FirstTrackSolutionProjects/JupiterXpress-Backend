@@ -1721,7 +1721,7 @@ const approveInternationalShipment = async (req, res) => {
                     "Unit": "PCS",
                     "Rate": item.rate,
                     "Amount": (item.rate * item.quantity).toFixed(2),
-                    "Weight": item.unit_weight
+                    "Weight": item.unit_weight || undefined
                 })
             });
 
