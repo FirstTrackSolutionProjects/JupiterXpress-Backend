@@ -21,7 +21,8 @@ const { cancelShipment,
         rejectInternationalShipment,
         requestInternationalShipment,
         cancelInternationalShipmentRequest,
-        cancelInternationalShipment
+        cancelInternationalShipment,
+        getInternationalShipmentLabel
     } = require('../controllers/shipmentController');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 
@@ -50,6 +51,7 @@ router.post('/international/report', getInternationalShipmentReport);
 router.post('/international/all', getInternationalShipments)
 router.post('/international/price/inquiry', internationalShipmentPricingInquiry)
 router.patch('/international/cancel/:ord_id', authMiddleware ,cancelInternationalShipment)
+router.get('/international/label/:ord_id', authMiddleware, getInternationalShipmentLabel)
 
 
 module.exports = router;

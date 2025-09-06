@@ -8,6 +8,7 @@ const { COUNTRIES } = require('../constants');
 const dateFormatterWorldFirstService = require('../helpers/dateFormatterWorldFirstService');
 const trackShipmentWorldFirstInternationalCourierService = require('../services/couriers/international/world_first/track_shipment.world_first.international.courier.service');
 const cancelShipmentWorldFirstInternationalCourierService = require('../services/couriers/international/world_first/cancel_shipment.world_first.international.courier.service');
+const getLabelWorldFirstInternationalCourierService = require('../services/couriers/international/world_first/get_label.world_first.international.courier.service');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
@@ -371,6 +372,49 @@ const cancelInternationalShipment = async (req, res) => {
         } else {
             return res.status(400).json({ status: 400, message: 'Cancellation not available for this courier', success: false });
         }
+    } catch (error){
+        console.error(error);
+        return res.status(500).json({
+            status: 500, message: error?.message || "Internal Server Error", success: false, error: error || error?.message
+        })
+    }
+}
+
+const getInternationalShipmentLabel = async (req, res) => {
+    try{
+        const uid = req?.user?.id;
+        const ord_id = req?.params?.ord_id;
+        if (!ord_id){
+            return res.status(400).json({ status: 400, message: 'Order ID is required', success: false });
+        }
+        const [internationalShipments] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS WHERE iid = ? AND uid = ?', [ord_id, uid]);
+        if (internationalShipments.length === 0){
+            return res.status(404).json({ status: 404, message: 'Shipment not found', success: false });
+        } 
+        const internationalShipment = internationalShipments[0];
+        if (!internationalShipment.is_manifested){
+            return res.status(400).json({ status: 400, message: 'Shipment not yet manifested', success: false });
+        }
+        if (internationalShipment.cancelled){
+            return res.status(400).json({ status: 400, message: 'Shipment is cancelled', success: false });
+        }
+        
+        const serviceId = internationalShipment.service;
+
+        if (serviceId == 11){
+            const labelResponse = await getLabelWorldFirstInternationalCourierService(internationalShipment.awb);
+            const labelBase64 = labelResponse?.Response?.Pdfdownload;
+            if (!labelBase64){
+                throw new Error('Error fetching label from UPS');
+            }
+            const url = `data:application/pdf;base64,${labelBase64}`;
+            return res.status(200).json({
+                status: 200, message: 'Label fetched successfully', success: true, label: url, isBase64URL: true
+            })
+        } else {
+            return res.status(400).json({ status: 400, message: 'Label not available for this courier', success: false });
+        }
+
     } catch (error){
         console.error(error);
         return res.status(500).json({
@@ -4019,6 +4063,7 @@ module.exports = {
     getAllDomesticShipmentReportsMerchant,
     getAllDomesticShipmentReportsDataMerchant,
     cancelInternationalShipmentRequest,
-    cancelInternationalShipment
+    cancelInternationalShipment,
+    getInternationalShipmentLabel
 };
 
