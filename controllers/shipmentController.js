@@ -8,6 +8,7 @@ const { COUNTRIES } = require('../constants');
 const dateFormatterWorldFirstService = require('../helpers/dateFormatterWorldFirstService');
 const trackShipmentWorldFirstInternationalCourierService = require('../services/couriers/international/world_first/track_shipment.world_first.international.courier.service');
 const cancelShipmentWorldFirstInternationalCourierService = require('../services/couriers/international/world_first/cancel_shipment.world_first.international.courier.service');
+const getLabelWorldFirstInternationalCourierService = require('../services/couriers/international/world_first/get_label.world_first.international.courier.service');
 
 const SECRET_KEY = process.env.JWT_SECRET;
 
@@ -299,6 +300,7 @@ const cancelShipment = async (req, res) => {
 
 const cancelInternationalShipment = async (req, res) => {
     try{
+        const admin = req?.user?.admin;
         const ord_id = req?.params?.ord_id;
         if (!ord_id){
             return res.status(400).json({ status: 400, message: 'Order ID is required', success: false });
@@ -308,6 +310,10 @@ const cancelInternationalShipment = async (req, res) => {
             return res.status(404).json({ status: 404, message: 'Shipment not found', success: false });
         }
         const internationalShipment = internationalShipments[0];
+        const uid = admin ? internationalShipment.uid : req?.user?.id;
+        if (uid !== internationalShipment.uid){
+            return res.status(403).json({ status: 403, message: 'You are not authorized to cancel this shipment', success: false });
+        }
         const serviceId = internationalShipment.service;
         if (!internationalShipment.is_manifested){
             return res.status(400).json({ status: 400, message: 'Shipment not yet manifested', success: false });
@@ -325,19 +331,22 @@ const cancelInternationalShipment = async (req, res) => {
 
             const latestEvent = shipmentTrackingEvents[0];
 
-            if (latestEvent?.Status !== "Shipper created a label, UPS has not received the package yet."){
+            console.log("LATEST EVENT")
+            console.log(latestEvent)
+
+            if (latestEvent && latestEvent?.Status !== "Shipper created a label, UPS has not received the package yet."){
                 return res.status(400).json({ status: 400, message: 'Shipment already picked up, cannot cancel', success: false });
             }
 
             const cancelShipmentResponse = await cancelShipmentWorldFirstInternationalCourierService(internationalShipment.awb);
             const cancelShipmentResponseSuccess = cancelShipmentResponse?.Response?.Message === "Success";
             if (!cancelShipmentResponseSuccess){
-                throw new Error('Error cancelling shipment with World First');
+                throw new Error('Error cancelling shipment with UPS');
             }
 
             const transaction = await db.beginTransaction()
             await transaction.query('UPDATE INTERNATIONAL_SHIPMENTS SET cancelled = ? WHERE iid = ?', [true, ord_id]);
-            await transaction.query('UPDATE INTERNATIONAL_SHIPMENT_REPORTS set status = ? WHERE ord_id = ?', ['CANCELLED', ord_id]);
+            await transaction.query('UPDATE INTERNATIONAL_SHIPMENT_REPORTS set status = ? WHERE iid = ?', ['CANCELLED', ord_id]);
             const [expenses] = await transaction.query('SELECT * FROM EXPENSES WHERE expense_order = ? AND uid = ?', [ord_id, internationalShipment.uid]);
             if (expenses.length === 0){
                 throw new Error('No expense record found for this order');
@@ -363,6 +372,49 @@ const cancelInternationalShipment = async (req, res) => {
         } else {
             return res.status(400).json({ status: 400, message: 'Cancellation not available for this courier', success: false });
         }
+    } catch (error){
+        console.error(error);
+        return res.status(500).json({
+            status: 500, message: error?.message || "Internal Server Error", success: false, error: error || error?.message
+        })
+    }
+}
+
+const getInternationalShipmentLabel = async (req, res) => {
+    try{
+        const uid = req?.user?.id;
+        const ord_id = req?.params?.ord_id;
+        if (!ord_id){
+            return res.status(400).json({ status: 400, message: 'Order ID is required', success: false });
+        }
+        const [internationalShipments] = await db.query('SELECT * FROM INTERNATIONAL_SHIPMENTS WHERE iid = ? AND uid = ?', [ord_id, uid]);
+        if (internationalShipments.length === 0){
+            return res.status(404).json({ status: 404, message: 'Shipment not found', success: false });
+        } 
+        const internationalShipment = internationalShipments[0];
+        if (!internationalShipment.is_manifested){
+            return res.status(400).json({ status: 400, message: 'Shipment not yet manifested', success: false });
+        }
+        if (internationalShipment.cancelled){
+            return res.status(400).json({ status: 400, message: 'Shipment is cancelled', success: false });
+        }
+        
+        const serviceId = internationalShipment.service;
+
+        if (serviceId == 11){
+            const labelResponse = await getLabelWorldFirstInternationalCourierService(internationalShipment.awb);
+            const labelBase64 = labelResponse?.Response?.Pdfdownload;
+            if (!labelBase64){
+                throw new Error('Error fetching label from UPS');
+            }
+            const url = `data:application/pdf;base64,${labelBase64}`;
+            return res.status(200).json({
+                status: 200, message: 'Label fetched successfully', success: true, label: url, isBase64URL: true
+            })
+        } else {
+            return res.status(400).json({ status: 400, message: 'Label not available for this courier', success: false });
+        }
+
     } catch (error){
         console.error(error);
         return res.status(500).json({
@@ -1703,6 +1755,8 @@ const approveInternationalShipment = async (req, res) => {
             await transaction.query(`
                 UPDATE INTERNATIONAL_SHIPMENTS
                 SET shipping_vendor_reference_id = ?,
+                is_requested = false,
+                is_manifested = true,
                 awb = ?
                 WHERE iid = ?
             `, [shippingVendorReferenceId, awb, shipment?.iid]);
@@ -1715,7 +1769,7 @@ const approveInternationalShipment = async (req, res) => {
                 from: process.env.EMAIL_USER,
                 to: merchantEmail,
                 subject: 'Shipment created successfully',
-                text: `Dear Merchant, \nYour shipment request for Order id : ${shipment.iid} and AWB : ${awb} is successfully created at World First Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
+                text: `Dear Merchant, \nYour shipment request for Order id : ${shipment.iid} and AWB : ${awb} is successfully created at UPS Courier Service and the corresponding charge is deducted from your wallet.\nRegards,\nJupiter Xpress`
             };
             await transporter.sendMail(mailOptions)
             return res.status(200).json({
@@ -4009,6 +4063,7 @@ module.exports = {
     getAllDomesticShipmentReportsMerchant,
     getAllDomesticShipmentReportsDataMerchant,
     cancelInternationalShipmentRequest,
-    cancelInternationalShipment
+    cancelInternationalShipment,
+    getInternationalShipmentLabel
 };
 
